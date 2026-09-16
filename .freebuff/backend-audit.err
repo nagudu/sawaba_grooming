@@ -1,0 +1,50 @@
+Here's the report: 
+
+
+ Error in src\routes\appointments.ts :
+YAMLSyntaxError: All collection items must start at the same column at line 9, column 9:
+
+      - in: query
+        ^^^^^^^^^…
+
+YAMLSemanticError: Nested mappings are not allowed in compact mappings at line 10, column 15:
+
+        name: status
+              ^^^^^^…
+
+YAMLSemanticError: Implicit map keys need to be on a single line at line 10, column 15:
+
+        name: status
+              ^^^^^^…
+
+YAMLSemanticError: Nested mappings are not allowed in compact mappings at line 12, column 19:
+
+            type: string
+                  ^^^^^^…
+
+YAMLSemanticError: Implicit map keys need to be on a single line at line 12, column 19:
+
+            type: string
+                  ^^^^^^…
+
+[Resend API Error]: {
+  status: 422,
+  error: {
+    statusCode: 422,
+    name: 'validation_error',
+    message: 'Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.'
+  },
+  path: '/emails'
+}
+[mailer] resend rejected: validation_error Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.
+[customer-auth] otp email failed: Invalid customer email address.
+[Resend API Error]: {
+  status: 422,
+  error: {
+    statusCode: 422,
+    name: 'validation_error',
+    message: 'Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.'
+  },
+  path: '/emails'
+}
+[mailer] resend rejected: validation_error Invalid `to` field. Please use our testing email address instead of domains like `example.com`. See our documentation for more information.

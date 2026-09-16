@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+
+  --color-night-50: #f6f6f4;
+  --color-night-100: #e7e7e2;
+  --color-night-200: #c9c9c2;
+  --color-night-300: #a7a7a0;
+  --color-night-400: #7c7c78;
+  --color-night-500: #5c5c5a;
+  --color-night-600: #41413f;
+  --color-night-700: #2a2a2b;
+  --color-night-800: #1a1a1d;
+  --color-night-850: #14141a;
+  --color-night-900: #0f0f13;
+  --color-night-950: #0a0a0c;
+
+  --color-coal: #121216;
+
+  --color-charcoal: #1a1a21;
+  --color-graphite: #23232b;
+
+  --color-gold-100: #f7ecd4;
+  --color-gold-200: #efdcb0;
+  --color-gold-300: #e7c978;
+  --color-gold-400: #dcb95f;
+  --color-gold-500: #c9a24b;
+  --color-gold-600: #ad8839;
+  --color-gold-700: #8a6b2c;
+  --color-gold-800: #6b5322;
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 20px 40px -18px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 0 1px rgba(201, 162, 75, 0.25),
+    0 12px 40px -12px rgba(201, 162, 75, 0.4);
+
+  --tracking-luxe: 0.22em;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-night-950 text-night-100 font-sans antialiased;
+    font-feature-settings: "ss01", "cv02";
+  }
+
+  ::selection {
+    background: var(--color-gold-500);
+    color: var(--color-night-950);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    @apply font-display;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold-500);
+    outline-offset: 3px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-night-950);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-night-700);
+    border-radius: 8px;
+    border: 2px solid var(--color-night-950);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gold-600);
+  }
+}
+
+@layer components {
+  .container-app {
+    @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-12;
+  }
+
+  .text-gold-gradient {
+    background: linear-gradient(
+      115deg,
+      var(--color-gold-300) 0%,
+      var(--color-gold-500) 45%,
+      var(--color-gold-700) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-outline {
+    -webkit-text-stroke: 1px rgba(244, 241, 234, 0.14);
+    color: transparent;
+  }
+
+  .hairline {
+    @apply border-night-800;
+  }
+
+  .card-lux {
+    @apply rounded-2xl border border-night-800 bg-charcoal;
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-hover {
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.4s ease, box-shadow 0.4s ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-6px);
+    border-color: rgba(201, 162, 75, 0.35);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .label-luxe {
+    @apply text-[11px] font-semibold uppercase text-gold-500;
+    letter-spacing: var(--tracking-luxe);
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-night-700 bg-night-900 px-4 py-3 text-sm text-night-100 placeholder:text-night-500 transition-colors duration-200 focus:border-gold-500 focus:outline-none;
+  }
+
+  .field-icon {
+    @apply pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-night-500;
+  }
+}
+
+/* ── Print: only the official receipt prints ───────────────────────────── */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  /* Hide everything, then reveal only the receipt subtree */
+  body * {
+    visibility: hidden;
+  }
+
+  #sawaba-receipt,
+  #sawaba-receipt * {
+    visibility: visible;
+  }
+
+  #sawaba-receipt {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
