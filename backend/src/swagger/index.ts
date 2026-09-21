@@ -5,10 +5,10 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.3',
     info: {
-      title: 'SAWABA Grooming Salon — REST API',
+      title: 'SAWABA Grooming Studio — REST API',
       version: '1.0.0',
       description:
-        'Secure, scalable REST API for the SAWABA Grooming Salon appointment management system. ' +
+        'Secure, scalable REST API for the SAWABA Grooming Studio appointment management system. ' +
         'Provides admin authentication, services, barbers, appointments, gallery, reviews, contact messaging and dashboard metrics.',
       contact: {
         name: 'SAWABA Engineering',

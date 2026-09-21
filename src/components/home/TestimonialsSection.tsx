@@ -46,7 +46,7 @@ export default function TestimonialsSection() {
           <div className="mt-14">
             <EmptyState
               icon={<Star className="h-10 w-10" />}
-              title="Be the first to share your experience with SAWABA GROOMING SALON."
+              title="Be the first to share your experience with SAWABA GROOMING STUDIO."
               description="Visited us recently? Tell the world about your visit — your review helps other men book with confidence."
               action={
                 <ButtonLink to="/reviews" variant="gold" size="md" className="mt-4">

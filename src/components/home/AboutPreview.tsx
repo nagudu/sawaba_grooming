@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { ArrowRight, Check } from 'lucide-react'
-import { unsplash } from '../../utils/format'
 import { ButtonLink } from '../ui/Button'
 import { site } from '../../data/services'
 
@@ -14,7 +13,7 @@ const highlights = [
 export default function AboutPreview() {
   return (
     <section id="about-preview" className="bg-night-950 py-24 md:py-32">
-      <div className="container-app grid items-center gap-14 lg:grid-cols-2">
+      <div className="container-app grid min-w-0 items-center gap-14 lg:grid-cols-2">
         <motion.div
           className="relative"
           initial={{ opacity: 0, x: -32 }}
@@ -22,7 +21,7 @@ export default function AboutPreview() {
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid min-w-0 grid-cols-5 gap-4">
             <motion.div
               className="col-span-3 overflow-hidden rounded-2xl border border-night-800"
               initial={{ opacity: 0 }}
@@ -31,8 +30,8 @@ export default function AboutPreview() {
               transition={{ duration: 0.6, delay: 0.15 }}
             >
               <img
-                src={unsplash('1560250097-0b93528c311a', 900, 80)}
-                alt="Inside SAWABA Grooming Salon"
+                src="/images/about-1.jpg"
+                alt="Inside SAWABA Grooming Studio"
                 className="aspect-[3/4] w-full object-cover"
                 loading="lazy"
               />
@@ -46,7 +45,7 @@ export default function AboutPreview() {
             >
               <div className="overflow-hidden rounded-2xl border border-night-800">
                 <img
-                  src={unsplash('1703792684940-a05aa0f1188f', 600, 80)}
+                  src="/images/about-2.jpg"
                   alt="Barber at work"
                   className="aspect-square w-full object-cover"
                   loading="lazy"
@@ -54,7 +53,7 @@ export default function AboutPreview() {
               </div>
               <div className="overflow-hidden rounded-2xl border border-night-800">
                 <img
-                  src={unsplash('1643899552181-6035a1e0872c', 600, 80)}
+                  src="/images/about-3.jpg"
                   alt="Precision styling tools"
                   className="aspect-square w-full object-cover"
                   loading="lazy"

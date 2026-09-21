@@ -11,6 +11,7 @@ import {
 import { requireAdmin } from '../middleware/auth'
 import { validate } from '../middleware/validate'
 import { submitLimiter } from '../middleware/rateLimiter'
+import { upload } from '../utils/upload'
 import {
   createAppointmentSchema,
   updateAppointmentSchema,
@@ -70,7 +71,17 @@ export const appointmentsRouter = Router()
  *       422:
  *         description: Validation failed (past date, unavailable barber, etc).
  */
-appointmentsRouter.post('/', submitLimiter, validate(createAppointmentSchema), createAppointmentHandler)
+/**
+ * Multipart so a BANK_TRANSFER/OPAY booking can carry its receipt in the same
+ * request — a transfer booking without a receipt is rejected (see service).
+ */
+appointmentsRouter.post(
+  '/',
+  submitLimiter,
+  upload.single('receipt'),
+  validate(createAppointmentSchema),
+  createAppointmentHandler,
+)
 
 /**
  * @swagger

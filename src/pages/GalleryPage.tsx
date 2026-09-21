@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
 import { Images } from 'lucide-react'
 import PageTransition from '../components/ui/PageTransition'
 import PageHero from '../components/layout/PageHero'
@@ -62,7 +61,7 @@ export default function GalleryPage() {
         crumb="Gallery"
         title="Our Work, On Display"
         description="Browse real results from our chairs — haircuts, fades, beards and the space where the craft happens."
-        imageId="1643899552181-6035a1e0872c"
+        image="/images/about-3.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">
@@ -109,29 +108,14 @@ export default function GalleryPage() {
                   />
                 </div>
               ) : (
-                <motion.div
+                <div
                   key={active}
-                  className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                  initial="hidden"
-                  animate="show"
-                  variants={{ show: { transition: { staggerChildren: 0.05 } } }}
+                  className="mt-14 columns-1 gap-4 sm:columns-2 lg:columns-3 [&>*]:mb-4"
                 >
                   {filtered.map((image) => (
-                    <motion.div
-                      key={image.id}
-                      variants={{
-                        hidden: { opacity: 0, scale: 0.96 },
-                        show: {
-                          opacity: 1,
-                          scale: 1,
-                          transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
-                        },
-                      }}
-                    >
-                      <GalleryCard image={image} onOpen={(item) => openIndex(item.id)} />
-                    </motion.div>
+                    <GalleryCard key={image.id} image={image} onOpen={(item) => openIndex(item.id)} />
                   ))}
-                </motion.div>
+                </div>
               )}
             </>
           )}

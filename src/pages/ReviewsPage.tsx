@@ -10,6 +10,7 @@ import { Button } from '../components/ui/Button'
 import { useToast } from '../components/ui/ToastNotification'
 import { fetchApprovedReviews, submitReview, type PublicReview } from '../api/reviews'
 import { fetchBookingServices } from '../api/booking'
+import { fetchCatalogBarbers, type CatalogBarber } from '../api/catalog'
 import type { ServiceItem } from '../api'
 import { EMAIL_PATTERN, PHONE_PATTERN } from '../utils/validation'
 import { cn } from '../utils/cn'
@@ -19,6 +20,7 @@ interface ReviewForm {
   phone: string
   email: string
   serviceId: number | null
+  barberId: number | null
   rating: number
   comment: string
   errors: Record<string, string | undefined>
@@ -29,6 +31,7 @@ const INITIAL_FORM: ReviewForm = {
   phone: '',
   email: '',
   serviceId: null,
+  barberId: null,
   rating: 5,
   comment: '',
   errors: {},
@@ -40,6 +43,7 @@ export default function ReviewsPage() {
   const { showToast } = useToast()
   const [reviews, setReviews] = useState<PublicReview[]>([])
   const [services, setServices] = useState<ServiceItem[]>([])
+  const [barbers, setBarbers] = useState<CatalogBarber[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<ReviewForm>(INITIAL_FORM)
   const [submitting, setSubmitting] = useState(false)
@@ -50,18 +54,21 @@ export default function ReviewsPage() {
     async function load(): Promise<void> {
       setLoading(true)
       try {
-        const [reviewData, serviceData] = await Promise.all([
+        const [reviewData, serviceData, barberData] = await Promise.all([
           fetchApprovedReviews(),
           fetchBookingServices(),
+          fetchCatalogBarbers(),
         ])
         if (!cancelled) {
           setReviews(reviewData)
           setServices(serviceData.items)
+          setBarbers(barberData)
         }
       } catch {
         if (!cancelled) {
           setReviews([])
           setServices([])
+          setBarbers([])
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -111,6 +118,7 @@ export default function ReviewsPage() {
         customerEmail: form.email.trim() || null,
         serviceId: chosen?.id ?? null,
         serviceName: chosen?.name ?? null,
+        barberId: form.barberId,
         rating: form.rating,
         comment: form.comment.trim(),
       })
@@ -134,7 +142,7 @@ export default function ReviewsPage() {
         crumb="Reviews"
         title="What Our Customers Say"
         description="Real feedback from real men who trust SAWABA with their look."
-        imageId="1703792684940-a05aa0f1188f"
+        image="/images/about-2.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">
@@ -239,6 +247,26 @@ export default function ReviewsPage() {
                       </select>
                     </div>
 
+                    <div>
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
+                        Barber (optional)
+                      </label>
+                      <select
+                        value={form.barberId ?? ''}
+                        onChange={(event) =>
+                          setField('barberId', event.target.value ? Number(event.target.value) : null)
+                        }
+                        className="field"
+                      >
+                        <option value="">Any barber / whole team</option>
+                        {barbers.map((barber) => (
+                          <option key={barber.id} value={barber.id}>
+                            {barber.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <div className="sm:col-span-2">
                       <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
                         Your Rating
@@ -318,7 +346,7 @@ export default function ReviewsPage() {
               <div className="mt-14">
                 <EmptyState
                   icon={<Star className="h-10 w-10" />}
-                  title="Be the first to share your experience with SAWABA GROOMING SALON."
+                  title="Be the first to share your experience with SAWABA GROOMING STUDIO."
                   description="Your feedback helps others book with confidence. Write a quick review above — it is public once approved."
                   action={
                     <Button

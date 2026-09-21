@@ -458,7 +458,7 @@ export default function PaymentPage() {
             <p className="mt-3 text-sm leading-relaxed text-night-300">
               You have selected <span className="font-semibold text-night-100">Cash Payment</span>.
               Please pay <span className="font-bold text-gold-400">{formatPrice(expected)}</span> at
-              SAWABA GROOMING SALON before your appointment can be confirmed.
+              SAWABA GROOMING STUDIO before your appointment can be confirmed.
             </p>
             <ul className="mt-4 space-y-2.5">
               {[
@@ -772,7 +772,7 @@ export default function PaymentPage() {
           <p className="mt-3 text-sm leading-relaxed text-night-400">
             Please pay{' '}
             <span className="font-bold text-gold-400">{formatPrice(payment.amount)}</span> at
-            SAWABA GROOMING SALON before your appointment is confirmed. No receipt needed — our
+            SAWABA GROOMING STUDIO before your appointment is confirmed. No receipt needed — our
             team marks this payment as received the moment you pay in person.
           </p>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -807,7 +807,7 @@ export default function PaymentPage() {
         crumb="Payment"
         title="Pay for Your Appointment"
         description="Complete your appointment payment securely and receive confirmation once verified."
-        imageId="1563013544-824ae1b704d3"
+        image="/images/pagehero.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">

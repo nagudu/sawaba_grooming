@@ -25,6 +25,10 @@ interface BarberForm {
   experience: string
   isActive: boolean
   serviceIds: string[]
+  barberType: 'INTERNAL' | 'EXTERNAL'
+  location: string
+  commissionType: 'PERCENTAGE' | 'FIXED'
+  commissionValue: string
 }
 
 const EMPTY_FORM: BarberForm = {
@@ -35,6 +39,10 @@ const EMPTY_FORM: BarberForm = {
   experience: '0',
   isActive: true,
   serviceIds: [],
+  barberType: 'INTERNAL',
+  location: '',
+  commissionType: 'PERCENTAGE',
+  commissionValue: '',
 }
 
 export default function AdminBarbersPage() {
@@ -54,6 +62,7 @@ export default function AdminBarbersPage() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<BarberItem | null>(null)
   const [busy, setBusy] = useState(false)
+  const [typeFilter, setTypeFilter] = useState<'' | 'INTERNAL' | 'EXTERNAL'>('')
 
   const perPage = 12
   const debouncedSearch = useDebounced(search.trim(), 300)
@@ -62,7 +71,7 @@ export default function AdminBarbersPage() {
     setLoading(true)
     try {
       const data = await api.get<Paged<BarberItem>>(
-        `/api/barbers${buildQuery({ page: targetPage, perPage, search: query || undefined, includeInactive: 'true' })}`,
+        `/api/barbers${buildQuery({ page: targetPage, perPage, search: query || undefined, includeInactive: 'true', barberType: typeFilter || undefined })}`,
       )
       setBarbers(data.items)
       setTotal(data.total)
@@ -93,6 +102,11 @@ export default function AdminBarbersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    void load(1, debouncedSearch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeFilter])
+
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / perPage)), [total, perPage])
 
   const openCreate = () => {
@@ -112,6 +126,10 @@ export default function AdminBarbersPage() {
       experience: String(barber.experience),
       isActive: barber.isActive,
       serviceIds: (barber.services ?? []).map((service) => String(service.id)),
+      barberType: barber.barberType ?? 'INTERNAL',
+      location: barber.location ?? '',
+      commissionType: barber.commissionType ?? 'PERCENTAGE',
+      commissionValue: barber.commissionValue != null ? String(barber.commissionValue) : '',
     })
     setImageFile(null)
     setFormOpen(true)
@@ -128,6 +146,11 @@ export default function AdminBarbersPage() {
         experience: Number(form.experience),
         isActive: form.isActive,
         serviceIds: form.serviceIds.map(Number),
+        barberType: form.barberType,
+        location: form.location.trim() || undefined,
+        commissionType: form.commissionType,
+        commissionValue:
+          form.commissionValue.trim() === '' ? undefined : Number(form.commissionValue),
       }
 
       const useMultipart = imageFile !== null
@@ -226,6 +249,16 @@ export default function AdminBarbersPage() {
             className="field pl-11"
           />
         </div>
+        <select
+          value={typeFilter}
+          onChange={(event) => setTypeFilter(event.target.value as '' | 'INTERNAL' | 'EXTERNAL')}
+          className="field sm:w-48"
+          aria-label="Filter by barber type"
+        >
+          <option value="">All types</option>
+          <option value="INTERNAL">Internal barbers</option>
+          <option value="EXTERNAL">External barbers</option>
+        </select>
       </div>
 
       <div className="card-lux overflow-hidden">
@@ -233,20 +266,21 @@ export default function AdminBarbersPage() {
           <LoadingSpinner label="Loading barbers" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
+            <table className="w-full min-w-[860px]">
               <thead className="border-b border-night-800 bg-night-900/60">
                 <tr>
                   <Th>Barber</Th>
+                  <Th>Type</Th>
+                  <Th>Commission</Th>
                   <Th>Specialty</Th>
-                  <Th>Experience</Th>
                   <Th>Services</Th>
                   <Th>Status</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-night-800">
-                {barbers.length === 0 ? (
-                  <EmptyRow colSpan={6} message="No barbers found." />
+                {                  barbers.length === 0 ? (
+                  <EmptyRow colSpan={7} message="No barbers found." />
                 ) : (
                   barbers.map((barber) => (
                     <tr key={barber.id} className="transition-colors hover:bg-night-900/60">
@@ -268,6 +302,26 @@ export default function AdminBarbersPage() {
                             <p className="text-xs text-night-500">{barber.slug}</p>
                           </div>
                         </div>
+                      </Td>
+                      <Td>
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
+                            barber.barberType === 'EXTERNAL'
+                              ? 'border-violet-500/40 bg-violet-500/10 text-violet-300'
+                              : 'border-sky-500/40 bg-sky-500/10 text-sky-300',
+                          )}
+                        >
+                          {barber.barberType === 'EXTERNAL' ? 'External' : 'Internal'}
+                        </span>
+                        {barber.location && (
+                          <span className="mt-1 block text-[11px] text-night-500">📍 {barber.location}</span>
+                        )}
+                      </Td>
+                      <Td className="text-xs text-night-300">
+                        {barber.commissionType === 'FIXED'
+                          ? `₦${Number(barber.commissionValue ?? 0).toLocaleString()} fixed`
+                          : `${Number(barber.commissionValue ?? 0)}%`}
                       </Td>
                       <Td>{barber.specialty ?? '—'}</Td>
                       <Td>{barber.experience} yrs</Td>
@@ -376,6 +430,71 @@ export default function AdminBarbersPage() {
                 value={form.experience}
                 onChange={(event) => setForm({ ...form, experience: event.target.value })}
                 className="field"
+              />
+            </Field>
+            <Field label="Barber Type" hint="Internal = studio team. External = operates outside the studio (admin-only classification).">
+              <div className="grid grid-cols-2 gap-2">
+                {(['INTERNAL', 'EXTERNAL'] as const).map((t) => (
+                  <label
+                    key={t}
+                    className={cn(
+                      'flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                      form.barberType === t
+                        ? 'border-gold-500/60 bg-gold-500/10 text-night-100'
+                        : 'border-night-700 bg-night-900 text-night-400 hover:border-night-500',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="barberType"
+                      checked={form.barberType === t}
+                      onChange={() => setForm({ ...form, barberType: t })}
+                      className="hidden"
+                    />
+                    {t === 'INTERNAL' ? 'Internal Barber' : 'External Barber'}
+                  </label>
+                ))}
+              </div>
+            </Field>
+            <Field
+              label="Location / Coverage Area"
+              hint="Admin-only. Base area for external barbers — e.g. Dutse, Jigawa."
+            >
+              <input
+                value={form.location}
+                onChange={(event) => setForm({ ...form, location: event.target.value })}
+                className="field"
+                placeholder="e.g. Jigawa"
+              />
+            </Field>
+            <Field
+              label="Commission Type"
+              hint="Never shown to customers. Applied to completed, paid appointments."
+            >
+              <select
+                value={form.commissionType}
+                onChange={(event) =>
+                  setForm({ ...form, commissionType: event.target.value as 'PERCENTAGE' | 'FIXED' })
+                }
+                className="field"
+              >
+                <option value="PERCENTAGE">Percentage of service price</option>
+                <option value="FIXED">Fixed amount per appointment</option>
+              </select>
+            </Field>
+            <Field
+              label={form.commissionType === 'PERCENTAGE' ? 'Commission Value (%)' : 'Commission Value (₦)'}
+              hint={form.commissionType === 'PERCENTAGE' ? 'e.g. 30 → barber earns 30% of the service price.' : 'e.g. 1500 → barber earns ₦1,500 per completed appointment.'}
+            >
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                max={form.commissionType === 'PERCENTAGE' ? '100' : undefined}
+                value={form.commissionValue}
+                onChange={(event) => setForm({ ...form, commissionValue: event.target.value })}
+                className="field"
+                placeholder={form.commissionType === 'PERCENTAGE' ? '30' : '1500'}
               />
             </Field>
           </div>

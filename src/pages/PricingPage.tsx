@@ -52,7 +52,7 @@ export default function PricingPage() {
         crumb="Pricing"
         title="Transparent, Premium Pricing"
         description="No hidden extras. The price we quote is the price you pay — every product and finish included."
-        imageId="1653758265969-b048bb0b328a"
+        image="/images/pagehero.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">

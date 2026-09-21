@@ -1,0 +1,26 @@
+  PASS  TEST 2: bank transfer without receipt rejected
+  PASS  TEST 2b: friendly message
+  PASS  TEST 3: invalid receipt file type rejected
+  PASS  TEST 4: empty receipt file rejected
+  PASS  TEST 5: bank transfer with receipt accepted
+  PASS  TEST 6a: appointment PENDING (PAYMENT_SUBMITTED)
+  PASS  TEST 6b: payment PENDING_VERIFICATION
+  PASS  TEST 6c: receipt stored
+  PASS  TEST 1: cash without receipt accepted
+  PASS  TEST 1b: payment UNPAID, method CASH
+  PASS  TEST 10: direct API non-cash booking without receipt rejected
+  PASS  TEST 6d: transfer payment visible in admin queue with receipt
+  PASS  TEST 6e: admin verify succeeds
+  PASS  TEST 6f: appointment advanced after verification
+  PASS  TEST 7a: second transfer booking accepted
+  PASS  TEST 7b: admin can reject receipt
+  PASS  TEST 7c: payment REJECTED
+  PASS  TEST 7d: appointment PAYMENT_REJECTED
+  PASS  TEST 7e: customer retry after rejection works
+  PASS  TEST 7f: retried payment back to PENDING_VERIFICATION
+  PASS  TEST 8a: online booking creates un-finalized appointment
+  PASS  TEST 8b: online appointment stays PAYMENT_REQUIRED + UNPAID (not finalized)
+  PASS  TEST 9a: paystack init available for the online booking
+  PASS  TEST 8c: unverified online appointment is NOT confirmed
+  PASS  TEST 9b: payment remains UNPAID pre-verification
+25 passed, 0 failed

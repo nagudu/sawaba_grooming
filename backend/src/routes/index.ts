@@ -13,8 +13,10 @@ import { customerAuthRouter } from './customerAuth'
 import { customerMeRouter } from './customerMe'
 import { paymentsRouter } from './payments'
 import { paystackRouter } from './paystack'
+import { checkoutRouter } from './checkout'
 import { adminPaymentsRouter } from './adminPayments'
 import { adminPaymentSettingsRouter } from './adminPaymentSettings'
+import { barberEarningsRouter, assignmentRouter } from './barberEarnings'
 
 export const apiRouter = Router()
 
@@ -33,7 +35,10 @@ apiRouter.use('/account', customerMeRouter)
 // swallow /payments/paystack/* paths with token="paystack".
 apiRouter.use('/payments/paystack', paystackRouter)
 apiRouter.use('/payments', paymentsRouter)
+apiRouter.use('/checkout', checkoutRouter)
 apiRouter.use('/admin/dashboard', dashboardRouter)
 apiRouter.use('/admin/customers', customersRouter)
 apiRouter.use('/admin/payments', adminPaymentsRouter)
 apiRouter.use('/admin/payment-settings', adminPaymentSettingsRouter)
+apiRouter.use('/admin/barber-earnings', barberEarningsRouter)
+apiRouter.use('/admin/appointments', assignmentRouter)

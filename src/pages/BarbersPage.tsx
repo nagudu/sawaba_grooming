@@ -27,7 +27,7 @@ export default function BarbersPage() {
         crumb="Barbers"
         title="The Masters Behind the Chair"
         description="Meet the barbers who make SAWABA what it is — trained, certified and genuinely invested in your look."
-        imageId="1703792684940-a05aa0f1188f"
+        image="/images/about-2.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">

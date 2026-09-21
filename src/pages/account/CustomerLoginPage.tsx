@@ -114,7 +114,7 @@ export default function CustomerLoginPage() {
         crumb="Login"
         title="Returning Customer? Login"
         description="Your details are saved — booking again takes seconds."
-        imageId="1563013544-824ae1b704d3"
+        image="/images/pagehero.jpg"
       />
 
       <section className="bg-night-950 py-24">

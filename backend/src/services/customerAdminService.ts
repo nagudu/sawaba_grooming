@@ -146,7 +146,7 @@ export async function sendDueReminders(options: {
       await sendEmail({
         to: customer.email,
         subject: `Hi ${firstName} 👋 Time for your next grooming session?`,
-        text: `Hello ${firstName},\n\nIt's almost time for your next grooming session — your usual${service ? ` ${service.name}` : ' service'} awaits. Would you like to book again?\n\nBook in seconds at our website, or just reply to this email.\n\nSAWABA Grooming Salon`,
+        text: `Hello ${firstName},\n\nIt's almost time for your next grooming session — your usual${service ? ` ${service.name}` : ' service'} awaits. Would you like to book again?\n\nBook in seconds at our website, or just reply to this email.\n\nSAWABA Grooming Studio`,
         html: `<p>Hello ${firstName} 👋</p><p>It's almost time for your next grooming session — your usual<strong>${service ? ` ${service.name}` : ' service'}</strong> awaits.</p><p>Would you like to book again? It only takes a few seconds.</p><p style="color:#888;font-size:12px;">You are receiving this because you opted into booking reminders. Manage this in your profile.</p>`,
       })
     }

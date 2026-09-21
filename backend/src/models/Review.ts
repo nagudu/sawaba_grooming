@@ -18,6 +18,7 @@ export class Review extends Model<InferAttributes<Review>, InferCreationAttribut
   declare customerImage: CreationOptional<string | null>
   declare serviceId: CreationOptional<number | null>
   declare serviceName: CreationOptional<string | null>
+  declare barberId: CreationOptional<number | null>
   declare rating: number
   declare comment: string
   declare status: CreationOptional<ReviewStatus>
@@ -57,6 +58,13 @@ Review.init(
       type: DataTypes.STRING(150),
       allowNull: true,
     },
+    barberId: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: { model: 'barbers', key: 'id' },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
     rating: {
       type: DataTypes.TINYINT.UNSIGNED,
       allowNull: false,
@@ -86,6 +94,7 @@ Review.init(
     indexes: [
       { fields: ['is_approved'] },
       { fields: ['status'] },
+      { fields: ['barber_id'] },
     ],
   },
 )

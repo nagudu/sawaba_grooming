@@ -1,4 +1,5 @@
 import { api, type Paged, type ReviewItem } from './index'
+import { cachedJson } from './offlineCache'
 
 export interface PublicReview {
   id: string
@@ -7,20 +8,27 @@ export interface PublicReview {
   rating: number
   text: string
   service: string | null
+  barberId: number | null
   date: string
 }
 
-export async function fetchApprovedReviews(): Promise<PublicReview[]> {
-  const data = await api.get<Paged<ReviewItem>>('/api/reviews?approved=true&page=1&perPage=100')
-  return data.items.map((item) => ({
-    id: String(item.id),
-    name: item.customerName,
-    image: item.customerImage,
-    rating: item.rating,
-    text: item.comment,
-    service: item.serviceName,
-    date: item.createdAt,
-  }))
+export async function fetchApprovedReviews(barberId?: number): Promise<PublicReview[]> {
+  const query = barberId
+    ? `/api/reviews?approved=true&page=1&perPage=100&barberId=${barberId}`
+    : '/api/reviews?approved=true&page=1&perPage=100'
+  return cachedJson(`reviews:${barberId ?? 'all'}`, async () => {
+    const data = await api.get<Paged<ReviewItem>>(query)
+    return data.items.map((item) => ({
+      id: String(item.id),
+      name: item.customerName,
+      image: item.customerImage,
+      rating: item.rating,
+      text: item.comment,
+      service: item.serviceName,
+      barberId: (item as { barberId?: number | null }).barberId ?? null,
+      date: item.createdAt,
+    }))
+  })
 }
 
 export interface SubmitReviewInput {
@@ -29,6 +37,7 @@ export interface SubmitReviewInput {
   customerEmail?: string | null
   serviceId?: number | null
   serviceName?: string | null
+  barberId?: number | null
   rating: number
   comment: string
 }

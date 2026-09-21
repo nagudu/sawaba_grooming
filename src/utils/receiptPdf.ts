@@ -5,7 +5,7 @@ import { receiptNumber } from '../components/payment/PaymentReceipt'
 /**
  * Generates the official SAWABA receipt as a real, downloadable PDF.
  * Same information as the printable on-screen receipt — branded as
- * Sawaba Grooming Salon (never any third-party brand).
+ * Sawaba Grooming Studio (never any third-party brand).
  */
 
 const GOLD: [number, number, number] = [168, 132, 61]

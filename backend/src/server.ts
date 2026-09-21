@@ -9,11 +9,17 @@ import { apiRouter } from './routes'
 import { swaggerSpec } from './swagger'
 import { apiLimiter } from './middleware/rateLimiter'
 import { notFoundHandler, errorHandler } from './middleware/errorHandler'
+import path from 'node:path'
+import fs from 'node:fs'
 
 // Eagerly load all models and associations before starting.
 import './models'
 
 const app: Express = express()
+
+// Behind Railway's reverse proxy: correct client IPs for rate limiting
+// and silence express-rate-limit's X-Forwarded-For validation error.
+app.set('trust proxy', 1)
 
 app.use(helmet())
 
@@ -58,9 +64,42 @@ app.get('/api/docs/spec', (_req: Request, res: Response) => {
 
 app.use('/api', apiRouter)
 
+// Locally uploaded images (offline-first storage driver). Served by the
+// backend itself so barber/gallery/service images work with no internet.
+const uploadsDir = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.resolve(__dirname, '../uploads')
+fs.mkdirSync(uploadsDir, { recursive: true })
+// Seed copies use stable filenames whose content can be re-pointed, so they
+// get a short cache (no immutable). Admin uploads get unique names and are
+// served by the same mount — a day of caching is plenty for either case.
+app.use('/uploads', express.static(uploadsDir, { maxAge: '1d' }))
+
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
+
+// Static frontend serving (production single-service deploy). Mounted BEFORE
+// the not-found handler: Express matches middleware in registration order, so
+// mounting this inside the async boot task (which runs after notFoundHandler
+// was registered) let every SPA route fall through to the API 404. Local dev
+// never sets SERVE_STATIC_DIR, so behavior there is unchanged.
+const staticDir = process.env.SERVE_STATIC_DIR
+if (staticDir) {
+  const resolved = path.resolve(staticDir)
+  if (fs.existsSync(path.join(resolved, 'index.html'))) {
+    app.use(express.static(resolved))
+    // SPA fallback: any non-API GET serves index.html so /admin/*, /pay/:token
+    // and /account/* survive refresh and direct navigation.
+    app.get('*', (req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith('/api/') || req.path === '/health') return next()
+      res.sendFile(path.join(resolved, 'index.html'))
+    })
+    console.log(`[server] serving static frontend from ${resolved}`)
+  } else {
+    console.warn(`[server] SERVE_STATIC_DIR set but no index.html at ${resolved}`)
+  }
+}
 
 app.use(notFoundHandler)
 app.use(errorHandler)
@@ -70,31 +109,24 @@ async function startServer(): Promise<void> {
     await connectDatabase()
     console.log('[server] database connection established')
 
-    // Static frontend serving (production single-service deploy). Activated
-    // only when SERVE_STATIC_DIR points at a built frontend (e.g. ../dist).
-    // Local dev never sets it, so behavior is unchanged.
-    const staticDir = process.env.SERVE_STATIC_DIR
-    if (staticDir) {
-      const path = await import('node:path')
-      const fs = await import('node:fs')
-      const resolved = path.resolve(staticDir)
-      if (fs.existsSync(path.join(resolved, 'index.html'))) {
-        app.use(express.static(resolved))
-        // SPA fallback: any non-API GET serves index.html so /admin/*,
-        // /pay/:token, /account/* survive refresh and direct navigation.
-        app.get('*', (req: Request, res: Response, next: NextFunction) => {
-          if (req.path.startsWith('/api/') || req.path === '/health') return next()
-          res.sendFile(path.join(resolved, 'index.html'))
-        })
-        console.log(`[server] serving static frontend from ${resolved}`)
-      } else {
-        console.warn(`[server] SERVE_STATIC_DIR set but no index.html at ${resolved}`)
-      }
-    }
-
     // Use { force: false, alter: process.env.NODE_ENV === 'development' } on first start via db:sync instead.
     await sequelize.sync({ force: false })
     console.log('[server] models synchronized')
+
+    // First-boot demo seeding (deployment bootstrap): idempotent, only runs
+    // when SEED_ON_BOOT=true. Keeps the live DB private — no external seeding.
+    if (process.env.SEED_ON_BOOT === 'true') {
+      try {
+        const { seedDatabase } = await import('./scripts/seed')
+        const result = await seedDatabase()
+        console.log(
+          `[server] seed complete — services: ${result.services}, barbers: ${result.barbers}, gallery: ${result.gallery}, reviews: ${result.reviews}`,
+        )
+      } catch (seedError) {
+        // Seeding must never block the API from serving.
+        console.error('[server] seed failed (continuing):', seedError)
+      }
+    }
 
     app.listen(env.port, () => {
       console.log(`[server] running on http://localhost:${env.port}`)

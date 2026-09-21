@@ -111,7 +111,7 @@ export default function AdminPaymentSettingsPage() {
                 value={settings.shopName}
                 onChange={(event) => update('shopName', event.target.value)}
                 className="field"
-                placeholder="SAWABA Grooming Salon"
+                placeholder="SAWABA Grooming Studio"
               />
             </Field>
             <Field label="Shop phone">

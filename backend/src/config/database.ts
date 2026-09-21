@@ -11,7 +11,12 @@ export const sequelize = new Sequelize(env.databaseUrl, {
   },
   // Hosted MySQL providers (Aiven, PlanetScale, Railway, etc.) terminate TLS.
   // Set DB_SSL=true in the deployed environment; local MySQL stays non-SSL.
-  dialectOptions: process.env.DB_SSL === 'true' ? { ssl: { rejectUnauthorized: true } } : undefined,
+  // Providers whose CA chain isn't publicly trusted (e.g. Railway) can relax
+  // verification with DB_SSL_REJECT_UNAUTHORIZED=false — traffic stays encrypted.
+  dialectOptions:
+    process.env.DB_SSL === 'true'
+      ? { ssl: { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } }
+      : undefined,
   pool: {
     max: 10,
     min: 0,

@@ -3,14 +3,14 @@ import type { UpdatePaymentSettingsInput } from '../validators/paymentSettings'
 import type { PaymentMethod } from '../types'
 
 const DEFAULT_SETTINGS = {
-  shopName: 'SAWABA Grooming Salon',
+  shopName: 'SAWABA Grooming Studio',
   shopAddress: 'Unguwa Uku, Sabuwar Abuja, Kano, Nigeria',
   shopPhone: '+234 706 928 8456',
   shopLogo: null,
   bankName: 'GTBank',
-  accountName: 'SAWABA Grooming Salon',
+  accountName: 'SAWABA Grooming Studio',
   accountNumber: '0123456789',
-  opayAccountName: 'SAWABA Grooming Salon',
+  opayAccountName: 'SAWABA Grooming Studio',
   opayAccountNumber: '8023456789',
   paymentInstructions:
     'Transfer the exact service amount and upload your payment receipt. Kindly use your appointment ID as the transfer reference where possible.',

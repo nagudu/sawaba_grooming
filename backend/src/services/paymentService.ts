@@ -2,9 +2,10 @@ import { Op } from 'sequelize'
 import { Appointment, Barber, Payment, Service } from '../models'
 import { ConflictError, NotFoundError, UnprocessableError } from '../utils/errors'
 import { getPagination } from '../utils/response'
-import { uploadImageToCloudinary, deleteImageFromCloudinary } from '../utils/upload'
+import { uploadImageToCloudinary, deleteImageByUrl } from '../utils/upload'
 import type { PaymentSetting } from '../models/PaymentSetting'
 import { getPaymentSettingsRecord, serializePaymentSetting } from './paymentSettingsService'
+import { syncEarningForAppointment } from './commissionService'
 import { AppointmentStatusValue, canTransition } from '../config/appointmentStatuses'
 import type { AppointmentStatus, Paged, PaymentMethod, PaymentStatus } from '../types'
 import type { SubmitPaymentInput, TrackPaymentInput } from '../validators/payment'
@@ -96,6 +97,11 @@ export async function applyProviderVerification(
       await appointment.update({ status: AppointmentStatusValue.READY_FOR_SERVICE })
     }
   }
+
+  // Money is now confirmed — re-evaluate the commission ledger (#19). If the
+  // appointment is already COMPLETED the earning flips to EARNED here; if the
+  // appointment completes later, the status transition re-syncs it.
+  await syncEarningForAppointment(appointmentId)
 
   return getPublicPaymentByAppointmentId(appointmentId)
 }
@@ -247,12 +253,12 @@ export async function submitPayment(
   let receiptPublicId = payment.receiptPublicId
 
   if (receiptBuffer) {
-    const uploaded = await uploadImageToCloudinary(receiptBuffer, 'sawaba-receipts')
+    const uploaded = await uploadImageToCloudinary(receiptBuffer, 'sawaba-receipts', 'image/jpeg')
     receiptUrl = uploaded.url
     receiptPublicId = uploaded.publicId
     if (payment.receiptPublicId && payment.receiptPublicId !== receiptPublicId) {
       try {
-        await deleteImageFromCloudinary(payment.receiptPublicId)
+        await deleteImageByUrl(payment.receiptUrl ?? '')
       } catch {
         // best-effort cleanup of the previous receipt
       }

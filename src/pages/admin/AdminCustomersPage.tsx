@@ -453,8 +453,8 @@ export default function AdminCustomersPage() {
                   No appointments yet.
                 </p>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-night-800">
-                  <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto rounded-xl border border-night-800">
+                  <table className="w-full min-w-[480px] text-left text-xs">
                     <thead className="bg-night-900/80 uppercase tracking-wider text-night-500">
                       <tr>
                         <Th>Date</Th>

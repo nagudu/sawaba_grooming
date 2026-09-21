@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
-import { Clock, Mail, MapPin, Phone } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Clock, Mail, MapPin, MapPinned, Phone } from 'lucide-react'
 import PageTransition from '../components/ui/PageTransition'
 import PageHero from '../components/layout/PageHero'
 import SectionTitle from '../components/ui/SectionTitle'
@@ -43,6 +44,51 @@ const contactCards = [
   },
 ]
 
+/**
+ * Google Maps embed with an offline-aware fallback: when there is no
+ * internet the iframe would show a browser error, so we hide it and show
+ * the address card instead. The map returns automatically when online.
+ */
+function OfflineMapFrame({ src }: { src: string }) {
+  const [online, setOnline] = useState(() =>
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  )
+  useEffect(() => {
+    const goOnline = () => setOnline(true)
+    const goOffline = () => setOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
+
+  if (!online) {
+    return (
+      <div className="flex h-[420px] w-full flex-col items-center justify-center gap-3 bg-night-900 text-center">
+        <MapPinned className="h-8 w-8 text-gold-400" />
+        <p className="font-display text-xl text-night-100">Find us at</p>
+        <p className="max-w-xs text-sm leading-relaxed text-night-400">{site.address}</p>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-night-500">
+          Map available when you're back online
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <iframe
+      title="SAWABA Grooming Studio location map"
+      src={src}
+      className="h-[420px] w-full border-0 grayscale-[35%] invert-[90%] hue-rotate-180"
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+      allowFullScreen
+    />
+  )
+}
+
 export default function ContactPage() {
   return (
     <PageTransition>
@@ -51,7 +97,7 @@ export default function ContactPage() {
         crumb="Contact"
         title="Let's Talk"
         description="Questions, bookings or feedback — we would love to hear from you. Reach out any way that suits you."
-        imageId="1512864084360-7c0c4d0a0845"
+        image="/images/cta.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">
@@ -165,14 +211,7 @@ export default function ContactPage() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <iframe
-              title="SAWABA Grooming Salon location map"
-              src={site.mapEmbedUrl}
-              className="h-[420px] w-full border-0 grayscale-[35%] invert-[90%] hue-rotate-180"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-            />
+            <OfflineMapFrame src={site.mapEmbedUrl} />
           </motion.div>
         </div>
       </section>

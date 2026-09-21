@@ -9,14 +9,16 @@ import {
   deleteAppointment,
 } from '../services/appointmentService'
 import { successRes } from '../utils/response'
-import type { CreateAppointmentInput, UpdateAppointmentInput } from '../validators/appointment'
 import { APPOINTMENT_STATUSES } from '../types'
 import { getValidNextStatuses } from '../config/appointmentStatuses'
+import type { CreateAppointmentInput, UpdateAppointmentInput } from '../validators/appointment'
 
+/** Multipart requests deliver every field as a string — passthrough unchanged; zod coerces. */
 export async function createAppointmentHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const input = req.body as CreateAppointmentInput
-    const appointment = await createAppointment(input)
+    const receiptFile = (req as Request & { file?: Express.Multer.File }).file
+    const appointment = await createAppointment(input, receiptFile?.buffer ?? null, receiptFile?.mimetype)
     successRes(
       res,
       'Your appointment request has been successfully submitted. We will contact you to confirm your appointment.',

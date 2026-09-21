@@ -8,6 +8,9 @@ import {
 import { sequelize } from '../config/database'
 import type { Service } from './Service'
 
+export type BarberType = 'INTERNAL' | 'EXTERNAL'
+export type CommissionType = 'PERCENTAGE' | 'FIXED'
+
 export class Barber extends Model<InferAttributes<Barber>, InferCreationAttributes<Barber>> {
   declare id: CreationOptional<number>
   declare name: string
@@ -19,6 +22,14 @@ export class Barber extends Model<InferAttributes<Barber>, InferCreationAttribut
   declare biography: CreationOptional<string | null>
   declare experience: CreationOptional<number>
   declare rating: CreationOptional<number>
+  /** Business classification — INTERNAL (works at the studio) or EXTERNAL (covers other areas). Admin-only data. */
+  declare barberType: CreationOptional<BarberType>
+  /** Coverage area / base location, mainly for EXTERNAL barbers (e.g. "Dutse, Jigawa"). Admin-only. */
+  declare location: CreationOptional<string | null>
+  /** How commission is computed for this barber. Admin-only. */
+  declare commissionType: CreationOptional<CommissionType>
+  /** PERCENTAGE: 0-100. FIXED: naira amount per completed appointment. Admin-only. */
+  declare commissionValue: CreationOptional<number>
   declare isActive: CreationOptional<boolean>
   declare createdAt: CreationOptional<Date>
   declare updatedAt: CreationOptional<Date>
@@ -73,6 +84,29 @@ Barber.init(
       type: DataTypes.DECIMAL(2, 1),
       allowNull: false,
       defaultValue: 0,
+    },
+    barberType: {
+      type: DataTypes.ENUM('INTERNAL', 'EXTERNAL'),
+      allowNull: false,
+      defaultValue: 'INTERNAL',
+      comment: 'INTERNAL = studio barber, EXTERNAL = covers other locations. Admin-only classification.',
+    },
+    location: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+      comment: 'Coverage area / base location (e.g. "Dutse, Jigawa"). Admin-only.',
+    },
+    commissionType: {
+      type: DataTypes.ENUM('PERCENTAGE', 'FIXED'),
+      allowNull: false,
+      defaultValue: 'PERCENTAGE',
+    },
+    commissionValue: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'PERCENTAGE: 0-100. FIXED: naira per completed appointment.',
+      validate: { min: 0 },
     },
     isActive: {
       type: DataTypes.BOOLEAN,

@@ -1,4 +1,4 @@
-import { Op } from 'sequelize'
+import { Op, type Transaction } from 'sequelize'
 import { Appointment, Customer, Payment, Service, Barber } from '../models'
 import { normalizeNigerianPhone, isPlausiblePhone } from '../utils/phone'
 import { UnprocessableError } from '../utils/errors'
@@ -10,28 +10,31 @@ export interface CustomerInput {
 }
 
 /** Normalizes input and looks up (or creates) the single customer per phone. */
-export async function findOrCreateCustomer(input: CustomerInput): Promise<Customer> {
+export async function findOrCreateCustomer(input: CustomerInput, t?: Transaction): Promise<Customer> {
   const phone = normalizeNigerianPhone(input.phone)
   if (!isPlausiblePhone(phone)) {
     throw new UnprocessableError('Provide a valid phone number.')
   }
 
-  const existing = await Customer.findOne({ where: { phone } })
+  const existing = await Customer.findOne({ where: { phone }, ...(t ? { transaction: t } : {}) })
   if (existing) {
     // Keep the appointment copy in sync with the most recent spelling of the
     // customer's name/email without overwriting a richer stored value.
     const patch: Record<string, string> = {}
     if (input.fullName && input.fullName !== existing.fullName) patch.fullName = input.fullName
     if (input.email && !existing.email) patch.email = input.email
-    if (Object.keys(patch).length) await existing.update(patch)
+    if (Object.keys(patch).length) await existing.update(patch, { transaction: t })
     return existing
   }
 
-  return Customer.create({
-    fullName: input.fullName,
-    phone,
-    email: input.email ?? null,
-  })
+  return Customer.create(
+    {
+      fullName: input.fullName,
+      phone,
+      email: input.email ?? null,
+    },
+    t ? { transaction: t } : undefined,
+  )
 }
 
 /** Stable display code CUS-0001 — a reference, never a security credential. */

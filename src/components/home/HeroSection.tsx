@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { ChevronDown, Star } from 'lucide-react'
-import { unsplash } from '../../utils/format'
 import { ButtonLink } from '../ui/Button'
 import { site } from '../../data/services'
 
@@ -17,13 +16,16 @@ export default function HeroSection() {
   return (
     <section className="relative flex min-h-screen items-center overflow-hidden bg-night-950">
       <div className="absolute inset-0">
+        {/* Full photo, never cropped: object-contain always fits the ENTIRE image
+            inside the hero (dark background fills any leftover space), anchored
+            right so the headline sits over the dark side on wide screens. */}
         <motion.img
-          src={unsplash('1686671805337-7d8aa64b965f', 1920, 70)}
-          alt="SAWABA Grooming Salon interior"
-          className="h-full w-full object-cover"
-          initial={{ scale: 1.12, opacity: 0.4 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
+          src="/images/hero.jpg"
+          alt="SAWABA Grooming Studio"
+          className="h-full w-full object-contain object-right"
+          initial={{ opacity: 0.4 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-night-950 via-night-950/70 to-night-950/30" />
         <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-transparent to-night-950/40" />
@@ -51,7 +53,7 @@ export default function HeroSection() {
           >
             SAWABA
             <span className="mt-2 block text-gold-gradient">
-              Grooming Salon
+              Grooming Studio
             </span>
           </motion.h1>
 

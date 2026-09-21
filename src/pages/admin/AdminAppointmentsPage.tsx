@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Trash2 } from 'lucide-react'
+import { CalendarDays, History, Search, Trash2, UserCog } from 'lucide-react'
 import {
   api,
   buildQuery,
   type AppointmentItem,
   type AppointmentStatus,
+  type BarberItem,
   type Paged,
   type PaymentStatus,
 } from '../../api'
@@ -14,6 +15,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useAuthErrorToast } from '../../hooks/useAuthErrorToast'
 import { useToast } from '../../components/ui/ToastNotification'
 import { useDebounced } from '../../hooks/useDebounced'
+import Modal from '../../components/ui/Modal'
 import {
   ALL_APPOINTMENT_STATUSES,
   APPOINTMENT_STATUS_LABELS,
@@ -81,6 +83,13 @@ export default function AdminAppointmentsPage() {
   const [deleting, setDeleting] = useState<AppointmentItem | null>(null)
   const [busy, setBusy] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
+  // Assignment system (#5): pick the barber who will actually do the work.
+  const [assignFor, setAssignFor] = useState<AppointmentItem | null>(null)
+  const [assignBarbers, setAssignBarbers] = useState<BarberItem[]>([])
+  const [assignReason, setAssignReason] = useState('')
+  const [assignBusy, setAssignBusy] = useState(false)
+  const [historyFor, setHistoryFor] = useState<AppointmentItem | null>(null)
+  const [historyRows, setHistoryRows] = useState<Array<{ id: number; action: string; previousBarber: { id: number; name: string } | null; newBarber: { id: number; name: string } | null; reason: string | null; createdAt: string }>>([])
 
   const perPage = 15
   const debouncedSearch = useDebounced(search.trim(), 300)
@@ -156,6 +165,53 @@ export default function AdminAppointmentsPage() {
     }
   }
 
+  // ── Assignment system (#5, #6, #21) ─────────────────────────────────────
+  const openAssign = async (appointment: AppointmentItem) => {
+    setAssignFor(appointment)
+    setAssignReason('')
+    try {
+      const data = await api.get<Paged<BarberItem>>('/api/barbers?perPage=100&includeInactive=false')
+      setAssignBarbers(data.items)
+    } catch {
+      setAssignBarbers([])
+    }
+  }
+
+  const submitAssign = async (barberId: number | null) => {
+    if (!assignFor) return
+    setAssignBusy(true)
+    try {
+      const updated = await api.put<AppointmentItem>(
+        `/api/admin/appointments/${assignFor.id}/assign-barber`,
+        { barberId, reason: assignReason.trim() || undefined },
+      )
+      setAppointments((items) => items.map((item) => (item.id === assignFor.id ? { ...item, ...updated } : item)))
+      showToast(
+        barberId === null
+          ? 'Assignment removed — the booked barber will serve the appointment.'
+          : `Assigned to ${updated.assignedBarber?.name ?? `barber #${barberId}`}.`,
+      )
+      setAssignFor(null)
+    } catch (error) {
+      notifyError(error)
+    } finally {
+      setAssignBusy(false)
+    }
+  }
+
+  const openHistory = async (appointment: AppointmentItem) => {
+    setHistoryFor(appointment)
+    setHistoryRows([])
+    try {
+      const data = await api.get<{ items?: typeof historyRows }>(
+        `/api/admin/appointments/${appointment.id}/assignment-history`,
+      )
+      setHistoryRows(data.items ?? [])
+    } catch {
+      setHistoryRows([])
+    }
+  }
+
   const confirmDelete = async () => {
     if (!deleting) return
     setBusy(true)
@@ -176,7 +232,11 @@ export default function AdminAppointmentsPage() {
 
   return (
     <div>
-      <PageHeader title="Appointments" subtitle="Manage and track all booking requests." />
+      <PageHeader
+        icon={<CalendarDays className="h-5 w-5" />}
+        title="Appointments"
+        subtitle="Manage, review, and track all customer appointments and booking requests in one place."
+      />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
@@ -230,12 +290,13 @@ export default function AdminAppointmentsPage() {
           <LoadingSpinner label="Loading appointments" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px]">
+            <table className="w-full min-w-[1040px]">
               <thead className="border-b border-night-800 bg-night-900/60">
                 <tr>
                   <Th>Customer</Th>
                   <Th>Service</Th>
                   <Th>Barber</Th>
+                  <Th>Assignment</Th>
                   <Th>Date</Th>
                   <Th>Time</Th>
                   <Th>Status</Th>
@@ -244,7 +305,7 @@ export default function AdminAppointmentsPage() {
               </thead>
               <tbody className="divide-y divide-night-800">
                 {appointments.length === 0 ? (
-                  <EmptyRow colSpan={7} message="No appointments match your filters." />
+                  <EmptyRow colSpan={8} message="No appointments match your filters." />
                 ) : (
                   appointments.map((appointment) => (
                     <tr key={appointment.id} className="transition-colors hover:bg-night-900/60">
@@ -261,7 +322,25 @@ export default function AdminAppointmentsPage() {
                           {appointment.service?.duration ?? ''} min
                         </p>
                       </Td>
-                      <Td>{appointment.barber?.name ?? '—'}</Td>
+                      <Td>
+                        {appointment.barber?.name ?? '—'}
+                        {appointment.customerLocation && (
+                          <p className="text-xs text-night-500">📍 {appointment.customerLocation}</p>
+                        )}
+                      </Td>
+                      <Td>
+                        {appointment.assignedBarber ? (
+                          <div>
+                            <p className="font-semibold text-night-100">{appointment.assignedBarber.name}</p>
+                            <p className="text-[11px] text-night-500">
+                              {appointment.assignedBarber.barberType === 'EXTERNAL' ? 'External' : 'Internal'}
+                              {appointment.assignedBarber.location ? ` · ${appointment.assignedBarber.location}` : ''}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-night-600">Booked barber serves</span>
+                        )}
+                      </Td>
                       <Td>{formatDate(appointment.appointmentDate)}</Td>
                       <Td>{formatTime(appointment.appointmentTime)}</Td>
                       <Td>
@@ -332,6 +411,26 @@ export default function AdminAppointmentsPage() {
                           )}
                           <button
                             type="button"
+                            onClick={() => void openAssign(appointment)}
+                            disabled={busyId === appointment.id}
+                            aria-label="Assign barber"
+                            title="Assign barber"
+                            className="rounded-lg border border-night-700 p-2 text-night-500 transition-colors hover:border-gold-500/40 hover:text-gold-300"
+                          >
+                            <UserCog className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void openHistory(appointment)}
+                            disabled={busyId === appointment.id}
+                            aria-label="Assignment history"
+                            title="Assignment history"
+                            className="rounded-lg border border-night-700 p-2 text-night-500 transition-colors hover:border-gold-500/40 hover:text-gold-300"
+                          >
+                            <History className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setDeleting(appointment)}
                             disabled={busyId === appointment.id}
                             aria-label="Delete appointment"
@@ -377,6 +476,152 @@ export default function AdminAppointmentsPage() {
         title="Delete appointment"
         description={`Are you sure you want to permanently delete the appointment for ${deleting?.customerName ?? ''}? This action cannot be undone.`}
       />
+
+      {/* ── Assign barber modal (#5) ── */}
+      <Modal
+        open={assignFor !== null}
+        onClose={() => setAssignFor(null)}
+        title="Assign Barber"
+        size="lg"
+      >
+        {assignFor && (
+          <div className="space-y-5">
+            <div className="rounded-lg border border-night-700 bg-night-900 p-4 text-sm text-night-300">
+              <p>
+                <span className="text-night-500">Customer:</span>{' '}
+                <span className="font-semibold text-night-100">{assignFor.customerName}</span>
+              </p>
+              <p>
+                <span className="text-night-500">Location:</span>{' '}
+                {assignFor.customerLocation || <span className="text-night-600">Not provided</span>}
+              </p>
+              <p>
+                <span className="text-night-500">Service:</span> {assignFor.service?.name ?? '—'} ·{' '}
+                ₦{assignFor.service?.price?.toLocaleString() ?? '—'}
+              </p>
+              <p>
+                <span className="text-night-500">When:</span> {formatDate(assignFor.appointmentDate)} at{' '}
+                {formatTime(assignFor.appointmentTime)}
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">
+                Internal Barbers
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {assignBarbers.filter((b) => b.barberType !== 'EXTERNAL').length === 0 && (
+                  <p className="text-sm text-night-600">No internal barbers.</p>
+                )}
+                {assignBarbers
+                  .filter((b) => b.barberType !== 'EXTERNAL')
+                  .map((barber) => (
+                    <button
+                      key={barber.id}
+                      type="button"
+                      disabled={assignBusy}
+                      onClick={() => void submitAssign(barber.id)}
+                      className="rounded-lg border border-night-700 bg-night-900 px-3.5 py-2.5 text-left transition-colors hover:border-gold-500/50 disabled:opacity-50"
+                    >
+                      <p className="text-sm font-semibold text-night-100">{barber.name}</p>
+                      <p className="text-xs text-night-500">{barber.specialty ?? 'Barber'}</p>
+                    </button>
+                  ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">
+                External Barbers
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {assignBarbers.filter((b) => b.barberType === 'EXTERNAL').length === 0 && (
+                  <p className="text-sm text-night-600">No external barbers.</p>
+                )}
+                {assignBarbers
+                  .filter((b) => b.barberType === 'EXTERNAL')
+                  .map((barber) => (
+                    <button
+                      key={barber.id}
+                      type="button"
+                      disabled={assignBusy}
+                      onClick={() => void submitAssign(barber.id)}
+                      className="rounded-lg border border-night-700 bg-night-900 px-3.5 py-2.5 text-left transition-colors hover:border-gold-500/50 disabled:opacity-50"
+                    >
+                      <p className="text-sm font-semibold text-night-100">
+                        {barber.name}
+                        {barber.location ? <span className="text-gold-400"> — {barber.location}</span> : ''}
+                      </p>
+                      <p className="text-xs text-night-500">{barber.specialty ?? 'External barber'}</p>
+                    </button>
+                  ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">
+                Reason (optional, recorded in history)
+              </label>
+              <input
+                value={assignReason}
+                onChange={(event) => setAssignReason(event.target.value)}
+                className="field"
+                placeholder="e.g. Customer location — Jigawa"
+              />
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3 pt-1">
+              {assignFor.assignedBarberId && (
+                <Button
+                  variant="outline"
+                  size="md"
+                  disabled={assignBusy}
+                  onClick={() => void submitAssign(null)}
+                >
+                  Remove Assignment
+                </Button>
+              )}
+              <Button variant="outline" size="md" onClick={() => setAssignFor(null)} disabled={assignBusy}>
+                Close
+              </Button>
+            </div>
+            <p className="text-xs text-night-600">
+              The customer's booked barber stays on the booking; your assignment decides who serves it. Customers
+              cannot change this.
+            </p>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Assignment history modal (#21) ── */}
+      <Modal open={historyFor !== null} onClose={() => setHistoryFor(null)} title="Assignment History" size="md">
+        {historyRows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-night-500">
+            No assignment changes recorded yet.
+          </p>
+        ) : (
+          <ol className="space-y-3">
+            {historyRows.map((row) => (
+              <li key={row.id} className="rounded-lg border border-night-700 bg-night-900 p-3.5 text-sm">
+                <p className="font-semibold text-night-100">
+                  {row.action === 'ASSIGNED' && 'Assigned'}
+                  {row.action === 'REASSIGNED' && 'Reassigned'}
+                  {row.action === 'REMOVED' && 'Assignment removed'}
+                  {' — '}
+                  {row.action === 'REMOVED'
+                    ? row.previousBarber?.name ?? '—'
+                    : row.newBarber?.name ?? '—'}
+                </p>
+                {row.previousBarber && row.action !== 'ASSIGNED' && (
+                  <p className="text-xs text-night-500">Previously: {row.previousBarber.name}</p>
+                )}
+                {row.reason && <p className="mt-1 text-xs text-gold-400">Reason: {row.reason}</p>}
+                <p className="mt-1 text-[11px] text-night-600">{new Date(row.createdAt).toLocaleString()}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Modal>
     </div>
   )
 }

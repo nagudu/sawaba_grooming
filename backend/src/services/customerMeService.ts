@@ -32,6 +32,8 @@ export async function getCustomerSummary(customer: CustomerModel): Promise<Recor
       include: [
         { model: (await import('../models')).Service, as: 'service', attributes: ['id', 'name', 'price', 'duration'] },
         { model: (await import('../models')).Barber, as: 'barber', attributes: ['id', 'name', 'image'] },
+        // Customer-safe assignment info (#15): name/image only.
+        { model: (await import('../models')).Barber, as: 'assignedBarber', attributes: ['id', 'name', 'image'] },
         { model: Payment, as: 'payment', attributes: ['id', 'status', 'amount', 'paymentMethod', 'accessToken'] },
       ],
       order: [
@@ -138,6 +140,7 @@ export async function getCustomerAppointments(
     include: [
       { model: (await import('../models')).Service, as: 'service', attributes: ['id', 'name', 'price', 'duration'] },
       { model: (await import('../models')).Barber, as: 'barber', attributes: ['id', 'name', 'image'] },
+      { model: (await import('../models')).Barber, as: 'assignedBarber', attributes: ['id', 'name', 'image'] },
       { model: Payment, as: 'payment' },
     ],
     order: [
@@ -234,6 +237,11 @@ export async function getCustomerAppointmentById(
       {
         model: (await import('../models')).Barber,
         as: 'barber',
+        attributes: ['id', 'name', 'image'],
+      },
+      {
+        model: (await import('../models')).Barber,
+        as: 'assignedBarber',
         attributes: ['id', 'name', 'image'],
       },
       {

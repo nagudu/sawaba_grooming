@@ -36,8 +36,10 @@ export default function BarberProfilePage() {
     let cancelled = false
     async function load() {
       try {
+        // Reviews are fetched with the barber's real id so only reviews
+        // attributed to this barber are shown — no name guessing.
         const [reviewsRes, galleryRes] = await Promise.all([
-          api.get<{ items: Array<{ id: number; customerName: string; rating: number; comment: string; createdAt: string }> }>('/api/reviews?approved=true&page=1&perPage=100'),
+          api.get<{ items: Array<{ id: number; customerName: string; rating: number; comment: string; createdAt: string }> }>(`/api/reviews?approved=true&page=1&perPage=100&barberId=${id}`),
           api.get<{ items: GalleryItem[] }>('/api/gallery?page=1&perPage=100'),
         ])
         if (cancelled) return
@@ -95,8 +97,10 @@ export default function BarberProfilePage() {
   }
 
   // Reviews come from the live approved list, filtered to this barber's name.
+  // Reviews were already server-filtered to this barber by barberId —
+  // no name matching needed. Just take the newest few for display.
   const reviews = approvedReviews
-    .filter((review) => review.customerName && barber.name.includes(review.customerName.split(' ')[0]))
+    .filter((review) => review.customerName)
     .slice(0, 4)
     .map((review) => ({
       id: review.id,
@@ -126,8 +130,8 @@ export default function BarberProfilePage() {
         eyebrow={barber.specialty}
         crumb="Barbers"
         title={barber.name}
-        description={`${barber.experience}+ years of craft at SAWABA Grooming Salon.`}
-        imageId="1567894340315-735d7c361db0"
+        description={`${barber.experience}+ years of craft at SAWABA Grooming Studio.`}
+        image="/images/pagehero.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">
@@ -175,9 +179,9 @@ export default function BarberProfilePage() {
                       </dd>
                     </div>
                     <div className="rounded-xl border border-night-800 bg-night-900/60 p-4 text-center">
-                      <dt className="text-xs text-night-500">Happy Clients</dt>
+                      <dt className="text-xs text-night-500">Approved Reviews</dt>
                       <dd className="mt-1 font-display text-2xl text-gold-400">
-                        {barber.reviewCount * 4}+
+                        {barber.reviewCount}
                       </dd>
                     </div>
                   </dl>
@@ -274,7 +278,7 @@ export default function BarberProfilePage() {
                   <h3 className="mt-4 font-display text-3xl text-night-50">
                     Work by {barber.name.split(' ')[0]}
                   </h3>
-                  <div className="mt-6 grid grid-cols-2 gap-4">
+                  <div className="mt-6 columns-1 gap-4 sm:columns-2 [&>*]:mb-4">
                     {galleryImages.map((image) => (
                       <GalleryCard
                         key={image.id}

@@ -15,9 +15,14 @@ import PageTransition from '../components/ui/PageTransition'
 import PageHero from '../components/layout/PageHero'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { useToast } from '../components/ui/ToastNotification'
+import type { PaymentAppointment } from '../api/payments'
 import { verifyPaystack } from '../api/payments'
 import type { PublicPaymentBundle } from '../api/payments'
+import { verifyCheckoutPaystack } from '../api/booking'
+import type { CheckoutFinalized } from '../api/booking'
 import { formatDate, formatPrice, formatTime } from '../utils/format'
+
+type PaymentAppointmentStatus = PaymentAppointment['status']
 
 /**
  * Landing page Paystack redirects the customer back to.
@@ -39,6 +44,7 @@ export default function PaystackCallbackPage() {
   const [state, setState] = useState<'verifying' | 'success' | 'error'>('verifying')
   const [message, setMessage] = useState('')
   const [bundle, setBundle] = useState<PublicPaymentBundle | null>(null)
+  const [checkout, setCheckout] = useState<CheckoutFinalized | null>(null)
   const ranRef = useRef(false)
 
   useEffect(() => {
@@ -52,20 +58,47 @@ export default function PaystackCallbackPage() {
     }
 
     setState('verifying')
-    verifyPaystack(token, reference)
+    // Checkout-session payments (payment-before-booking) verify first; the
+    // appointment is created by the backend only on Paystack-confirmed success.
+    // Legacy appointment payments (Pay Now links from before sessions existed)
+    // fall back to the appointment verification endpoint.
+    verifyCheckoutPaystack(token, reference)
       .then((result) => {
-        setBundle(result)
+        setCheckout(result)
         setState('success')
         showToast('Payment verified successfully.', 'success')
       })
-      .catch((error: unknown) => {
-        setMessage(error instanceof Error ? error.message : 'Payment verification failed.')
-        setState('error')
-      })
+      .catch(() =>
+        verifyPaystack(token, reference)
+          .then((result) => {
+            setBundle(result)
+            setState('success')
+            showToast('Payment verified successfully.', 'success')
+          })
+          .catch((error: unknown) => {
+            setMessage(error instanceof Error ? error.message : 'Payment verification failed.')
+            setState('error')
+          }),
+      )
   }, [token, reference, showToast])
 
   const payment = bundle?.payment ?? null
-  const appointment = payment?.appointment ?? null
+  const appointment =
+    checkout?.appointment != null
+      ? {
+          id: checkout.appointment.id,
+          referenceCode: checkout.appointment.referenceCode,
+          customerName: checkout.appointment.customerName,
+          customerPhone: '',
+          customerEmail: null,
+          appointmentDate: checkout.appointment.appointmentDate,
+          appointmentTime: checkout.appointment.appointmentTime,
+          totalAmount: checkout.payment.amount,
+          status: checkout.appointment.status as PaymentAppointmentStatus,
+          service: null,
+          barber: null,
+        }
+      : (payment?.appointment ?? null)
 
   return (
     <PageTransition>
@@ -80,7 +113,7 @@ export default function PaystackCallbackPage() {
               : 'Confirming Payment'
         }
         description="We re-check every transaction directly with Paystack before confirming — the redirect alone is never enough."
-        imageId="1563013544-824ae1b704d3"
+        image="/images/pagehero.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">

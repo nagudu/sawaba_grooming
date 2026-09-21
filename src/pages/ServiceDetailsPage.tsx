@@ -85,7 +85,7 @@ export default function ServiceDetailsPage() {
         crumb="Services"
         title={service.name}
         description={service.description}
-        imageId="1737495194047-5e353ea3e6d9"
+        image="/images/about-story.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">

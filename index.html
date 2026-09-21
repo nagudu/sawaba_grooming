@@ -6,16 +6,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="SAWABA Grooming Salon — Premium barbering and men's grooming. Look sharp. Feel confident."
+      content="SAWABA Grooming Studio — Premium barbering and men's grooming. Look sharp. Feel confident."
     />
     <meta name="theme-color" content="#0a0a0c" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Inter:wght@300;400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <title>SAWABA Grooming Salon | Premium Barbershop & Men's Grooming</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Self-hosted variable fonts (no Google Fonts request — works offline) -->
+    <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // Theme boot: apply the saved palette before first paint (no flash).
+      try {
+        var vars = JSON.parse(localStorage.getItem('sawaba-theme-vars') || 'null')
+        if (vars && typeof vars === 'object') {
+          for (var k in vars) {
+            if (Object.prototype.hasOwnProperty.call(vars, k)) {
+              document.documentElement.style.setProperty(k, vars[k])
+            }
+          }
+        }
+      } catch (e) {
+        /* default theme stays active */
+      }
+    </script>
+    <title>SAWABA Grooming Studio | Premium Barbershop & Men's Grooming</title>
   </head>
   <body>
     <div id="root"></div>

@@ -7,17 +7,30 @@ import { cn } from '../../utils/cn'
 export function PageHeader({
   title,
   subtitle,
+  icon,
   action,
 }: {
   title: string
   subtitle?: string
+  icon?: React.ReactNode
   action?: React.ReactNode
 }) {
   return (
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="font-display text-2xl text-night-50 sm:text-3xl">{title}</h1>
-        {subtitle && <p className="mt-1.5 text-sm text-night-400">{subtitle}</p>}
+      <div className="flex items-start gap-3.5">
+        {icon && (
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gold-500/30 bg-gold-500/10 text-gold-400">
+            {icon}
+          </span>
+        )}
+        <div>
+          <h1 className="font-display text-2xl text-night-50 sm:text-3xl">{title}</h1>
+          {subtitle && (
+            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-night-400">
+              {subtitle}
+            </p>
+          )}
+        </div>
       </div>
       {action}
     </div>

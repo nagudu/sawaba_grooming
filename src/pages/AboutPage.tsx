@@ -12,7 +12,6 @@ import PageTransition from '../components/ui/PageTransition'
 import PageHero from '../components/layout/PageHero'
 import SectionTitle from '../components/ui/SectionTitle'
 import { ButtonLink } from '../components/ui/Button'
-import { unsplash } from '../utils/format'
 import { site } from '../data/services'
 
 const values = [
@@ -64,7 +63,7 @@ export default function AboutPage() {
 
       <section className="bg-night-950 py-24 md:py-32">
         <div className="container-app">
-          <div className="grid items-center gap-14 lg:grid-cols-2">
+          <div className="grid min-w-0 items-center gap-14 lg:grid-cols-2">
             <motion.div
               initial={{ opacity: 0, x: -32 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -96,20 +95,20 @@ export default function AboutPage() {
             </motion.div>
 
             <motion.div
-              className="grid grid-cols-2 gap-4"
+              className="grid min-w-0 grid-cols-2 gap-4"
               initial={{ opacity: 0, x: 32 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, margin: '-80px' }}
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
             >
               <img
-                src={unsplash('1737495194047-5e353ea3e6d9', 700, 80)}
-                alt="Inside SAWABA salon"
+                src="/images/about-story.jpg"
+                alt="Inside SAWABA Grooming Studio"
                 className="aspect-[3/4] w-full rounded-2xl border border-night-800 object-cover"
                 loading="lazy"
               />
               <img
-                src={unsplash('1531384441138-2736e62e0919', 700, 80)}
+                src="/images/about-team.jpg"
                 alt="Barber styling client"
                 className="mt-10 aspect-[3/4] w-full rounded-2xl border border-night-800 object-cover"
                 loading="lazy"
@@ -236,7 +235,7 @@ export default function AboutPage() {
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
             >
               <img
-                src={unsplash('1560250097-0b93528c311a', 1000, 80)}
+                src="/images/about-1.jpg"
                 alt="The SAWABA experience"
                 className="w-full object-cover"
                 loading="lazy"

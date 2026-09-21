@@ -1,4 +1,5 @@
 import { api, type BarberItem, type Paged, type ServiceItem } from './index'
+import { cachedJson } from './offlineCache'
 
 /**
  * Public catalog helpers — the single source of truth for services and
@@ -75,11 +76,15 @@ function normalizeBarber(item: BarberItem & {
 }
 
 export async function fetchCatalogServices(): Promise<CatalogService[]> {
-  const data = await api.get<Paged<ServiceItem>>('/api/services?perPage=100')
-  return data.items.map(normalizeService)
+  return cachedJson('services', async () => {
+    const data = await api.get<Paged<ServiceItem>>('/api/services?perPage=100')
+    return data.items.map(normalizeService)
+  })
 }
 
 export async function fetchCatalogBarbers(): Promise<CatalogBarber[]> {
-  const data = await api.get<Paged<BarberItem>>('/api/barbers?perPage=100')
-  return data.items.map(normalizeBarber)
+  return cachedJson('barbers', async () => {
+    const data = await api.get<Paged<BarberItem>>('/api/barbers?perPage=100')
+    return data.items.map(normalizeBarber)
+  })
 }

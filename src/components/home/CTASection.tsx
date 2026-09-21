@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion'
-import { unsplash } from '../../utils/format'
 import { ButtonLink } from '../ui/Button'
 
 export default function CTASection() {
@@ -7,7 +6,7 @@ export default function CTASection() {
     <section className="relative overflow-hidden bg-night-950 py-24 md:py-32">
       <div className="absolute inset-0">
         <img
-          src={unsplash('1512864084360-7c0c4d0a0845', 1920, 60)}
+          src="/images/cta.jpg"
           alt=""
           aria-hidden="true"
           className="h-full w-full object-cover opacity-15"

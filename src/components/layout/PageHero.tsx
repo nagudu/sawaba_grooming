@@ -1,13 +1,12 @@
 import { motion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { unsplash } from '../../utils/format'
-
 interface PageHeroProps {
   eyebrow: string
   title: string
   description?: string
-  imageId?: string
+  /** Local image path (e.g. /images/pagehero.jpg) — never an external URL. */
+  image?: string
   crumb: string
 }
 
@@ -15,14 +14,14 @@ export default function PageHero({
   eyebrow,
   title,
   description,
-  imageId = '1596580817363-a4a8f67d4bc8',
+  image = '/images/pagehero.jpg',
   crumb,
 }: PageHeroProps) {
   return (
     <section className="relative overflow-hidden bg-night-950 pt-[72px]">
       <div className="absolute inset-0">
         <img
-          src={unsplash(imageId, 1600, 60)}
+          src={image}
           alt=""
           aria-hidden="true"
           className="h-full w-full scale-105 object-cover opacity-20"

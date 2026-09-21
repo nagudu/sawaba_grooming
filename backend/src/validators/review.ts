@@ -15,6 +15,7 @@ export const createReviewSchema = z.object({
   customerImage: z.string().trim().url('Image must be a valid URL.').max(500).optional().nullable(),
   serviceId: z.coerce.number().int().positive().optional().nullable(),
   serviceName: z.string().trim().max(150).optional().nullable(),
+  barberId: z.coerce.number().int().positive().optional().nullable(),
   rating: z.coerce.number().int().min(1, 'Rating must be between 1 and 5.').max(5),
   comment: z.string().trim().min(5, 'Comment must be at least 5 characters.').max(2000),
 })
@@ -34,6 +35,7 @@ export const listReviewsQuerySchema = z.object({
   approved: z.enum(['true', 'false', 'all']).optional().default('true'),
   status: z.enum([...REVIEW_STATUSES, 'all']).optional(),
   search: z.string().trim().max(200).optional(),
+  barberId: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().min(1).optional(),
   perPage: z.coerce.number().int().min(1).max(100).optional(),
 })

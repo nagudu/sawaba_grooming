@@ -12,6 +12,9 @@ import { ContactMessage } from './ContactMessage'
 import { ContactReply } from './ContactReply'
 import { Payment } from './Payment'
 import { PaymentSetting } from './PaymentSetting'
+import { CheckoutSession } from './CheckoutSession'
+import { BarberEarning } from './BarberEarning'
+import { BarberAssignmentHistory } from './BarberAssignmentHistory'
 
 // Barber <-> Service (many-to-many via BarberService)
 Barber.belongsToMany(Service, { through: BarberService, as: 'services', foreignKey: 'barberId', otherKey: 'serviceId' })
@@ -24,6 +27,8 @@ Customer.hasMany(Payment, { as: 'payments', foreignKey: 'customerId', onDelete: 
 // Appointment
 Appointment.belongsTo(Service, { as: 'service', foreignKey: 'serviceId', onDelete: 'RESTRICT' })
 Appointment.belongsTo(Barber, { as: 'barber', foreignKey: 'barberId', onDelete: 'RESTRICT' })
+// Admin-assigned barber (assignment system) — may be null until assigned.
+Appointment.belongsTo(Barber, { as: 'assignedBarber', foreignKey: 'assignedBarberId', onDelete: 'SET NULL' })
 Appointment.belongsTo(Customer, { as: 'customer', foreignKey: 'customerId', onDelete: 'SET NULL' })
 Appointment.hasOne(Payment, { as: 'payment', foreignKey: 'appointmentId', onDelete: 'CASCADE' })
 Service.hasMany(Appointment, { foreignKey: 'serviceId' })
@@ -50,6 +55,27 @@ ContactMessage.hasMany(ContactReply, {
 ContactReply.belongsTo(ContactMessage, { as: 'contactMessage', foreignKey: 'contactMessageId', onDelete: 'CASCADE' })
 ContactReply.belongsTo(Admin, { as: 'admin', foreignKey: 'adminId', onDelete: 'SET NULL' })
 
+// Checkout sessions (temporary booking sessions — NOT appointments until payment completes)
+CheckoutSession.belongsTo(Service, { as: 'service', foreignKey: 'serviceId', onDelete: 'CASCADE' })
+CheckoutSession.belongsTo(Barber, { as: 'barber', foreignKey: 'barberId', onDelete: 'CASCADE' })
+
+// Barber earnings (commission ledger with immutable snapshots)
+BarberEarning.belongsTo(Appointment, { as: 'appointment', foreignKey: 'appointmentId', onDelete: 'CASCADE' })
+BarberEarning.belongsTo(Barber, { as: 'barber', foreignKey: 'barberId', onDelete: 'CASCADE' })
+Appointment.hasOne(BarberEarning, { as: 'earning', foreignKey: 'appointmentId', onDelete: 'CASCADE' })
+Barber.hasMany(BarberEarning, { as: 'earnings', foreignKey: 'barberId', onDelete: 'CASCADE' })
+
+// Barber assignment audit trail
+BarberAssignmentHistory.belongsTo(Appointment, { as: 'appointment', foreignKey: 'appointmentId', onDelete: 'CASCADE' })
+BarberAssignmentHistory.belongsTo(Barber, { as: 'previousBarber', foreignKey: 'previousBarberId', onDelete: 'SET NULL' })
+BarberAssignmentHistory.belongsTo(Barber, { as: 'newBarber', foreignKey: 'newBarberId', onDelete: 'SET NULL' })
+BarberAssignmentHistory.belongsTo(Admin, { as: 'changedBy', foreignKey: 'changedByAdminId', onDelete: 'SET NULL' })
+Appointment.hasMany(BarberAssignmentHistory, { as: 'assignmentHistory', foreignKey: 'appointmentId', onDelete: 'CASCADE' })
+
+// Reviews
+Review.belongsTo(Barber, { as: 'barber', foreignKey: 'barberId', onDelete: 'SET NULL' })
+Barber.hasMany(Review, { as: 'reviews', foreignKey: 'barberId', onDelete: 'SET NULL' })
+
 export {
   Admin,
   Customer,
@@ -66,4 +92,7 @@ export {
   ContactReply,
   Payment,
   PaymentSetting,
+  CheckoutSession,
+  BarberEarning,
+  BarberAssignmentHistory,
 }

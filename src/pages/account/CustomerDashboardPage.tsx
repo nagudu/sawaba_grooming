@@ -301,8 +301,8 @@ export default function CustomerDashboardPage() {
               </Link>
             </div>
             {summary.recent.length ? (
-              <div className="overflow-hidden rounded-2xl border border-night-800">
-                <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto rounded-2xl border border-night-800">
+                <table className="w-full min-w-[560px] text-left text-sm">
                   <thead className="bg-night-900/60 text-[11px] uppercase tracking-[0.14em] text-night-500">
                     <tr>
                       <th className="px-5 py-3 font-semibold">Date</th>
@@ -330,7 +330,7 @@ export default function CustomerDashboardPage() {
                           </p>
                         </td>
                         <td className="hidden px-5 py-3.5 text-night-400 sm:table-cell">
-                          {apt.barber?.name ?? '—'}
+                          {apt.assignedBarber?.name ?? apt.barber?.name ?? '—'}
                         </td>
                         <td className="px-5 py-3.5 font-semibold text-night-100">
                           {formatPrice(apt.totalAmount)}
@@ -464,10 +464,10 @@ function UpcomingCard({
               {appointment.service?.name ?? 'Service'}
             </p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-night-400">
-              {appointment.barber && (
+              {(appointment.assignedBarber || appointment.barber) && (
                 <span className="flex items-center gap-1">
                   <User className="h-3.5 w-3.5 shrink-0 text-night-500" />
-                  {appointment.barber.name}
+                  {appointment.assignedBarber?.name ?? appointment.barber?.name}
                 </span>
               )}
               <span className="flex items-center gap-1">

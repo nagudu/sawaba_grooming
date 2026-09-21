@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { ButtonLink } from '../ui/Button'
+import ThemePicker from '../ui/ThemePicker'
 import { site } from '../../data/services'
 
 interface MobileMenuProps {
@@ -52,14 +53,17 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
               <span className="font-display text-xl font-semibold tracking-wide text-night-50">
                 {site.name}
               </span>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close menu"
-                className="rounded-lg p-2 text-night-400 transition-colors hover:text-gold-400"
-              >
-                <X className="h-6 w-6" />
-              </button>
+              <div className="flex items-center gap-1">
+                <ThemePicker />
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close menu"
+                  className="rounded-lg p-2 text-night-400 transition-colors hover:text-gold-400"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
             </div>
 
             <nav className="mt-12 flex flex-1 flex-col gap-1" aria-label="Mobile navigation">

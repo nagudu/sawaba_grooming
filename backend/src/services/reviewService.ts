@@ -13,6 +13,7 @@ export interface ReviewPublic {
   customerImage: string | null
   serviceId: number | null
   serviceName: string | null
+  barberId: number | null
   rating: number
   comment: string
   status: ReviewStatus
@@ -30,6 +31,7 @@ function serializeReview(review: Review): ReviewPublic {
     customerImage: review.customerImage,
     serviceId: review.serviceId ?? null,
     serviceName: review.serviceName ?? null,
+    barberId: review.barberId ?? null,
     rating: Number(review.rating),
     comment: review.comment,
     status: review.status,
@@ -47,6 +49,7 @@ export async function createReview(input: CreateReviewInput): Promise<ReviewPubl
     customerImage: input.customerImage ?? null,
     serviceId: input.serviceId ?? null,
     serviceName: input.serviceName ?? null,
+    barberId: input.barberId ?? null,
     rating: input.rating,
     comment: input.comment,
     status: 'PENDING',
@@ -59,6 +62,7 @@ export async function listReviews(query: {
   approved?: string
   status?: string
   search?: string
+  barberId?: number
   page?: number
   perPage?: number
 }): Promise<Paged<ReviewPublic>> {
@@ -71,6 +75,12 @@ export async function listReviews(query: {
     where.status = 'APPROVED'
   } else if (query.approved === 'false') {
     where.status = 'PENDING'
+  }
+
+  // Filter by barber when the validated `barberId` query param is present —
+  // used by barber profiles to fetch only their own approved reviews.
+  if (query.barberId) {
+    where.barberId = query.barberId
   }
 
   if (query.search) {

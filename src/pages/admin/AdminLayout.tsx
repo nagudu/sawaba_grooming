@@ -9,7 +9,9 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Wallet,
   Settings2,
+  Palette,
   UsersRound,
   Scissors,
   ShieldCheck,
@@ -27,11 +29,13 @@ const NAV_ITEMS = [
   { to: '/admin/payments', label: 'Payments', icon: CreditCard },
   { to: '/admin/services', label: 'Services', icon: Scissors },
   { to: '/admin/barbers', label: 'Barbers', icon: Users },
+  { to: '/admin/barber-earnings', label: 'Barber Earnings', icon: Wallet },
   { to: '/admin/customers', label: 'Customers', icon: UsersRound },
   { to: '/admin/gallery', label: 'Gallery', icon: Images },
   { to: '/admin/reviews', label: 'Reviews', icon: Star },
   { to: '/admin/contacts', label: 'Contact Messages', icon: Contact2 },
   { to: '/admin/payment-settings', label: 'Payment Settings', icon: Settings2 },
+  { to: '/admin/appearance', label: 'Appearance', icon: Palette },
 ]
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {

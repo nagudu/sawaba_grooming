@@ -10,7 +10,14 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# Locally uploaded images (barbers/gallery/services/receipts) — runtime data,
+# but the shipped seed copies in backend/seed-assets are committed
+backend/uploads
 *.local
+
+# deploy/ ships a prebuilt backend bundle (compiled dist + prod deps manifest)
+!deploy/dist/
 
 # Editor directories and files
 .vscode/*

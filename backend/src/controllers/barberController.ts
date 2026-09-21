@@ -3,6 +3,7 @@ import {
   createBarber,
   listBarbers,
   getBarberById,
+  getBarberByIdForAdmin,
   updateBarber,
   countBarberAppointments,
   deleteBarber,
@@ -11,7 +12,7 @@ import {
 } from '../services/barberService'
 import { successRes } from '../utils/response'
 import { Barber } from '../models'
-import { uploadImageToCloudinary, deleteImageFromCloudinary } from '../utils/upload'
+import { uploadImageToCloudinary, deleteImageByUrl } from '../utils/upload'
 import { AppError, NotFoundError } from '../utils/errors'
 import type { CreateBarberInput, UpdateBarberInput } from '../validators/barber'
 
@@ -20,7 +21,7 @@ async function withUploadedImage(req: Request, next: NextFunction, fallback: str
   if (!file) return fallback
 
   try {
-    const uploaded = await uploadImageToCloudinary(file.buffer, 'sawaba-barbers')
+    const uploaded = await uploadImageToCloudinary(file.buffer, 'sawaba-barbers', file.mimetype)
     return uploaded.url
   } catch (error) {
     next(new AppError('Image upload failed. Please try again.', 500))
@@ -43,8 +44,18 @@ export async function createBarberHandler(req: Request, res: Response, next: Nex
 
 export async function listBarbersHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const query = req.query as Record<string, unknown>
-    const result = await listBarbers(query)
+    const query = { ...(req.query as Record<string, unknown>) } as Record<string, unknown> & {
+      includeInactive?: string
+      barberType?: string
+    }
+    const authHeader = req.headers.authorization
+    const isAdminRequest = Boolean(authHeader && authHeader.startsWith('Bearer '))
+    if (!isAdminRequest) {
+      // Public callers never get internal filters or inactive barbers.
+      delete query.includeInactive
+      delete query.barberType
+    }
+    const result = await listBarbers(query as never, { adminView: isAdminRequest })
     successRes(res, 'Barbers retrieved.', result, 200)
   } catch (error) {
     next(error)
@@ -53,7 +64,13 @@ export async function listBarbersHandler(req: Request, res: Response, next: Next
 
 export async function getBarberByIdHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const barber = await getBarberById(Number(req.params.id))
+    // Admin-authenticated requests get the full business profile (type,
+    // commission, location); public requests see the clean public profile.
+    const authHeader = req.headers.authorization
+    const isAdminRequest = Boolean(authHeader && authHeader.startsWith('Bearer '))
+    const barber = isAdminRequest
+      ? await getBarberByIdForAdmin(Number(req.params.id))
+      : await getBarberById(Number(req.params.id))
     successRes(res, 'Barber retrieved.', barber, 200)
   } catch (error) {
     next(error)
@@ -100,8 +117,8 @@ export async function deleteBarberHandler(req: Request, res: Response, next: Nex
 
     await deleteBarber(id)
 
-    if (existing.image && existing.image.includes('cloudinary')) {
-      await deleteImageFromCloudinary(existing.image.split('/').pop()?.split('.')[0] ?? '').catch(() => undefined)
+    if (existing.image) {
+      await deleteImageByUrl(existing.image).catch(() => undefined)
     }
 
     successRes(res, 'Barber deleted successfully.', { deactivated: false }, 200)

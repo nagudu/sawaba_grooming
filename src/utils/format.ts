@@ -1,7 +1,3 @@
-export function unsplash(photoId: string, w = 900, q = 80): string {
-  return `https://images.unsplash.com/photo-${photoId}?auto=format&fit=crop&w=${w}&q=${q}`
-}
-
 export function formatPrice(price: number): string {
   return `\u20A6${price.toLocaleString('en-NG')}`
 }

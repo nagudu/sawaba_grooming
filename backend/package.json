@@ -1,7 +1,7 @@
 {
   "name": "sawaba-backend",
   "version": "1.0.0",
-  "description": "REST API for SAWABA Grooming Salon — appointments, services, barbers, gallery, reviews and contact management.",
+  "description": "REST API for SAWABA Grooming Studio — appointments, services, barbers, gallery, reviews and contact management.",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

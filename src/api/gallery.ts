@@ -1,4 +1,5 @@
 import { api, type Paged, type GalleryItem } from './index'
+import { cachedJson } from './offlineCache'
 
 export interface PublicGalleryImage {
   id: string
@@ -18,11 +19,13 @@ export const PUBLIC_GALLERY_CATEGORIES: Array<{ value: string; label: string }> 
 ]
 
 export async function fetchGalleryImages(): Promise<PublicGalleryImage[]> {
-  const data = await api.get<Paged<GalleryItem>>('/api/gallery?page=1&perPage=100')
-  return data.items.map((item) => ({
-    id: String(item.id),
-    src: item.image,
-    title: item.title,
-    category: item.category,
-  }))
+  return cachedJson('gallery', async () => {
+    const data = await api.get<Paged<GalleryItem>>('/api/gallery?page=1&perPage=100')
+    return data.items.map((item) => ({
+      id: String(item.id),
+      src: item.image,
+      title: item.title,
+      category: item.category,
+    }))
+  })
 }

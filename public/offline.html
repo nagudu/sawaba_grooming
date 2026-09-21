@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline — SAWABA Grooming Studio</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0a0a0c;
+        color: #f6f6f4;
+        font-family: Georgia, 'Times New Roman', serif;
+        text-align: center;
+        padding: 24px;
+      }
+      .box { max-width: 480px; }
+      .mark {
+        display: inline-block;
+        border: 1px solid rgba(201,162,75,0.5);
+        border-radius: 9999px;
+        padding: 10px 26px;
+        color: #c9a24b;
+        letter-spacing: 0.25em;
+        font-size: 12px;
+        text-transform: uppercase;
+        margin-bottom: 28px;
+      }
+      h1 { font-size: 30px; font-weight: 600; margin: 0 0 14px; }
+      p { color: #a7a7a0; font-family: system-ui, sans-serif; font-size: 15px; line-height: 1.6; margin: 0 0 26px; }
+      button {
+        background: #c9a24b;
+        border: 0;
+        border-radius: 9999px;
+        color: #0a0a0c;
+        font-family: system-ui, sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 13px 30px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <div class="mark">SAWABA</div>
+      <h1>You're offline</h1>
+      <p>
+        This page hasn't been saved for offline use yet. Pages you have already
+        visited — along with services, barbers, gallery and reviews — are still
+        available. Reconnect to load everything fresh.
+      </p>
+      <button onclick="window.location.reload()">Try Again</button>
+    </div>
+  </body>
+</html>

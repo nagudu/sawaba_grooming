@@ -1,5 +1,5 @@
 import { Op, fn, col } from 'sequelize'
-import { Barber, BarberAvailability, BarberService, Service, Appointment } from '../models'
+import { Barber, BarberAvailability, BarberService, Review, Service, Appointment } from '../models'
 import { NotFoundError } from '../utils/errors'
 import { getPagination } from '../utils/response'
 import { slugify } from '../utils/slug'
@@ -17,6 +17,8 @@ export interface BarberPublic {
   biography: string | null
   experience: number
   rating: number
+  reviewCount?: number
+  reviewAverage?: number
   isActive: boolean
   appointmentCount?: number
   createdAt: Date
@@ -24,6 +26,18 @@ export interface BarberPublic {
   services?: Array<{ id: number; name: string; slug: string; price: number; duration: number }>
 }
 
+/** Admin-only business fields (requirement #16/#23) — never serialized publicly. */
+export interface BarberAdmin extends BarberPublic {
+  barberType: 'INTERNAL' | 'EXTERNAL'
+  location: string | null
+  commissionType: 'PERCENTAGE' | 'FIXED'
+  commissionValue: number
+}
+
+/**
+ * Public serializer — deliberately OMITS barberType, location, commissionType
+ * and commissionValue. Customers see the barber, not the business terms.
+ */
 export function serializeBarber(
   barber: Barber,
   includeServices = false,
@@ -57,6 +71,19 @@ export function serializeBarber(
   return base
 }
 
+/** Admin serializer — public fields plus the internal business classification. */
+export function serializeBarberForAdmin(
+  barber: Barber,
+  includeServices = false,
+): BarberAdmin {
+  const base = serializeBarber(barber, includeServices) as BarberAdmin
+  base.barberType = barber.barberType ?? 'INTERNAL'
+  base.location = barber.location ?? null
+  base.commissionType = barber.commissionType ?? 'PERCENTAGE'
+  base.commissionValue = Number(barber.commissionValue ?? 0)
+  return base
+}
+
 const serviceScope = {
   include: [
     {
@@ -65,6 +92,35 @@ const serviceScope = {
       through: { attributes: [] },
     },
   ],
+}
+
+/**
+ * Attaches real approved-review counts and averages to serialized barbers.
+ * Counts come from the `barberId` column on reviews — never fabricated, so a
+ * barber with no linked reviews shows 0 rather than a seeded placeholder.
+ */
+async function attachReviewStats(items: BarberPublic[]): Promise<void> {
+  if (items.length === 0) return
+  const rows = await Review.findAll({
+    attributes: [
+      'barberId',
+      [fn('COUNT', col('Review.id')), 'count'],
+      [fn('AVG', col('Review.rating')), 'average'],
+    ],
+    where: { status: 'APPROVED', barberId: { [Op.in]: items.map((item) => item.id) } },
+    group: ['barberId'],
+    raw: true,
+  })
+  const stats = new Map(
+    (rows as unknown as Array<{ barberId: number; count: string | number; average: string | number }>).map(
+      (row) => [Number(row.barberId), row],
+    ),
+  )
+  for (const item of items) {
+    const row = stats.get(item.id)
+    item.reviewCount = row ? Number(row.count) : 0
+    item.reviewAverage = row ? Math.round(Number(row.average) * 10) / 10 : 0
+  }
 }
 
 async function uniqueSlug(name: string, excludeId?: number): Promise<string> {
@@ -84,7 +140,7 @@ async function uniqueSlug(name: string, excludeId?: number): Promise<string> {
   }
 }
 
-export async function createBarber(input: CreateBarberInput): Promise<BarberPublic> {
+export async function createBarber(input: CreateBarberInput): Promise<BarberAdmin> {
   const { serviceIds, ...data } = input
   const slug = await uniqueSlug(data.name)
   const barber = await Barber.create({ ...data, slug })
@@ -93,7 +149,7 @@ export async function createBarber(input: CreateBarberInput): Promise<BarberPubl
     await barber.setServices(serviceIds)
   }
 
-  return getBarberById(barber.id)
+  return getBarberByIdForAdmin(barber.id)
 }
 
 export async function listBarbers(
@@ -102,9 +158,12 @@ export async function listBarbers(
     isActive?: string
     includeInactive?: string
     search?: string
+    barberType?: string
+    location?: string
     page?: number
     perPage?: number
   },
+  options: { adminView?: boolean } = {},
 ): Promise<Paged<BarberPublic>> {
   const { page, perPage, offset, limit } = getPagination(query as Record<string, unknown>)
   const includeInactive = query.includeInactive === 'true'
@@ -125,6 +184,11 @@ export async function listBarbers(
           ],
         }
       : {}),
+    // Admin-only barber-type filter — an unauthenticated request can never
+    // reach this because the controller strips the param before calling.
+    ...(query.barberType ? { barberType: query.barberType as 'INTERNAL' | 'EXTERNAL' } : {}),
+    // Coverage-area filter (#11) — partial match on external barbers' base.
+    ...(query.location ? { location: { [Op.like]: `%${query.location}%` } } : {}),
   }
 
   const { rows, count } = await Barber.findAndCountAll({
@@ -149,7 +213,11 @@ export async function listBarbers(
     limit,
   })
 
-  const items = rows.map((barber) => serializeBarber(barber, true))
+  // Admin callers get business fields (type/commission/location); public callers never do.
+  const items = rows.map((barber) =>
+    options.adminView ? serializeBarberForAdmin(barber, true) : serializeBarber(barber, true),
+  )
+  await attachReviewStats(items)
 
   if (includeInactive) {
     const countRows = await Appointment.findAll({
@@ -180,10 +248,22 @@ export async function getBarberById(id: number): Promise<BarberPublic> {
   if (!barber) {
     throw new NotFoundError('Barber not found.')
   }
-  return serializeBarber(barber, true)
+  const serialized = serializeBarber(barber, true)
+  await attachReviewStats([serialized])
+  return serialized
 }
 
-export async function updateBarber(id: number, input: UpdateBarberInput): Promise<BarberPublic> {
+export async function getBarberByIdForAdmin(id: number): Promise<BarberAdmin> {
+  const barber = await Barber.findByPk(id, serviceScope)
+  if (!barber) {
+    throw new NotFoundError('Barber not found.')
+  }
+  const serialized = serializeBarberForAdmin(barber, true)
+  await attachReviewStats([serialized])
+  return serialized
+}
+
+export async function updateBarber(id: number, input: UpdateBarberInput): Promise<BarberAdmin> {
   const barber = await Barber.findByPk(id)
   if (!barber) {
     throw new NotFoundError('Barber not found.')
@@ -192,16 +272,7 @@ export async function updateBarber(id: number, input: UpdateBarberInput): Promis
   const { serviceIds, ...data } = input
 
   if (Object.keys(data).length > 0) {
-    const changes: {
-      name?: string
-      slug?: string
-      image?: string | null
-      specialty?: string | null
-      biography?: string | null
-      experience?: number
-      rating?: number
-      isActive?: boolean
-    } = { ...data }
+    const changes: Record<string, unknown> = { ...data }
     if (data.name && data.name !== barber.name) {
       changes.slug = await uniqueSlug(data.name, id)
     }
@@ -211,7 +282,7 @@ export async function updateBarber(id: number, input: UpdateBarberInput): Promis
     await barber.setServices(serviceIds)
   }
 
-  return getBarberById(id)
+  return getBarberByIdForAdmin(id)
 }
 
 /**

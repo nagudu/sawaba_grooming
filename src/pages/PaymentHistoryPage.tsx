@@ -80,7 +80,7 @@ export default function PaymentHistoryPage() {
         crumb="Payment History"
         title="Your Payment History"
         description="Look up your payments and receipts using your appointment ID and phone number."
-        imageId="1563013544-824ae1b704d3"
+        image="/images/pagehero.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">

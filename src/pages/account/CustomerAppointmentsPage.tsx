@@ -121,10 +121,10 @@ function BookingCard({
 
             {/* Barber + date + time row */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-night-400">
-              {appointment.barber && (
+              {(appointment.assignedBarber || appointment.barber) && (
                 <span className="flex items-center gap-1">
                   <User className="h-3.5 w-3.5 shrink-0 text-night-500" />
-                  {appointment.barber.name}
+                  {appointment.assignedBarber?.name ?? appointment.barber?.name}
                 </span>
               )}
               <span className="flex items-center gap-1">

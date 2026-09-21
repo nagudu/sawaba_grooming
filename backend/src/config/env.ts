@@ -23,10 +23,12 @@ export const env = {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean),
+  // Optional: only needed when UPLOAD_DRIVER=cloudinary. The default local
+  // disk driver works offline with no third-party account at all.
   cloudinary: {
-    cloudName: required('CLOUDINARY_CLOUD_NAME'),
-    apiKey: required('CLOUDINARY_API_KEY'),
-    apiSecret: required('CLOUDINARY_API_SECRET'),
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? '',
+    apiKey: process.env.CLOUDINARY_API_KEY ?? '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET ?? '',
     uploadFolder: process.env.CLOUDINARY_UPLOAD_FOLDER ?? 'sawaba-salon',
   },
   adminSeed: {

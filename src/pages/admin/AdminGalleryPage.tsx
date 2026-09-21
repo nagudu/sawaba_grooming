@@ -36,6 +36,7 @@ export default function AdminGalleryPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<GalleryForm>(EMPTY_FORM)
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<GalleryItem | null>(null)
   const [busy, setBusy] = useState(false)
@@ -56,6 +57,18 @@ export default function AdminGalleryPage() {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Local preview of the chosen file — shows exactly how the full image will
+  // appear on the public gallery (object-contain, nothing cropped).
+  useEffect(() => {
+    if (!imageFile) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(imageFile)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [imageFile])
 
   const openCreate = () => {
     setEditing(null)
@@ -149,12 +162,16 @@ export default function AdminGalleryPage() {
               key={item.id}
               className="card-lux group relative overflow-hidden transition-colors hover:border-gold-500/40"
             >
-              <img
-                src={item.image}
-                alt={item.title}
-                loading="lazy"
-                className="aspect-[4/3] w-full object-cover"
-              />
+              {/* Same full-image rendering as the public Gallery card:
+                  object-contain in a fixed frame — nothing is cropped. */}
+              <div className="h-48 w-full bg-night-950/60">
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  loading="lazy"
+                  className="h-full w-full object-contain"
+                />
+              </div>
               <div className="p-4">
                 <p className="truncate font-display text-sm text-night-100">{item.title}</p>
                 <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-500">
@@ -250,6 +267,20 @@ export default function AdminGalleryPage() {
               className="field mt-3"
               placeholder="https://.../image.jpg (optional when a file is chosen)"
             />
+            {previewUrl && (
+              <div className="mt-3">
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">
+                  Preview — exactly how it appears on the public gallery
+                </span>
+                <div className="h-48 w-full overflow-hidden rounded-lg border border-night-700 bg-night-950/60">
+                  <img
+                    src={previewUrl}
+                    alt="Upload preview"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

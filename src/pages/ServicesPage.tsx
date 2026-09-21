@@ -40,7 +40,7 @@ export default function ServicesPage() {
         crumb="Services"
         title="A Service for Every Look"
         description="From timeless classics to statement fades — every service is delivered with precision, premium products and the SAWABA standard."
-        imageId="1737495194047-5e353ea3e6d9"
+        image="/images/about-story.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">

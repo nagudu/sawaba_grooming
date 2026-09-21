@@ -1,4 +1,5 @@
 import { API_BASE, type AppointmentStatus, type PaymentMethod, type PaymentStatus } from './index'
+import { cachedJson } from './offlineCache'
 
 interface ApiEnvelope<T> {
   success: boolean
@@ -108,7 +109,8 @@ async function paymentsRequest<T>(path: string, init: RequestInit = {}): Promise
 }
 
 export function fetchPaymentSettings(): Promise<PaymentSettings> {
-  return paymentsRequest<PaymentSettings>('/api/payments/settings')
+  // Non-sensitive salon settings — cached so bank details render offline.
+  return cachedJson('payment:settings', () => paymentsRequest<PaymentSettings>('/api/payments/settings'))
 }
 
 export function fetchPayment(token: string): Promise<PublicPaymentBundle> {

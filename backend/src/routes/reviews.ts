@@ -45,6 +45,8 @@ export const reviewsRouter = Router()
 reviewsRouter.get('/', validate(listReviewsQuerySchema, 'query'), (req, res, next) => {
   // Public visitors may only browse APPROVED reviews; any other status filter
   // is an admin listing (PENDING / REJECTED / all) and requires the admin.
+  // `barberId` is a PUBLIC filter — barber profiles fetch their approved
+  // reviews with it, so it must not require authentication.
   const status = typeof req.query.status === 'string' ? req.query.status : undefined
   const approved = typeof req.query.approved === 'string' ? req.query.approved : undefined
   const wantsAdminList = status !== undefined || approved === 'false' || approved === 'all'

@@ -6,6 +6,7 @@ import {
   verifyPaystack,
   type PaystackWebhookEvent,
 } from '../services/paystackService'
+import { handleCheckoutWebhook } from '../services/checkoutService'
 import { successRes } from '../utils/response'
 
 export async function initializePaystackHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -39,7 +40,11 @@ export async function paystackWebhookHandler(req: Request, res: Response): Promi
 
   try {
     const payload = JSON.parse(rawBody) as PaystackWebhookEvent
-    const applied = await handlePaystackWebhook(payload)
+    // Checkout-session payments first, then legacy appointment payments.
+    let applied = await handleCheckoutWebhook(payload)
+    if (!applied) {
+      applied = await handlePaystackWebhook(payload)
+    }
     // Always 200 once the signature is valid, even for ignored events.
     res.status(200).json({ success: true, applied })
   } catch (error) {

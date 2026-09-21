@@ -4,6 +4,7 @@ import { Layout } from './components/layout/Layout'
 import { ToastProvider } from './components/ui/ToastNotification'
 import { AdminAuthProvider } from './store/adminAuth'
 import { CustomerAuthProvider } from './store/customerAuth'
+import OfflineIndicator from './components/ui/OfflineIndicator'
 import { getCustomerToken } from './api/account'
 import { getAdminToken } from './api'
 
@@ -41,12 +42,14 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminAppointmentsPage from './pages/admin/AdminAppointmentsPage'
 import AdminServicesPage from './pages/admin/AdminServicesPage'
 import AdminBarbersPage from './pages/admin/AdminBarbersPage'
+import AdminBarberEarningsPage from './pages/admin/AdminBarberEarningsPage'
 import AdminGalleryPage from './pages/admin/AdminGalleryPage'
 import AdminReviewsPage from './pages/admin/AdminReviewsPage'
 import AdminContactsPage from './pages/admin/AdminContactsPage'
 import AdminCustomersPage from './pages/admin/AdminCustomersPage'
 import AdminPaymentsPage from './pages/admin/AdminPaymentsPage'
 import AdminPaymentSettingsPage from './pages/admin/AdminPaymentSettingsPage'
+import AdminAppearancePage from './pages/admin/AdminAppearancePage'
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
@@ -148,8 +151,10 @@ function AdminRoutes() {
         <Route path="appointments" element={<AdminAppointmentsPage />} />
         <Route path="payments" element={<AdminPaymentsPage />} />
         <Route path="payment-settings" element={<AdminPaymentSettingsPage />} />
+        <Route path="appearance" element={<AdminAppearancePage />} />
         <Route path="services" element={<AdminServicesPage />} />
         <Route path="barbers" element={<AdminBarbersPage />} />
+        <Route path="barber-earnings" element={<AdminBarberEarningsPage />} />
         <Route path="gallery" element={<AdminGalleryPage />} />
         <Route path="reviews" element={<AdminReviewsPage />} />
         <Route path="contacts" element={<AdminContactsPage />} />
@@ -187,6 +192,7 @@ export default function App() {
         <AdminAuthProvider>
           <CustomerAuthProvider>
             <AppRoutes />
+            <OfflineIndicator />
           </CustomerAuthProvider>
         </AdminAuthProvider>
       </ToastProvider>

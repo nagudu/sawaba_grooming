@@ -254,7 +254,7 @@ export default function CustomerBookingDetailPage() {
                   <p className="mt-0.5 text-sm text-night-400">
                     You have selected Cash Payment. Please pay{' '}
                     <span className="font-bold text-gold-400">{formatPrice(appointment.totalAmount)}</span> at
-                    SAWABA GROOMING SALON before your appointment can be confirmed. No receipt
+                    SAWABA GROOMING STUDIO before your appointment can be confirmed. No receipt
                     needed — our team confirms it in person.
                   </p>
                 </>
@@ -340,8 +340,8 @@ export default function CustomerBookingDetailPage() {
           />
           <DetailRow
             icon={User}
-            label="Barber"
-            value={appointment.barber?.name ?? 'Any available'}
+            label={appointment.assignedBarber ? 'Your Barber' : 'Barber'}
+            value={appointment.assignedBarber?.name ?? appointment.barber?.name ?? 'Any available'}
           />
           <DetailRow
             icon={CalendarDays}

@@ -1,7 +1,7 @@
 import { Gallery, Barber } from '../models'
 import { AppError, NotFoundError } from '../utils/errors'
 import { getPagination } from '../utils/response'
-import { deleteImageFromCloudinary } from '../utils/upload'
+import { deleteImageByUrl } from '../utils/upload'
 import type { CreateGalleryInput, UpdateGalleryInput } from '../validators/gallery'
 import type { Paged } from '../types'
 
@@ -117,14 +117,7 @@ export async function deleteGalleryItem(id: number): Promise<void> {
     throw new NotFoundError('Gallery item not found.')
   }
 
-  const url = new URL(image.image)
-  const segments = url.pathname.split('/')
-  const lastSegment = segments[segments.length - 1]
-  const publicIdCandidate = lastSegment.split('.')[0]
-
-  if (publicIdCandidate && url.hostname.includes('cloudinary')) {
-    await deleteImageFromCloudinary(publicIdCandidate).catch(() => undefined)
-  }
+  await deleteImageByUrl(image.image).catch(() => undefined)
 
   await image.destroy()
 }

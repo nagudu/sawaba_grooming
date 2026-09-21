@@ -4,6 +4,7 @@ import {
   Appointment,
   Barber,
   BarberAvailability,
+  BarberEarning,
   BarberService,
   Payment,
   Service,
@@ -13,6 +14,9 @@ import { getPagination } from '../utils/response'
 import { hhmmToMinutes } from './availabilityService'
 import { findOrCreateCustomer } from './customerService'
 import { markPaymentCancelled } from './paymentService'
+import { createEarningSnapshot, syncEarningForAppointment } from './commissionService'
+import { uploadImageToCloudinary } from '../utils/upload'
+import { getPaymentSettingsRecord } from './paymentSettingsService'
 import {
   APPOINTMENT_STATUSES,
   canTransition,
@@ -75,6 +79,19 @@ export interface AppointmentPublic {
     paymentMethod: PaymentMethod | null
     accessToken: string
   }
+  /** ── Admin-only block (requirement #23) — stripped from customer-visible payloads. ── */
+  customerLocation?: string | null
+  assignedBarberId?: number | null
+  assignedBarber?: { id: number; name: string; image: string | null; barberType?: string; location?: string | null } | null
+  assignedAt?: Date | null
+  earning?: {
+    commissionType: string
+    commissionRateSnapshot: number
+    serviceAmount: number
+    commissionAmount: number
+    studioAmount: number
+    status: string
+  } | null
 }
 
 export interface BookingConfirmation {
@@ -124,6 +141,18 @@ export function serializeAppointment(appointment: Appointment): AppointmentPubli
     updatedAt: appointment.updatedAt,
   }
 
+  // Customer-safe assigned-barber info (#15): name/image only — the type,
+  // location and commission fields stay admin-exclusive.
+  const customerAssignedBarber = (appointment as { assignedBarber?: Barber | null }).assignedBarber
+  if (customerAssignedBarber) {
+    base.assignedBarberId = customerAssignedBarber.id
+    base.assignedBarber = {
+      id: customerAssignedBarber.id,
+      name: customerAssignedBarber.name,
+      image: customerAssignedBarber.image,
+    }
+  }
+
   if (appointment.service) {
     base.service = {
       id: appointment.service.id,
@@ -153,6 +182,55 @@ export function serializeAppointment(appointment: Appointment): AppointmentPubli
 
   return base
 }
+
+/**
+ * Admin view — adds customer location, assignment data and the commission
+ * breakdown (requirement #13). NEVER used for customer-facing responses.
+ */
+export function serializeAppointmentForAdmin(
+  appointment: Appointment & {
+    assignedBarber?: Barber | null
+    earning?: { commissionType: string; commissionRateSnapshot: number | string; serviceAmount: number | string; commissionAmount: number | string; studioAmount: number | string; status: string } | null
+  },
+): AppointmentPublic {
+  const base = serializeAppointment(appointment)
+
+  base.customerLocation = appointment.customerLocation ?? null
+  base.assignedBarberId = appointment.assignedBarberId ?? null
+  base.assignedAt = appointment.assignedAt ?? null
+
+  if ((appointment as { assignedBarber?: Barber | null }).assignedBarber) {
+    const assigned = (appointment as { assignedBarber: Barber }).assignedBarber
+    base.assignedBarber = {
+      id: assigned.id,
+      name: assigned.name,
+      image: assigned.image,
+      barberType: assigned.barberType ?? 'INTERNAL',
+      location: assigned.location ?? null,
+    }
+  }
+
+  const earning = (appointment as { earning?: { commissionType: string; commissionRateSnapshot: number | string; serviceAmount: number | string; commissionAmount: number | string; studioAmount: number | string; status: string } | null }).earning
+  if (earning) {
+    base.earning = {
+      commissionType: earning.commissionType,
+      commissionRateSnapshot: Number(earning.commissionRateSnapshot),
+      serviceAmount: Number(earning.serviceAmount),
+      commissionAmount: Number(earning.commissionAmount),
+      studioAmount: Number(earning.studioAmount),
+      status: earning.status,
+    }
+  }
+
+  return base
+}
+
+/** Relation scope for the admin serializer (assignment + commission). */
+export const adminAppointmentInclude = [
+  ...includeRelations,
+  { model: Barber, as: 'assignedBarber', attributes: ['id', 'name', 'image', 'barberType', 'location'] },
+  { model: BarberEarning, as: 'earning' },
+] as const
 
 interface SlotCheckResult {
   serviceDuration: number
@@ -257,13 +335,63 @@ async function assertBookableSlot(
 
 export async function createAppointment(
   input: CreateAppointmentInput,
+  receiptBuffer: Buffer | null = null,
+  receiptMimetype: string | null = null,
 ): Promise<BookingConfirmation> {
+  // ── Payment rule enforcement (server-side authority) ────────────────────────
+  // A malicious client cannot create a non-cash appointment without its payment
+  // evidence: transfers must carry a receipt; online bookings are never created
+  // up front (payment first, then the appointment via verified callback).
+  const paymentMethod = input.paymentMethod
+
+  const settings = await getPaymentSettingsRecord()
+  const enabled = (settings.enabledPaymentMethods ?? []) as PaymentMethod[]
+
+  const isCash = paymentMethod === 'CASH'
+  const isOnline = paymentMethod === 'ONLINE'
+
+  if (isOnline) {
+    // Online bookings are created un-finalized (PAYMENT_REQUIRED + UNPAID) and
+    // the customer is sent straight to Paystack checkout. The appointment only
+    // becomes confirmed/ready after the backend verifies the transaction, so a
+    // cancelled or failed payment never finalizes a booking.
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      throw new UnprocessableError(
+        'Online payment is not available right now. Please choose another payment method.',
+      )
+    }
+  } else if (enabled.length > 0 && !enabled.includes(paymentMethod)) {
+    throw new UnprocessableError('This payment method is not currently accepted. Please choose another method.')
+  }
+
+  // Cash never needs a receipt; transfers/OPay MUST carry one — the customer
+  // cannot create an unverifiable unpaid non-cash booking.
+  if (!isCash && !isOnline && !receiptBuffer) {
+    throw new UnprocessableError(
+      'Payment receipt is required before you can submit your appointment. Please upload your transfer receipt.',
+    )
+  }
+
   const { servicePrice } = await assertBookableSlot(
     input.barberId,
     input.serviceId,
     input.appointmentDate,
     input.appointmentTime,
   )
+
+  // Upload the receipt only after the slot checks pass so failed bookings never
+  // leave orphan files on disk.
+  let receiptUrl: string | null = null
+  let receiptPublicId: string | null = null
+  if (receiptBuffer) {
+    const uploaded = await uploadImageToCloudinary(
+      receiptBuffer,
+      'sawaba-receipts',
+      receiptMimetype ?? 'image/jpeg',
+    )
+    receiptUrl = uploaded.url
+    receiptPublicId = uploaded.publicId
+  }
 
   const customer = await findOrCreateCustomer({
     fullName: input.customerName,
@@ -275,6 +403,7 @@ export async function createAppointment(
     customerName: input.customerName,
     customerPhone: input.customerPhone,
     customerEmail: input.customerEmail ?? null,
+    customerLocation: input.customerLocation ?? null,
     customerId: customer.id,
     serviceId: input.serviceId,
     barberId: input.barberId,
@@ -290,14 +419,28 @@ export async function createAppointment(
     appointmentId: appointment.id,
     customerId: customer.id,
     amount: servicePrice,
-    paymentMethod: null,
-    transactionReference: null,
-    paymentDate: null,
-    receiptUrl: null,
+    // CASH → recorded immediately (admin later confirms receipt of money).
+    // BANK_TRANSFER/OPAY/OTHER → receipt held, status PENDING_VERIFICATION so
+    // it lands in the admin Payments queue for review.
+    // ONLINE → UNPAID until Paystack's server-verified callback confirms it.
+    paymentMethod,
+    transactionReference: input.transactionReference || null,
+    paymentDate: isCash || isOnline ? null : new Date().toISOString().slice(0, 10),
+    receiptUrl,
+    receiptPublicId,
     note: null,
-    status: 'UNPAID',
+    status: isCash || isOnline ? 'UNPAID' : 'PENDING_VERIFICATION',
     accessToken: generatePaymentToken(),
   })
+
+  // Receipt-backed bookings behave exactly like a payment submitted from the
+  // payment page: appointment moves to PAYMENT_SUBMITTED awaiting admin review.
+  if (!isCash && !isOnline) {
+    await appointment.update({ status: AppointmentStatusValue.PAYMENT_SUBMITTED })
+  }
+
+  // Commission snapshot (requirement #9) — frozen at booking time.
+  await createEarningSnapshot(appointment.id, input.barberId, servicePrice)
 
   const fresh = await Appointment.findByPk(appointment.id, { include: includeRelations })
   return {
@@ -315,6 +458,7 @@ export async function listAppointments(query: {
   status?: AppointmentStatus
   barberId?: number
   serviceId?: number
+  customerLocation?: string
   from?: string
   to?: string
   search?: string
@@ -327,6 +471,9 @@ export async function listAppointments(query: {
     ...(query.status ? { status: query.status } : {}),
     ...(query.barberId ? { barberId: query.barberId } : {}),
     ...(query.serviceId ? { serviceId: query.serviceId } : {}),
+    ...(query.customerLocation
+      ? { customerLocation: { [Op.like]: `%${query.customerLocation}%` } }
+      : {}),
     ...(query.from || query.to
       ? {
           appointmentDate: {
@@ -349,17 +496,18 @@ export async function listAppointments(query: {
 
   const { rows, count } = await Appointment.findAndCountAll({
     where,
-    include: includeRelations,
+    include: adminAppointmentInclude as never,
     order: [
       ['appointmentDate', 'DESC'],
       ['appointmentTime', 'DESC'],
     ],
     offset,
     limit,
+    distinct: true,
   })
 
   return {
-    items: rows.map(serializeAppointment),
+    items: rows.map((row) => serializeAppointmentForAdmin(row as never)),
     total: count,
     page,
     perPage,
@@ -367,11 +515,11 @@ export async function listAppointments(query: {
 }
 
 export async function getAppointmentById(id: number): Promise<AppointmentPublic> {
-  const appointment = await Appointment.findByPk(id, { include: includeRelations })
+  const appointment = await Appointment.findByPk(id, { include: adminAppointmentInclude as never })
   if (!appointment) {
     throw new NotFoundError('Appointment not found.')
   }
-  return serializeAppointment(appointment)
+  return serializeAppointmentForAdmin(appointment as never)
 }
 
 export async function updateAppointment(
@@ -520,8 +668,13 @@ export async function updateAppointmentStatus(
 
   if (status === AppointmentStatusValue.CANCELLED) {
     await markPaymentCancelled(id)
+    // Commission must NEVER become earned on a cancelled booking (#19).
+    await syncEarningForAppointment(id)
   } else {
     await syncPaymentForStatus(id, status, options.updatedByAdminId)
+    // EARNED requires payment PAID + appointment COMPLETED (#19) — evaluate
+    // after the payment row has been synced.
+    await syncEarningForAppointment(id)
   }
 
   return getAppointmentById(id)

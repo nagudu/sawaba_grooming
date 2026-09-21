@@ -103,7 +103,7 @@ export default function ImageLightbox({
 
           <motion.figure
             key={current.id}
-            className="max-h-[82vh] w-full max-w-5xl"
+            className="flex max-h-[85vh] w-full max-w-5xl flex-col items-center"
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98 }}
@@ -116,10 +116,14 @@ export default function ImageLightbox({
                   <span className="h-8 w-8 animate-spin rounded-full border-2 border-gold-500 border-t-transparent" />
                 </div>
               )}
+              {/* Full original image — object-contain + natural aspect ratio.
+                  Never crops: apron/SAWABA branding, full-body poses and the
+                  bottom edge of portrait shots all stay visible. */}
               <SmartImage
                 src={current.src}
                 alt={current.title}
-                className="max-h-[72vh] w-full"
+                fit="contain"
+                className="max-h-[72vh] w-auto max-w-full object-contain"
                 loading="eager"
                 onLoad={() => setLoaded(true)}
               />

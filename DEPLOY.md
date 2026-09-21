@@ -1,4 +1,4 @@
-# SAWABA Grooming Salon — Deployment Runbook (free-tier testing)
+# SAWABA Grooming Studio — Deployment Runbook (free-tier testing)
 
 This project is a **two-part monorepo**:
 
@@ -23,7 +23,11 @@ Steps:
 1. Create the database, copy the connection URL.
 2. Append `?ssl-mode=REQUIRED` style params per provider; set `DB_SSL=true` in the backend env.
 3. From `backend/` with a `.env` containing the hosted `DATABASE_URL`: `npm run db:sync` — creates every table (sync, no migrations needed) + seed admin.
-4. Then `npm run db:seed` — services, barbers + availability, payment settings.
+4. Then `npm run db:seed` — services, barbers + availability, payment settings (also migrates any legacy external image URLs to local `/uploads/seed/...` copies).
+
+### Image storage (offline-first)
+
+Uploads default to **local disk** (`backend/uploads/...`, served at `/uploads/...`) — no Cloudinary account needed and fully offline-capable. Set `UPLOAD_DRIVER=cloudinary` to switch back to cloud storage for a cloud deployment. The Railway bundle must include `seed-assets/` (used by `SEED_ON_BOOT`): `cp -r backend/seed-assets deploy/seed-assets` when building it.
 
 > `db:sync` intentionally uses `sync()` (schema from Sequelize models). For a test deployment this is safe and repeatable.
 
@@ -77,3 +81,25 @@ Vercel / Netlify / Cloudflare Pages — `vercel.json` and `netlify.toml` (SPA fa
 - Free MySQL plans have small storage/connection caps; fine for a demo, not for real load.
 - Paystack stays in TEST MODE — payments use test cards and no real money moves.
 - Email (Resend `onboarding@resend.dev`) only delivers to the account owner's inbox until a domain is verified in Resend.
+
+## Live Deployment (Railway) — September 17, 2026
+
+**URL:** https://sawaba-api-production.up.railway.app (SPA + API, single service)
+**DB:** Railway MySQL (private network only — no public endpoint)
+
+### How it runs
+- `railway up` from `deploy/` (scoped link) → Railpack: `npm install --omit=dev`, start `node dist/server.js`, healthcheck `/health`.
+- Static SPA served by Express BEFORE the 404 handler (`SERVE_STATIC_DIR=/app/spa`).
+- Tables auto-create on boot (`sequelize.sync`); `SEED_ON_BOOT=true` idempotently seeds admin + demo data.
+- Redeploy after code changes: `cd backend && npm run build`, then from repo root rebuild SPA, sync `deploy/` (dist + spa), `cd deploy && railway up`.
+
+### Fixes made during deployment
+1. `.gitignore` excluded `deploy/dist` — added `!deploy/dist/`.
+2. Root `package.json` start script + merged backend runtime deps for Railpack.
+3. `trust proxy 1` for express-rate-limit behind Railway's proxy.
+4. Static/SPA middleware was mounted inside async boot (AFTER notFoundHandler) → every page 404'd. Moved before `notFoundHandler` in server.ts.
+5. Seed admin now created in `seedDatabase` (was only in db:sync).
+6. `DB_SSL_REJECT_UNAUTHORIZED=false` for Railway MySQL's cert chain (still TLS-encrypted).
+
+### E2E battery
+`node .freebuff/deploy-e2e.mjs` — 46 checks: reachability, seed data, auth, booking, cash flow, receipt flow, contact+reply honesty, reviews, admin ops, customer dashboard. Current result: 46/46 passed.

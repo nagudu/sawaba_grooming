@@ -101,7 +101,7 @@ export function getFromAddress(): string {
   // Already composed as "Name <email>" — use exactly as provided (never re-wrap,
   // double-wrapping makes providers reject the from field).
   if (/<[^<>\s]+@[^<>\s]+\.[^<>\s]+>$/.test(raw)) return raw
-  const fromName = process.env.SMTP_FROM_NAME ?? 'SAWABA Grooming Salon'
+  const fromName = process.env.SMTP_FROM_NAME ?? 'SAWABA Grooming Studio'
   return `${fromName} <${raw}>`
 }
 

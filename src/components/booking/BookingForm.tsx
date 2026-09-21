@@ -1,28 +1,44 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlertCircle,
   ArrowRight,
   BadgeCheck,
+  Banknote,
   CalendarDays,
   Check,
   Clock,
+  Copy,
+  CreditCard,
+  FileText,
+  Globe,
+  Landmark,
   Phone,
   Scissors,
   Star,
   User,
   Zap,
 } from 'lucide-react'
-import type { BarberItem, ServiceItem } from '../../api/index'
+import type { BarberItem, PaymentMethod, ServiceItem } from '../../api/index'
 import { accountApi } from '../../api/account'
 import { useCustomerAuth } from '../../store/customerAuth'
+import { fetchPaymentSettings } from '../../api/payments'
+import type { PaymentSettings } from '../../api/payments'
 import {
+  abandonCheckout,
+  createCheckoutSession,
   fetchBookingBarbers,
   fetchBookingServices,
-  submitBookingRequest,
+  finalizeCheckout,
+  initializeCheckoutPaystack,
   to24Hour,
 } from '../../api/booking'
-import { getTimeSlots } from '../../data/timeslots'
+import ReceiptUploadCard from '../payment/ReceiptUploadCard'
+import {
+  fetchAvailability,
+  type AvailabilitySlot,
+} from '../../api/booking'
 import { formatDate, formatPrice } from '../../utils/format'
 import { validateField } from '../../utils/validation'
 import { Button, ButtonLink } from '../ui/Button'
@@ -40,6 +56,8 @@ interface BookingFormProps {
 const ANY_BARBER_ID = 0
 const DAY_COUNT = 14
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+/** Methods offered on the booking screen, in display order. */
+const BOOKING_METHODS: PaymentMethod[] = ['CASH', 'BANK_TRANSFER', 'OPAY', 'ONLINE']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,10 +65,6 @@ function toISODate(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
     date.getDate(),
   ).padStart(2, '0')}`
-}
-
-function firstAvailableSlot(date: string): string | null {
-  return getTimeSlots(date).find((slot) => slot.available)?.time ?? null
 }
 
 /**
@@ -332,7 +346,8 @@ interface BookingState {
   barberId: number
   date: string
   time: string | null
-  customer: { fullName: string; phone: string; email: string; notes: string }
+  paymentMethod: PaymentMethod
+  customer: { fullName: string; phone: string; email: string; location: string; notes: string }
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -342,6 +357,7 @@ export default function BookingForm({
   initialBarberId,
 }: BookingFormProps) {
   const { showToast } = useToast()
+  const navigate = useNavigate()
 
   const today = toISODate(new Date())
   const days = useMemo(() => {
@@ -356,6 +372,7 @@ export default function BookingForm({
   // ── API data ────────────────────────────────────────────────────────────────
   const [apiServices, setApiServices] = useState<ServiceItem[]>([])
   const [apiBarbers, setApiBarbers] = useState<BarberItem[]>([])
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null)
   const [loadingData, setLoadingData] = useState(true)
   const [dataError, setDataError] = useState<string | null>(null)
 
@@ -363,13 +380,16 @@ export default function BookingForm({
     let cancelled = false
     void (async () => {
       try {
-        const [servicesRes, barbersRes] = await Promise.all([
+        const [servicesRes, barbersRes, settingsRes] = await Promise.all([
           fetchBookingServices(),
           fetchBookingBarbers(),
+          // Best-effort: if settings fail (e.g. offline), fall back to all methods.
+          fetchPaymentSettings().catch(() => null),
         ])
         if (cancelled) return
         setApiServices(servicesRes.items)
         setApiBarbers(barbersRes.items)
+        setPaymentSettings(settingsRes)
 
         const matchedService = initialServiceId
           ? servicesRes.items.find(
@@ -409,18 +429,23 @@ export default function BookingForm({
     serviceId: null,
     barberId: ANY_BARBER_ID,
     date: today,
-    time: firstAvailableSlot(today),
-    customer: { fullName: '', phone: '', email: '', notes: '' },
+    time: null, // resolved from real availability once slots load
+    paymentMethod: 'CASH',
+    customer: { fullName: '', phone: '', email: '', location: '', notes: '' },
   }))
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [paymentToken, setPaymentToken] = useState<string | null>(null)
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [receiptError, setReceiptError] = useState<string | null>(null)
   const [bookingRef, setBookingRef] = useState<string | null>(null)
   const [confirmedService, setConfirmedService] = useState<ServiceItem | null>(null)
   const [confirmedBarber, setConfirmedBarber] = useState<BarberItem | null>(null)
   const [confirmedDate, setConfirmedDate] = useState<string | null>(null)
   const [confirmedTime, setConfirmedTime] = useState<string | null>(null)
+  const [confirmedPaymentMethod, setConfirmedPaymentMethod] = useState<PaymentMethod | null>(null)
+  const [sessionToken, setSessionToken] = useState<string | null>(null)
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false)
 
   // ── Logged-in prefill ───────────────────────────────────────────────────────
   const { customer: loggedIn } = useCustomerAuth()
@@ -449,7 +474,62 @@ export default function BookingForm({
     })()
   }, [loggedIn])
 
-  // ── Derived values ──────────────────────────────────────────────────────────
+  // ── Real availability (replaces the old fake static slot generator) ────────
+  // The slot grid shows exactly what the backend will accept: the selected
+  // barber's working hours minus real bookings, fitted to the service duration.
+  // "Any Available" resolves to a concrete barber first, then queries it.
+  const availabilityKey =
+    booking.serviceId && booking.date
+      ? `${booking.barberId}|${booking.serviceId}|${booking.date}`
+      : null
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [slotsError, setSlotsError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!availabilityKey) return
+    let cancelled = false
+    setSlotsLoading(true)
+    setSlotsError(null)
+    void (async () => {
+      try {
+        let barberIdForQuery = booking.barberId
+        if (barberIdForQuery === ANY_BARBER_ID) {
+          const eligible = apiBarbers.filter(
+            (b) => booking.serviceId && barberCanDoService(b, booking.serviceId),
+          )
+          barberIdForQuery = eligible[0]?.id ?? apiBarbers[0]?.id ?? 0
+        }
+        if (!barberIdForQuery) throw new Error('No barber available for this service.')
+
+        const result = await fetchAvailability(
+          barberIdForQuery,
+          booking.date!,
+          booking.serviceId ?? undefined,
+        )
+        if (cancelled) return
+        setSlots(result.slots)
+        // Auto-pick the first open slot; never keep a time the grid no longer shows.
+        setBooking((current) => {
+          const stillListed = result.slots.find((s) => s.available && s.time === current.time)
+          const next = stillListed ? current.time : (result.slots.find((s) => s.available)?.time ?? null)
+          return next === current.time ? current : { ...current, time: next }
+        })
+      } catch (err) {
+        if (cancelled) return
+        setSlots([])
+        setSlotsError(err instanceof Error ? err.message : 'Could not load time slots.')
+      } finally {
+        if (!cancelled) setSlotsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availabilityKey, apiBarbers.length])
+
+  // ── Derived values ──────────────────────────────────────────────────────
   const selectedService = apiServices.find((s) => s.id === booking.serviceId) ?? null
 
   const availableBarbers = useMemo(() => {
@@ -481,15 +561,17 @@ export default function BookingForm({
     })
 
   const selectDate = (date: string) =>
-    setBooking((current) => ({ ...current, date, time: firstAvailableSlot(date) }))
+    setBooking((current) => ({ ...current, date, time: null })) // availability effect picks the first open slot
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
-  const submitBooking = async () => {
-    if (submitting) return
+  // ── Submit ──────────────────────────────────────────────────────────────
+
+  type SubmitOutcome = 'success' | 'conflict' | { message: string }
+
+  /** One submission attempt: validate → stage session → finalize/redirect. */
+  const attemptSubmission = async (): Promise<SubmitOutcome> => {
     const { serviceId, barberId, date, time, customer } = booking
     if (!serviceId || !date || !time) {
-      showToast('Please pick a service and an open time slot.', 'error')
-      return
+      return { message: 'Please pick a service and an open time slot.' }
     }
     const { fullName, phone, email } = customer
     const nextErrors = {
@@ -499,11 +581,29 @@ export default function BookingForm({
     }
     setErrors(nextErrors)
     if (Object.values(nextErrors).some(Boolean)) {
-      showToast('Please fix the highlighted fields.', 'error')
-      return
+      return { message: 'Please fix the highlighted fields.' }
     }
 
-    setSubmitting(true)
+    // No payment method selected → never call the booking API.
+    if (!booking.paymentMethod) {
+      return { message: 'Please select a payment method to continue.' }
+    }
+
+    // Client-side payment rule: mirror of the backend enforcement so customers
+    // get instant feedback — the backend independently rejects violations.
+    const isCashMethod = booking.paymentMethod === 'CASH'
+    const isOnlineMethod = booking.paymentMethod === 'ONLINE'
+    const needsReceiptHere = !isCashMethod && !isOnlineMethod
+    if (needsReceiptHere && !receiptFile) {
+      setReceiptError(
+        'Payment receipt required. Please upload your transfer receipt before submitting your appointment.',
+      )
+      return {
+        message:
+          'Payment receipt required. Please upload your transfer receipt before submitting your appointment.',
+      }
+    }
+
     try {
       let services = apiServices
       let barbers = apiBarbers
@@ -531,39 +631,130 @@ export default function BookingForm({
         resolvedBarberId = eligible[0].id
       }
 
-      const result = await submitBookingRequest({
+      // ① Stage the booking as a temporary checkout session — NOTHING is
+      //    saved to appointments/payments yet.
+      const session = await createCheckoutSession({
         customerName: fullName.trim(),
         customerPhone: phone.trim(),
         customerEmail: email.trim() || null,
         serviceId: matchedService.id,
         barberId: resolvedBarberId,
+        customerLocation: customer.location?.trim() || null,
         appointmentDate: date,
         appointmentTime: to24Hour(time),
         notes: customer.notes?.trim() || null,
+        paymentMethod: booking.paymentMethod,
+        receiptFile: needsReceiptHere ? receiptFile : null,
       })
-      setPaymentToken(result.payment?.accessToken ?? null)
-      setBookingRef(result.appointment?.referenceCode ?? null)
+      setSessionToken(session.sessionToken)
+
+      // ② ONLINE → straight to Paystack on the SESSION. No appointment exists;
+      //    it is created only after the backend verifies the charge (callback page).
+      if (isOnlineMethod) {
+        const init = await initializeCheckoutPaystack(session.sessionToken)
+        window.location.assign(init.authorizationUrl)
+        return 'success'
+      }
+
+      // ③ CASH / transfer → payment condition satisfied → atomic finalize.
+      const result = await finalizeCheckout(session.sessionToken)
+      setBookingRef(result.appointment.referenceCode ?? null)
       // Capture details for the confirmation modal
       setConfirmedService(matchedService)
       setConfirmedBarber(barbers.find((b) => b.id === resolvedBarberId) ?? null)
       setConfirmedDate(date)
       setConfirmedTime(time)
+      setConfirmedPaymentMethod(booking.paymentMethod)
       setSuccess(true)
+      return 'success'
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Booking failed. Please try again.'
-      if (/time slot|no longer available/i.test(message)) {
-        setBooking((current) => ({
-          ...current,
-          time: firstAvailableSlot(current.date ?? today),
-        }))
-        showToast('That time was just taken. We picked the next open slot.', 'error')
+      if (/time slot|no longer available/i.test(message)) return 'conflict'
+      return { message }
+    }
+  }
+
+  /**
+   * The backend refused the slot. NEVER claim "just taken" without proof:
+   * re-query REAL availability for the exact barber/date first. Only a slot
+   * the fresh query marks unavailable earns that message — a slot that still
+   * shows open means the conflict came from a stale hold, not a booking, so
+   * the submission is retried transparently instead of blocking the customer.
+   */
+  const handleSlotConflict = async (): Promise<void> => {
+    const { serviceId, barberId, date, time } = booking
+    try {
+      let barberIdForQuery = barberId
+      if (barberIdForQuery === ANY_BARBER_ID) {
+        const eligible = apiBarbers.filter((b) => serviceId && barberCanDoService(b, serviceId))
+        barberIdForQuery = eligible[0]?.id ?? apiBarbers[0]?.id ?? 0
+      }
+      if (!serviceId || !date || !time || !barberIdForQuery) {
+        showToast('Please pick a service and an open time slot.', 'error')
+        return
+      }
+      const fresh = await fetchAvailability(barberIdForQuery, date, serviceId)
+      setSlots(fresh.slots)
+      const wanted = to24Hour(time)
+      const stillOpen = fresh.slots.find((s) => s.time === wanted)?.available === true
+      if (stillOpen) {
+        // Fresh availability confirms the slot is open — the conflict was a
+        // stale hold, not a real booking. One transparent retry secures it.
+        const retry = await attemptSubmission()
+        if (retry === 'success') return
+        showToast(
+          'We could not secure that exact time. Please pick another open slot below.',
+          'error',
+        )
+        return
+      }
+      // Fresh data confirms the slot is genuinely occupied by a booking.
+      setBooking((current) => ({ ...current, time: null }))
+      setSlotsError('That time was just taken.')
+      showToast('That time was just taken. Pick another open slot below.', 'error')
+    } catch {
+      setSlotsError('Could not verify time slots. Please pick another slot.')
+      showToast('Could not verify time slots. Please pick another open slot.', 'error')
+    }
+  }
+
+  const submitBooking = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      const outcome = await attemptSubmission()
+      if (outcome === 'success') return
+      if (outcome === 'conflict') {
+        await handleSlotConflict()
       } else {
-        showToast(message, 'error')
+        showToast(outcome.message, 'error')
       }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  /**
+   * "Back to Home" while a session exists = ABANDON BOOKING. The session is
+   * expired server-side and all local state cleared — no appointment, no
+   * payment, nothing in any dashboard, no confirmation.
+   */
+  const handleAbandon = async () => {
+    const token = sessionToken
+    setShowAbandonConfirm(false)
+    if (token) {
+      try {
+        await abandonCheckout(token)
+      } catch {
+        // Session expires on its own TTL — navigation must not be blocked.
+      }
+    }
+    setSessionToken(null)
+    setReceiptFile(null)
+    setReceiptError(null)
+    setSuccess(false)
+    navigate('/')
   }
 
   const reset = () => {
@@ -571,20 +762,53 @@ export default function BookingForm({
       serviceId: apiServices[0]?.id ?? null,
       barberId: ANY_BARBER_ID,
       date: today,
-      time: firstAvailableSlot(today),
-      customer: { fullName: '', phone: '', email: '', notes: '' },
+      time: null, // availability effect re-picks after reset
+      paymentMethod: 'CASH',
+      customer: { fullName: '', phone: '', email: '', location: '', notes: '' },
     })
-    setPaymentToken(null)
+    setSlots([])
+    setReceiptFile(null)
+    setReceiptError(null)
+    setSessionToken(null)
     setBookingRef(null)
     setSuccess(false)
   }
 
-  const canSubmit = Boolean(
+  // ── Payment-method derived state ────────────────────────────────────────
+  const isCashMethod = booking.paymentMethod === 'CASH'
+  const isOnlineMethod = booking.paymentMethod === 'ONLINE'
+  const needsReceiptHere = !isCashMethod && !isOnlineMethod
+
+  const enabledBookingMethods = BOOKING_METHODS.filter((m) => {
+    if (m === 'ONLINE') return Boolean(paymentSettings?.onlinePaymentEnabled)
+    if (!paymentSettings?.enabledPaymentMethods?.length) return true
+    return paymentSettings.enabledPaymentMethods.includes(m)
+  })
+
+  /**
+   * Submit button state machine:
+   *   CASH           → "Confirm Appointment" (no receipt needed)
+   *   transfer/OPay  → "Upload Payment Receipt" (disabled) → "Uploading Receipt…" → "Submit Appointment"
+   *   ONLINE         → "Proceed to Payment"
+   */
+  const receiptMissing = needsReceiptHere && !receiptFile
+  const baseFieldsValid = Boolean(
     selectedService &&
       booking.time &&
       !validateField('Full name', booking.customer.fullName, { required: true, min: 2 }) &&
       !validateField('Phone number', booking.customer.phone, { required: true, phone: true }),
   )
+  const canSubmit = baseFieldsValid && !receiptMissing && !submitting && !slotsLoading
+
+  const submitLabel = isCashMethod
+    ? 'Confirm Appointment'
+    : isOnlineMethod
+      ? 'Proceed to Payment'
+      : receiptMissing
+        ? 'Upload Payment Receipt'
+        : submitting
+          ? 'Uploading Receipt…'
+          : 'Submit Appointment'
 
   // ── Loading state ───────────────────────────────────────────────────────────
   if (loadingData) {
@@ -828,9 +1052,20 @@ export default function BookingForm({
             </div>
 
             <div className="mt-5">
-              {booking.date && getTimeSlots(booking.date).some((slot) => slot.available) ? (
+              {slotsLoading ? (
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
-                  {getTimeSlots(booking.date).map((slot) => (
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <div key={i} className="h-[38px] animate-pulse rounded-lg bg-night-800/60" />
+                  ))}
+                </div>
+              ) : slotsError ? (
+                <p className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
+                  {slotsError} Try another date or barber.
+                </p>
+              ) : slots.some((slot) => slot.available) ? (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+                  {slots.map((slot) => (
                     <button
                       key={slot.time}
                       type="button"
@@ -855,7 +1090,7 @@ export default function BookingForm({
               ) : (
                 <p className="flex items-center gap-2 rounded-xl border border-night-800 px-4 py-3 text-sm text-night-400">
                   <AlertCircle className="h-4 w-4 text-gold-500" />
-                  No open slots on this day — pick another date above.
+                  No open slots on this day — pick another date or barber above.
                 </p>
               )}
             </div>
@@ -912,6 +1147,21 @@ export default function BookingForm({
               </div>
               <div className="sm:col-span-2">
                 <CustomerField
+                  label="Your Location (optional)"
+                  type="text"
+                  value={booking.customer.location}
+                  error={errors.location}
+                  placeholder="e.g. Dutse, Jigawa — helps us assign the right barber"
+                  onChange={(value) =>
+                    setBooking((b) => ({
+                      ...b,
+                      customer: { ...b.customer, location: value },
+                    }))
+                  }
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <CustomerField
                   label="Notes (optional)"
                   type="text"
                   value={booking.customer.notes}
@@ -926,6 +1176,157 @@ export default function BookingForm({
               </div>
             </div>
           </section>
+
+          {/* ── Step 5: Payment ── */}
+          <section>
+            <SectionHeading
+              index="5"
+              title="Payment method"
+              hint={
+                isCashMethod
+                  ? 'No receipt needed'
+                  : isOnlineMethod
+                    ? 'Verified by Paystack'
+                    : 'Receipt required'
+              }
+            />
+            <div className="mt-4 grid min-w-0 gap-2 sm:grid-cols-2">
+              {enabledBookingMethods.map((m) => {
+                const selected = booking.paymentMethod === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      setBooking((b) => ({ ...b, paymentMethod: m }))
+                      setReceiptError(null)
+                    }}
+                    aria-pressed={selected}
+                    className={cn(
+                      'flex min-w-0 items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-200',
+                      selected
+                        ? 'border-gold-500 bg-gold-500/10 shadow-[var(--shadow-glow)]'
+                        : 'border-night-800 hover:border-gold-500/40',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                        selected ? 'bg-gold-500/20 text-gold-400' : 'bg-night-800 text-night-400',
+                      )}
+                    >
+                      {m === 'CASH' && <Banknote className="h-4.5 w-4.5" />}
+                      {m === 'BANK_TRANSFER' && <Landmark className="h-4.5 w-4.5" />}
+                      {m === 'OPAY' && <CreditCard className="h-4.5 w-4.5" />}
+                      {m === 'ONLINE' && <Globe className="h-4.5 w-4.5" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-night-50">
+                        {m === 'CASH' && 'Cash — Pay at the Salon'}
+                        {m === 'BANK_TRANSFER' && 'Bank Transfer'}
+                        {m === 'OPAY' && 'OPay Transfer'}
+                        {m === 'ONLINE' && 'Pay Online (Card)'}
+                      </span>
+                      <span className="block truncate text-xs text-night-500">
+                        {m === 'CASH' && 'Pay when you arrive — no receipt needed'}
+                        {m === 'BANK_TRANSFER' && 'Transfer, then upload your receipt below'}
+                        {m === 'OPAY' && 'OPay transfer, then upload your receipt'}
+                        {m === 'ONLINE' && 'Secure card checkout — instant confirmation'}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all',
+                        selected
+                          ? 'border-gold-500 bg-gold-500 text-night-950'
+                          : 'border-night-600',
+                      )}
+                    >
+                      {selected && <Check className="h-2.5 w-2.5" />}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Cash confirmation note */}
+            {isCashMethod && (
+              <p className="mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-4 py-3 text-sm text-night-300">
+                <Banknote className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                <span>
+                  <span className="font-semibold text-night-100">Pay at the Salon.</span>{' '}
+                  Your appointment will be confirmed after payment is received at the salon.
+                </span>
+              </p>
+            )}
+
+            {/* Transfer account details — visible for BANK_TRANSFER / OPay so the
+                customer can copy the number and send the money before uploading
+                their receipt. */}
+            {needsReceiptHere && paymentSettings && (
+              <div className="mt-4">
+                {booking.paymentMethod === 'OPAY' ? (
+                  <TransferAccountCard
+                    icon={<CreditCard className="h-5 w-5" />}
+                    bank="OPay"
+                    accountName={paymentSettings.opayAccountName ?? paymentSettings.accountName}
+                    accountNumber={paymentSettings.opayAccountNumber}
+                  />
+                ) : (
+                  <TransferAccountCard
+                    icon={<Landmark className="h-5 w-5" />}
+                    bank={paymentSettings.bankName ?? 'Bank Transfer'}
+                    accountName={paymentSettings.accountName}
+                    accountNumber={paymentSettings.accountNumber}
+                  />
+                )}
+                {paymentSettings.paymentInstructions && (
+                  <p className="mt-3 flex items-start gap-2 rounded-xl border border-night-800 bg-night-900/40 px-4 py-3 text-xs leading-relaxed text-night-400">
+                    <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-500" />
+                    {paymentSettings.paymentInstructions}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Receipt upload — mandatory for transfer/OPay */}
+            {needsReceiptHere && (
+              <div className="mt-4">
+                <p className="mb-2 flex items-center gap-2 text-sm text-night-300">
+                  <FileText className="h-4 w-4 text-gold-500" />
+                  Payment receipt{' '}
+                  <span className="rounded-full bg-gold-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-gold-400">
+                    Required
+                  </span>
+                </p>
+                <ReceiptUploadCard
+                  file={receiptFile}
+                  onChange={(file) => {
+                    setReceiptFile(file)
+                    setReceiptError(null)
+                  }}
+                  onError={setReceiptError}
+                  disabled={submitting}
+                />
+                {receiptError && (
+                  <p className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                    {receiptError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Online note */}
+            {isOnlineMethod && (
+              <p className="mt-4 flex items-start gap-2.5 rounded-xl border border-night-700 bg-night-900/50 px-4 py-3 text-sm text-night-300">
+                <Globe className="mt-0.5 h-4 w-4 shrink-0 text-gold-500" />
+                <span>
+                  You'll be taken to Paystack's secure checkout. Your appointment is only
+                  confirmed after your payment is verified — no receipt upload needed.
+                </span>
+              </p>
+            )}
+          </section>
         </div>
 
         {/* ── Confirm bar ── */}
@@ -935,17 +1336,31 @@ export default function BookingForm({
             {selectedService?.name} · {booking.date ? formatDate(booking.date) : ''}
             {booking.time ? ` · ${booking.time}` : ''}
           </p>
-          <Button
-            variant="gold"
-            size="lg"
-            loading={submitting}
-            onClick={submitBooking}
-            disabled={!canSubmit}
-            className="w-full sm:w-auto"
-          >
-            Confirm Booking
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              onClick={() => {
+                if (submitting) return
+                // Any booking state so far is only a temporary session — leaving
+                // now means the booking is abandoned, not saved.
+                setShowAbandonConfirm(true)
+              }}
+              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-night-400 transition-colors hover:text-night-200"
+            >
+              Back to Home
+            </button>
+            <Button
+              variant="gold"
+              size="lg"
+              loading={submitting}
+              onClick={submitBooking}
+              disabled={!canSubmit}
+              className="w-full sm:w-auto"
+            >
+              {submitLabel}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -971,7 +1386,9 @@ export default function BookingForm({
 
           <h3 className="mt-4 font-display text-2xl text-night-50">Booking Received</h3>
           <p className="mt-2 max-w-sm text-sm leading-relaxed text-night-400">
-            Your appointment request is in. Complete payment below to secure your slot.
+            {confirmedPaymentMethod === 'CASH'
+              ? 'Pay at the Studio. Your appointment will remain pending until payment is received.'
+              : 'Your receipt has been received and is awaiting verification. Your appointment is confirmed once our team verifies the payment.'}
           </p>
 
           {/* Appointment summary */}
@@ -1062,18 +1479,6 @@ export default function BookingForm({
           )}
 
           <div className="mt-6 flex w-full flex-col gap-3">
-            {paymentToken && (
-              <ButtonLink
-                to={`/pay/${paymentToken}`}
-                variant="gold"
-                size="md"
-                onClick={() => setSuccess(false)}
-                className="w-full justify-center"
-              >
-                <ArrowRight className="h-4 w-4" />
-                Pay Now to Secure Your Slot
-              </ButtonLink>
-            )}
             <div className="flex gap-3">
               <ButtonLink
                 to="/"
@@ -1110,6 +1515,32 @@ export default function BookingForm({
           </ButtonLink>
         </div>
       </Modal>
+
+      {/* ── Abandon-booking confirmation (Back to Home during checkout) ── */}
+      <Modal
+        open={showAbandonConfirm}
+        onClose={() => setShowAbandonConfirm(false)}
+        size="sm"
+        title="Leave booking?"
+      >
+        <div className="py-2 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-500/10">
+            <AlertCircle className="h-7 w-7 text-rose-400" />
+          </span>
+          <p className="mt-4 text-sm leading-relaxed text-night-300">
+            You have not completed your payment. If you leave now, your booking will not be
+            saved — you can start again any time.
+          </p>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Button variant="gold" size="md" className="flex-1" onClick={() => setShowAbandonConfirm(false)}>
+              Continue Booking
+            </Button>
+            <Button variant="outline" size="md" className="flex-1" onClick={() => void handleAbandon()}>
+              Leave Booking
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </motion.div>
   )
 }
@@ -1134,6 +1565,99 @@ function SectionHeading({
         <h3 className="font-display text-base text-night-50">{title}</h3>
       </div>
       {hint && <span className="text-xs text-night-500">{hint}</span>}
+    </div>
+  )
+}
+
+/**
+ * Transfer destination details for the selected method — account number is the
+ * star of the card: big, monospaced, one-tap copy.
+ */
+function TransferAccountCard({
+  icon,
+  bank,
+  accountName,
+  accountNumber,
+}: {
+  icon: React.ReactNode
+  bank: string
+  accountName: string | null | undefined
+  accountNumber: string | null | undefined
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = async () => {
+    if (!accountNumber) return
+    try {
+      await navigator.clipboard.writeText(accountNumber)
+    } catch {
+      // Clipboard API can be blocked — fall back to the legacy path.
+      const textarea = document.createElement('textarea')
+      textarea.value = accountNumber
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="rounded-2xl border border-gold-500/30 bg-gold-500/[0.04] p-5">
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold-500/15 text-gold-400">
+          {icon}
+        </span>
+        <div>
+          <p className="font-display text-lg text-night-50">{bank}</p>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-night-500">
+            Transfer to this account
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-night-800 bg-night-900/50 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-night-500">
+            Account name
+          </p>
+          <p className="mt-1 text-sm font-semibold break-words text-night-100">
+            {accountName ?? '—'}
+          </p>
+        </div>
+        <div className="rounded-xl border border-night-800 bg-night-900/50 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-night-500">
+            Account number
+          </p>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <p className="font-mono text-lg font-bold tracking-widest text-gold-400">
+              {accountNumber ?? '—'}
+            </p>
+            {accountNumber && (
+              <button
+                type="button"
+                onClick={() => void copy()}
+                className={cn(
+                  'flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-all',
+                  copied
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                    : 'border-gold-500/40 text-gold-400 hover:border-gold-500 hover:bg-gold-500/10',
+                )}
+                aria-label={`Copy ${bank} account number`}
+              >
+                {copied ? <BadgeCheck className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-night-500">
+        Transfer the exact amount, then upload your receipt below so we can verify your
+        payment.
+      </p>
     </div>
   )
 }

@@ -7,12 +7,12 @@ import {
   deleteService,
 } from '../services/serviceService'
 import { successRes } from '../utils/response'
-import { uploadImageToCloudinary } from '../utils/upload'
+import { uploadImageToCloudinary, deleteImageByUrl } from '../utils/upload'
 import type { CreateServiceInput, UpdateServiceInput } from '../validators/service'
 
 export async function createServiceHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const uploadedImage = req.file ? await uploadImageToCloudinary(req.file.buffer, 'sawaba-services') : null
+    const uploadedImage = req.file ? await uploadImageToCloudinary(req.file.buffer, 'sawaba-services', req.file.mimetype) : null
     const input: CreateServiceInput = {
       ...req.body,
       image: req.body.image ?? uploadedImage?.url ?? null,
@@ -47,7 +47,7 @@ export async function getServiceByIdHandler(req: Request, res: Response, next: N
 export async function updateServiceHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = Number(req.params.id)
-    const uploadedImage = req.file ? await uploadImageToCloudinary(req.file.buffer, 'sawaba-services') : null
+    const uploadedImage = req.file ? await uploadImageToCloudinary(req.file.buffer, 'sawaba-services', req.file.mimetype) : null
     const existing = await getServiceById(id)
 
     const input: UpdateServiceInput = {
@@ -55,6 +55,11 @@ export async function updateServiceHandler(req: Request, res: Response, next: Ne
       image: req.body.image ?? uploadedImage?.url ?? existing.image,
     }
     const service = await updateService(id, input)
+
+    // Clean up the replaced upload (only when the image actually changed).
+    if (uploadedImage && existing.image && existing.image !== service.image) {
+      await deleteImageByUrl(existing.image).catch(() => undefined)
+    }
     successRes(res, 'Service updated successfully.', service, 200)
   } catch (error) {
     next(error)

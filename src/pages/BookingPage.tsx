@@ -15,7 +15,7 @@ export default function BookingPage() {
         crumb="Book Appointment"
         title="Reserve Your Chair in Seconds"
         description="Everything on one screen — service, barber and time are pre-selected. Just add your name and confirm."
-        imageId="1686671805337-7d8aa64b965f"
+        image="/images/hero.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">

@@ -55,6 +55,11 @@ export interface BarberItem {
   createdAt: string
   updatedAt: string
   services?: Array<{ id: number; name: string; slug: string; price: number; duration: number }>
+  /** Admin-only business fields — absent from public API responses. */
+  barberType?: 'INTERNAL' | 'EXTERNAL'
+  location?: string | null
+  commissionType?: 'PERCENTAGE' | 'FIXED'
+  commissionValue?: number
 }
 
 export type AppointmentStatus =
@@ -96,6 +101,13 @@ export interface AppointmentItem {
   cancelledAt: string | null
   cancellationReason: string | null
   cancelledBy: number | null
+  /** Customer's area/state at booking time (admin assignment context). */
+  customerLocation?: string | null
+  assignedBarberId?: number | null
+  assignedAt?: string | null
+  assignedBarber?: { id: number; name: string; image?: string | null; barberType?: 'INTERNAL' | 'EXTERNAL'; location?: string | null } | null
+  /** Admin-only commission snapshot — absent from public responses. */
+  earning?: { commissionType: 'PERCENTAGE' | 'FIXED'; commissionRateSnapshot: number; serviceAmount: number; commissionAmount: number; studioAmount: number; status: 'PENDING' | 'EARNED' | 'PAID' | 'CANCELLED' } | null
   createdAt: string
   updatedAt: string
   service?: { id: number; name: string; price: number; duration: number }
@@ -128,6 +140,7 @@ export interface ReviewItem {
   customerImage: string | null
   serviceId: number | null
   serviceName: string | null
+  barberId: number | null
   rating: number
   comment: string
   status: ReviewStatus

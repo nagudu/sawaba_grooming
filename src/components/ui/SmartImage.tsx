@@ -4,6 +4,14 @@ const FALLBACK_SVG = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http:
 
 interface SmartImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc?: string
+  /**
+   * How the image fits its box:
+   *  - `cover` (default): fills the box, may crop edges (avatars, hero art)
+   *  - `contain`: shows the ENTIRE image, letterboxed — used for gallery
+   *    content where cropping would hide important detail (e.g. SAWABA
+   *    branding on an apron)
+   */
+  fit?: 'cover' | 'contain'
 }
 
 export default function SmartImage({
@@ -11,6 +19,7 @@ export default function SmartImage({
   alt = '',
   fallbackSrc,
   className = '',
+  fit = 'cover',
   ...rest
 }: SmartImageProps) {
   const [imgSrc, setImgSrc] = useState(src)
@@ -19,11 +28,12 @@ export default function SmartImage({
       setImgSrc(fallbackSrc ?? FALLBACK_SVG)
     }
   }
+  const objectFit = fit === 'contain' ? 'object-contain' : 'object-cover'
   return (
     <img
       src={imgSrc}
       alt={alt}
-      className={`object-cover ${className}`}
+      className={`${objectFit} ${className}`}
       onError={handleError}
       loading="lazy"
       decoding="async"

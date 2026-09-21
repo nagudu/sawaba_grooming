@@ -1,11 +1,11 @@
 /**
- * Static business identity for SAWABA Grooming Salon (contact info, hours,
+ * Static business identity for SAWABA Grooming Studio (contact info, hours,
  * socials). Catalog content (services, barbers, gallery) now comes from the
  * backend — see src/api/catalog.ts and src/store/catalog.tsx.
  */
 export const site = {
   name: 'SAWABA',
-  fullName: 'SAWABA GROOMING SALON',
+  fullName: 'SAWABA GROOMING STUDIO',
   tagline: 'Look Sharp. Feel Confident.',
   phone: '+234 706 928 8456',
   whatsapp: '2347069288456',

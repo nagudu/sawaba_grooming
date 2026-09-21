@@ -24,8 +24,14 @@ export class Appointment extends Model<
   declare customerName: string
   declare customerPhone: string
   declare customerEmail: CreationOptional<string | null>
+  /** Customer's stated location/area at booking (e.g. "Dutse, Jigawa"). Optional context for admin assignment. */
+  declare customerLocation: CreationOptional<string | null>
   declare serviceId: number
   declare barberId: number
+  /** Barber actually assigned by admin (defaults to the booked barber). Admin-managed. */
+  declare assignedBarberId: CreationOptional<number | null>
+  declare assignedAt: CreationOptional<Date | null>
+  declare assignedBy: CreationOptional<number | null>
   declare appointmentDate: string
   declare appointmentTime: string
   declare totalAmount: number
@@ -70,6 +76,11 @@ Appointment.init(
       allowNull: true,
       validate: { isEmail: true },
     },
+    customerLocation: {
+      type: DataTypes.STRING(150),
+      allowNull: true,
+      comment: 'Customer-stated location/area at booking. Helps admin pick the right barber — never auto-assigns.',
+    },
     customerId: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true,
@@ -81,6 +92,19 @@ Appointment.init(
     barberId: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
+    },
+    assignedBarberId: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      comment: 'Admin-assigned barber. Falls back to barberId when null.',
+    },
+    assignedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    assignedBy: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
     },
     appointmentDate: {
       type: DataTypes.DATEONLY,
