@@ -485,6 +485,8 @@ export default function BookingForm({
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [slotsError, setSlotsError] = useState<string | null>(null)
+  // Bumped by the error-state Retry button to re-run the availability effect.
+  const [slotsRetry, setSlotsRetry] = useState(0)
 
   useEffect(() => {
     if (!availabilityKey) return
@@ -527,7 +529,7 @@ export default function BookingForm({
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availabilityKey, apiBarbers.length])
+  }, [availabilityKey, apiBarbers.length, slotsRetry])
 
   // ── Derived values ──────────────────────────────────────────────────────
   const selectedService = apiServices.find((s) => s.id === booking.serviceId) ?? null
@@ -1059,10 +1061,19 @@ export default function BookingForm({
                   ))}
                 </div>
               ) : slotsError ? (
-                <p className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
-                  {slotsError} Try another date or barber.
-                </p>
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                  <span className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
+                    {slotsError} Try another date or barber.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSlotsRetry((n) => n + 1)}
+                    className="ml-auto shrink-0 rounded-lg border border-rose-400/40 px-3 py-1.5 text-xs font-semibold text-rose-100 transition-colors hover:bg-rose-500/20"
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : slots.some((slot) => slot.available) ? (
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
                   {slots.map((slot) => (

@@ -1,17 +1,35 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { Images } from 'lucide-react'
 import PageTransition from '../components/ui/PageTransition'
 import PageHero from '../components/layout/PageHero'
 import GalleryCard from '../components/gallery/GalleryCard'
 import ImageLightbox from '../components/gallery/ImageLightbox'
 import EmptyState from '../components/ui/EmptyState'
-import LoadingSpinner from '../components/ui/LoadingSpinner'
 import {
   fetchGalleryImages,
   PUBLIC_GALLERY_CATEGORIES,
   type PublicGalleryImage,
 } from '../api/gallery'
 import { cn } from '../utils/cn'
+
+function GallerySkeleton() {
+  return (
+    <div
+      className="mt-14 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4"
+      aria-hidden="true"
+    >
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div
+          key={index}
+          className="aspect-[4/5] animate-pulse overflow-hidden rounded-2xl border border-night-800/80 bg-night-900"
+        >
+          <div className="h-full w-full bg-gradient-to-br from-night-800/70 to-night-900" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function GalleryPage() {
   const [active, setActive] = useState('all')
@@ -59,16 +77,14 @@ export default function GalleryPage() {
       <PageHero
         eyebrow="Gallery"
         crumb="Gallery"
-        title="Our Work, On Display"
-        description="Browse real results from our chairs — haircuts, fades, beards and the space where the craft happens."
+        title="Showcase Our Best Work"
+        description="Real results from our chairs — precision haircuts, fades, beards and the space where the craft happens."
         image="/images/about-3.jpg"
       />
 
       <section className="bg-night-950 py-24 md:py-32">
         <div className="container-app">
-          {loading ? (
-            <LoadingSpinner label="Loading gallery" />
-          ) : error ? (
+          {error ? (
             <div className="mt-16">
               <EmptyState
                 icon={<Images className="h-10 w-10" />}
@@ -99,7 +115,14 @@ export default function GalleryPage() {
                 ))}
               </div>
 
-              {filtered.length === 0 ? (
+              {loading ? (
+                <>
+                  <p className="sr-only" role="status">
+                    Loading gallery...
+                  </p>
+                  <GallerySkeleton />
+                </>
+              ) : filtered.length === 0 ? (
                 <div className="mt-16">
                   <EmptyState
                     icon={<Images className="h-10 w-10" />}
@@ -108,14 +131,28 @@ export default function GalleryPage() {
                   />
                 </div>
               ) : (
-                <div
-                  key={active}
-                  className="mt-14 columns-1 gap-4 sm:columns-2 lg:columns-3 [&>*]:mb-4"
-                >
-                  {filtered.map((image) => (
-                    <GalleryCard key={image.id} image={image} onOpen={(item) => openIndex(item.id)} />
-                  ))}
-                </div>
+                <>
+                  <p className="mt-8 text-center text-[11px] tracking-[0.18em] text-night-500 uppercase">
+                    Showing {filtered.length} of {images.length}{' '}
+                    {filtered.length === 1 ? 'photo' : 'photos'}
+                  </p>
+
+                  <motion.div
+                    key={active}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4"
+                  >
+                    {filtered.map((image) => (
+                      <GalleryCard
+                        key={image.id}
+                        image={image}
+                        onOpen={(item) => openIndex(item.id)}
+                      />
+                    ))}
+                  </motion.div>
+                </>
               )}
             </>
           )}

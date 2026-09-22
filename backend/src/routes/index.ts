@@ -17,6 +17,9 @@ import { checkoutRouter } from './checkout'
 import { adminPaymentsRouter } from './adminPayments'
 import { adminPaymentSettingsRouter } from './adminPaymentSettings'
 import { barberEarningsRouter, assignmentRouter } from './barberEarnings'
+import { commissionRatesRouter } from './commissionRates'
+import { barberAuthRouter } from './barberAuth'
+import { barberPortalRouter } from './barberPortal'
 
 export const apiRouter = Router()
 
@@ -41,4 +44,8 @@ apiRouter.use('/admin/customers', customersRouter)
 apiRouter.use('/admin/payments', adminPaymentsRouter)
 apiRouter.use('/admin/payment-settings', adminPaymentSettingsRouter)
 apiRouter.use('/admin/barber-earnings', barberEarningsRouter)
+apiRouter.use('/admin/commission-rates', commissionRatesRouter)
+// Barber Portal — separate namespace so barber tokens never touch admin APIs.
+apiRouter.use('/barber/auth', barberAuthRouter)
+apiRouter.use('/barber/portal', barberPortalRouter)
 apiRouter.use('/admin/appointments', assignmentRouter)

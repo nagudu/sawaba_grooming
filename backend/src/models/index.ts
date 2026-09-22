@@ -15,6 +15,8 @@ import { PaymentSetting } from './PaymentSetting'
 import { CheckoutSession } from './CheckoutSession'
 import { BarberEarning } from './BarberEarning'
 import { BarberAssignmentHistory } from './BarberAssignmentHistory'
+import { CommissionRateHistory } from './CommissionRateHistory'
+import { BarberNotification } from './BarberNotification'
 
 // Barber <-> Service (many-to-many via BarberService)
 Barber.belongsToMany(Service, { through: BarberService, as: 'services', foreignKey: 'barberId', otherKey: 'serviceId' })
@@ -72,6 +74,15 @@ BarberAssignmentHistory.belongsTo(Barber, { as: 'newBarber', foreignKey: 'newBar
 BarberAssignmentHistory.belongsTo(Admin, { as: 'changedBy', foreignKey: 'changedByAdminId', onDelete: 'SET NULL' })
 Appointment.hasMany(BarberAssignmentHistory, { as: 'assignmentHistory', foreignKey: 'appointmentId', onDelete: 'CASCADE' })
 
+// Commission rate audit (append-only)
+CommissionRateHistory.belongsTo(Barber, { as: 'barber', foreignKey: 'barberId', onDelete: 'CASCADE' })
+CommissionRateHistory.belongsTo(Admin, { as: 'changedBy', foreignKey: 'changedByAdminId', onDelete: 'SET NULL' })
+Barber.hasMany(CommissionRateHistory, { as: 'commissionHistory', foreignKey: 'barberId', onDelete: 'CASCADE' })
+
+// Barber in-app notifications
+BarberNotification.belongsTo(Barber, { as: 'barber', foreignKey: 'barberId', onDelete: 'CASCADE' })
+Barber.hasMany(BarberNotification, { as: 'notifications', foreignKey: 'barberId', onDelete: 'CASCADE' })
+
 // Reviews
 Review.belongsTo(Barber, { as: 'barber', foreignKey: 'barberId', onDelete: 'SET NULL' })
 Barber.hasMany(Review, { as: 'reviews', foreignKey: 'barberId', onDelete: 'SET NULL' })
@@ -95,4 +106,6 @@ export {
   CheckoutSession,
   BarberEarning,
   BarberAssignmentHistory,
+  CommissionRateHistory,
+  BarberNotification,
 }

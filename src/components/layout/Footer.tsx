@@ -28,18 +28,21 @@ const exploreLinks = [
   { to: '/contact', label: 'Contact' },
 ]
 
-const hours = [
-  { label: 'Mon – Thu', time: '9:00 AM – 8:00 PM' },
-  { label: 'Friday', time: '9:00 AM – 9:00 PM' },
-  { label: 'Saturday', time: '8:00 AM – 9:00 PM' },
-  { label: 'Sunday', time: '11:00 AM – 6:00 PM' },
-]
+const hours = [{ label: 'Every Day', time: '9:00 AM – 11:00 PM' }]
 
 const socials = [
-  { href: site.instagram, label: 'Instagram', Icon: InstagramIcon },
-  { href: site.facebook, label: 'Facebook', Icon: FacebookIcon },
-  { href: site.twitter, label: 'Twitter / X', Icon: TwitterIcon },
-  { href: `https://wa.me/${site.whatsapp}`, label: 'WhatsApp', Icon: WhatsAppIcon },
+  { href: 'https://wa.me/2347069288456', label: 'WhatsApp', Icon: WhatsAppIcon },
+  {
+    href: 'https://www.facebook.com/share/1CKu9xn/?mibextid=wwXIfr',
+    label: 'Facebook',
+    Icon: FacebookIcon,
+  },
+  {
+    href: 'https://www.instagram.com/sawabagroomingstudio?stkn=MWpqNDc3ZDhiMXc0bw%3D%3D&utm_source=qr',
+    label: 'Instagram',
+    Icon: InstagramIcon,
+  },
+  { href: 'https://x.com/sawabagrooming?s=11', label: 'X', Icon: TwitterIcon },
 ]
 
 function Logo() {

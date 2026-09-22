@@ -11,6 +11,7 @@ import {
 } from '../controllers/customerAuthController'
 import { requireCustomer } from '../middleware/customerAuth'
 import { validate } from '../middleware/validate'
+import { customerAuthLimiter, otpLimiter } from '../middleware/rateLimiter'
 import {
   customerLoginPasswordSchema,
   customerOtpRequestSchema,
@@ -30,7 +31,7 @@ export const customerAuthRouter = Router()
  *     summary: Request a login OTP (public)
  *     description: Sends a 6-digit code to the customer's saved email. Only existing accounts receive codes.
  */
-customerAuthRouter.post('/otp/request', validate(customerOtpRequestSchema), requestOtpHandler)
+customerAuthRouter.post('/otp/request', otpLimiter, validate(customerOtpRequestSchema), requestOtpHandler)
 
 /**
  * @swagger
@@ -39,7 +40,7 @@ customerAuthRouter.post('/otp/request', validate(customerOtpRequestSchema), requ
  *     tags: [Account]
  *     summary: Verify OTP and login (public)
  */
-customerAuthRouter.post('/otp/verify', validate(customerOtpVerifySchema), verifyOtpHandler)
+customerAuthRouter.post('/otp/verify', otpLimiter, validate(customerOtpVerifySchema), verifyOtpHandler)
 
 /**
  * @swagger
@@ -49,7 +50,7 @@ customerAuthRouter.post('/otp/verify', validate(customerOtpVerifySchema), verify
  *     summary: Create a customer account (public)
  *     description: One account per phone number; legacy guest records are upgraded, never duplicated.
  */
-customerAuthRouter.post('/register', validate(customerRegisterSchema), registerHandler)
+customerAuthRouter.post('/register', customerAuthLimiter, validate(customerRegisterSchema), registerHandler)
 
 /**
  * @swagger
@@ -58,7 +59,7 @@ customerAuthRouter.post('/register', validate(customerRegisterSchema), registerH
  *     tags: [Account]
  *     summary: Login with phone + password (public)
  */
-customerAuthRouter.post('/login', validate(customerLoginPasswordSchema), loginPasswordHandler)
+customerAuthRouter.post('/login', customerAuthLimiter, validate(customerLoginPasswordSchema), loginPasswordHandler)
 
 customerAuthRouter.get('/me', requireCustomer, meHandler)
 customerAuthRouter.patch('/me', requireCustomer, validate(customerProfileUpdateSchema), updateProfileHandler)

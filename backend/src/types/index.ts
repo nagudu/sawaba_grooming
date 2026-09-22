@@ -1,4 +1,4 @@
-export type Role = 'ADMIN'
+export type Role = 'ADMIN' | 'BARBER'
 
 export type AppointmentStatus =
   | 'PAYMENT_REQUIRED'

@@ -18,7 +18,7 @@ export default function BookingPage() {
         image="/images/hero.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section id="booking-form" className="bg-night-950 py-24 md:py-32">
         <div className="container-app max-w-5xl">
           <BookingForm
             initialServiceId={initialServiceId}

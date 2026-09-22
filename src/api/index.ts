@@ -269,7 +269,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   }
 
   if (!response.ok) {
-    if (response.status === 401) {
+    // Never bounce the login page itself: a wrong password must show its error
+    // inline instead of reloading the page (which swallowed the toast message).
+    if (response.status === 401 && !window.location.pathname.startsWith('/admin/login')) {
       clearAdminSession()
       window.location.href = '/admin/login'
     }

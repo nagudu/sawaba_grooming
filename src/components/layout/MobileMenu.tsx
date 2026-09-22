@@ -96,7 +96,17 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
             <div className="mt-auto">
               <ButtonLink
                 to="/book"
-                onClick={onClose}
+                onClick={(event) => {
+                  onClose()
+                  // Already on /book → smooth-scroll to the form instead of a no-op reload.
+                  if (window.location.pathname === '/book') {
+                    const target = document.getElementById('booking-form')
+                    if (target) {
+                      event.preventDefault()
+                      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
+                  }
+                }}
                 variant="gold"
                 size="lg"
                 fullWidth

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, History, Search, Trash2, UserCog } from 'lucide-react'
+import { CalendarDays, History, ListFilter, Trash2, UserCog } from 'lucide-react'
 import {
   api,
   buildQuery,
@@ -10,8 +10,9 @@ import {
   type PaymentStatus,
 } from '../../api'
 import { ConfirmDialog, EmptyRow, PageHeader, StatusBadge, Td, Th } from '../../components/admin/AdminUI'
-import { Button, buttonClasses } from '../../components/ui/Button'
+import { Button } from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import SearchInput from '../../components/ui/SearchInput'
 import { useAuthErrorToast } from '../../hooks/useAuthErrorToast'
 import { useToast } from '../../components/ui/ToastNotification'
 import { useDebounced } from '../../hooks/useDebounced'
@@ -238,43 +239,36 @@ export default function AdminAppointmentsPage() {
         subtitle="Manage, review, and track all customer appointments and booking requests in one place."
       />
 
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="field-icon h-4 w-4" />
-          <input
-            type="search"
+      <div className="mb-6 rounded-2xl border border-night-800/80 bg-night-900/30 p-3 sm:p-3.5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <SearchInput
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void load(1, statusFilter, event.currentTarget.value)
-            }}
+            onChange={setSearch}
+            onSearch={() => void load(1, statusFilter, search)}
             placeholder="Search by customer name, phone or email..."
-            className="field pl-11"
+            className="w-full lg:w-96 lg:shrink-0"
           />
-        </div>
-        <div className="flex gap-2 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => selectStatus('')}
-            className={cn(
-              buttonClasses('outline', 'md'),
-              statusFilter === '' && 'border-gold-500/60 text-gold-300',
-            )}
-          >
-            All
-          </button>                          {ALL_APPOINTMENT_STATUSES.map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => selectStatus(status)}
-              className={cn(
-                buttonClasses('outline', 'md'),
-                statusFilter === status && 'border-gold-500/60 text-gold-300',
-              )}
-            >
-              {APPOINTMENT_STATUS_LABELS[status]}
-            </button>
-          ))}
+          <div className="flex flex-1 flex-wrap items-center gap-2">
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-night-800 bg-night-900 px-3.5 py-2 text-[11px] font-semibold tracking-[0.14em] text-night-400 uppercase lg:inline-flex">
+              <ListFilter className="h-3.5 w-3.5 text-gold-500" />
+              Status
+            </span>
+            {(['', ...ALL_APPOINTMENT_STATUSES] as Array<'' | AppointmentStatus>).map((status) => (
+              <button
+                key={status || 'all'}
+                type="button"
+                onClick={() => selectStatus(status)}
+                className={cn(
+                  'shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[11px] font-semibold tracking-wide transition-all duration-200',
+                  statusFilter === status
+                    ? 'border-gold-500/60 bg-gold-500/10 text-gold-300'
+                    : 'border-night-700 bg-night-900/60 text-night-400 hover:border-night-500 hover:text-night-100',
+                )}
+              >
+                {status === '' ? 'All' : APPOINTMENT_STATUS_LABELS[status]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

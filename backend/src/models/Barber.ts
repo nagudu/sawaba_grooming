@@ -31,6 +31,10 @@ export class Barber extends Model<InferAttributes<Barber>, InferCreationAttribut
   /** PERCENTAGE: 0-100. FIXED: naira amount per completed appointment. Admin-only. */
   declare commissionValue: CreationOptional<number>
   declare isActive: CreationOptional<boolean>
+  /** Whether this barber may sign in to the Barber Portal (`/barber`). */
+  declare portalEnabled: CreationOptional<boolean>
+  /** bcrypt hash of the barber portal password. Null until admin issues credentials. */
+  declare passwordHash: CreationOptional<string | null>
   declare createdAt: CreationOptional<Date>
   declare updatedAt: CreationOptional<Date>
 
@@ -112,6 +116,17 @@ Barber.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
+    },
+    portalEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'Barber may sign in to the Barber Portal.',
+    },
+    passwordHash: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'bcrypt hash — portal login credential (admin-issued).',
     },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,

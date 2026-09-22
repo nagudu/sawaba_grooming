@@ -57,7 +57,7 @@ export default function GalleryPreview() {
           description="A glimpse of the cuts, fades and finishes our clients walk out wearing."
         />
 
-        <div className="mt-14 columns-1 gap-4 sm:columns-2 lg:columns-3 [&>*]:mb-4">
+        <div className="mt-14 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
           {images.map((image) => (
             <GalleryCard
               key={image.id}

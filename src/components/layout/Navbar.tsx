@@ -147,6 +147,16 @@ export default function Navbar({ onMobileOpen }: NavbarProps) {
             variant="gold"
             size="sm"
             className="hidden lg:inline-flex"
+            onClick={(event) => {
+              // Already on /book → smooth-scroll to the form instead of a no-op reload.
+              if (window.location.pathname === '/book') {
+                const target = document.getElementById('booking-form')
+                if (target) {
+                  event.preventDefault()
+                  target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+              }
+            }}
           >
             Book Now
           </ButtonLink>

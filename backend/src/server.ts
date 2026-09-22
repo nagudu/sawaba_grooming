@@ -7,6 +7,7 @@ import { env } from './config/env'
 import { sequelize, connectDatabase } from './config/database'
 import { apiRouter } from './routes'
 import { swaggerSpec } from './swagger'
+import { ensureModelColumns } from './scripts/ensureColumns'
 import { apiLimiter } from './middleware/rateLimiter'
 import { notFoundHandler, errorHandler } from './middleware/errorHandler'
 import path from 'node:path'
@@ -109,7 +110,14 @@ async function startServer(): Promise<void> {
     await connectDatabase()
     console.log('[server] database connection established')
 
-    // Use { force: false, alter: process.env.NODE_ENV === 'development' } on first start via db:sync instead.
+    // Add-only drift healer: sync({force:false}) never adds columns to
+    // existing tables, so a model that outgrows its table would 500 every
+    // query. Heal first, then let sync create any missing tables.
+    const healed = await ensureModelColumns()
+    if (healed.length > 0) {
+      console.log(`[server] schema drift healed: ${healed.join(', ')}`)
+    }
+
     await sequelize.sync({ force: false })
     console.log('[server] models synchronized')
 

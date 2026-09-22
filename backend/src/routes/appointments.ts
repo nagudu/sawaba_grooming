@@ -95,9 +95,10 @@ appointmentsRouter.post(
  *     parameters:
  *       - in: query
  *         name: status
-*           schema:
- *             type: string
- *             enum: [PAYMENT_REQUIRED, PAYMENT_SUBMITTED, PAYMENT_VERIFIED, PAYMENT_REJECTED, READY_FOR_SERVICE, IN_PROGRESS, COMPLETED, CANCELLED]
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [PAYMENT_REQUIRED, PAYMENT_SUBMITTED, PAYMENT_VERIFIED, PAYMENT_REJECTED, READY_FOR_SERVICE, IN_PROGRESS, COMPLETED, CANCELLED]
  *       - in: query
  *         name: barberId
  *         schema:
