@@ -24,6 +24,10 @@ export const createBarberSchema = z.object({
   commissionType: z.enum(['PERCENTAGE', 'FIXED']).default('PERCENTAGE'),
   commissionValue: z.coerce.number().min(0).max(1000000).default(0),
   isActive: z.coerce.boolean().default(true),
+  /** Barber Portal access: flipping this on (with a password) lets the barber sign in. */
+  portalEnabled: z.coerce.boolean().optional(),
+  /** Admin-issued portal password. Min 8 chars; hashed server-side, never stored raw. */
+  portalPassword: z.string().min(8, 'Portal password must be at least 8 characters.').max(128).optional().nullable(),
   serviceIds: z.preprocess(
     (value) => (typeof value === 'string' ? value.split(',').map((id) => id.trim()).filter(Boolean) : value),
     z.array(z.coerce.number().int().positive()).max(40).optional(),
@@ -56,6 +60,8 @@ export const updateBarberSchema = z.object({
   commissionType: z.enum(['PERCENTAGE', 'FIXED']).optional(),
   commissionValue: z.coerce.number().min(0).max(1000000).optional(),
   isActive: z.coerce.boolean().optional(),
+  portalEnabled: z.coerce.boolean().optional(),
+  portalPassword: z.string().min(8, 'Portal password must be at least 8 characters.').max(128).optional().nullable(),
   serviceIds: z.preprocess(
     (value) => (typeof value === 'string' ? value.split(',').map((id) => id.trim()).filter(Boolean) : value),
     z.array(z.coerce.number().int().positive()).max(40).optional(),
@@ -78,6 +84,7 @@ export const listBarbersQuerySchema = z.object({
   /** Admin-only filters (PUBLIC list ignores/never receives them). */
   barberType: z.enum(['INTERNAL', 'EXTERNAL']).optional(),
   location: z.string().trim().max(150).optional(),
+  availableToday: z.enum(['true', 'false']).optional(),
   page: z.coerce.number().int().min(1).optional(),
   perPage: z.coerce.number().int().min(1).max(100).optional(),
 })

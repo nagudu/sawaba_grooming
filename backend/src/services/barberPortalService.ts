@@ -23,8 +23,12 @@ import type { BarberAvailabilityInput, BarberPortalQuery } from '../validators/b
 export async function getBarberPortalOverview(barberId: number) {
   const today = new Date()
   const todayKey = today.toISOString().slice(0, 10)
+  const weekStart = new Date(today)
+  weekStart.setDate(today.getDate() - today.getDay())
+  const weekKey = weekStart.toISOString().slice(0, 10)
+  const monthKey = todayKey.slice(0, 7)
 
-  const [todayAppointments, upcoming, completed, earnings, notifications, unreadCount] =
+  const [todayAppointments, upcoming, completed, pendingCount, earnings, barber, notifications, unreadCount] =
     await Promise.all([
       Appointment.findAll({
         where: { barberId, appointmentDate: todayKey, status: { [Op.not]: 'CANCELLED' } },
@@ -37,12 +41,11 @@ export async function getBarberPortalOverview(barberId: number) {
         },
       }),
       Appointment.count({ where: { barberId, status: 'COMPLETED' } }),
-      BarberEarning.findAll({
-        where: {
-          barberId,
-          status: { [Op.in]: ['PENDING', 'EARNED'] },
-        },
+      Appointment.count({
+        where: { barberId, status: { [Op.in]: ['PAYMENT_VERIFIED', 'READY_FOR_SERVICE'] } },
       }),
+      BarberEarning.findAll({ where: { barberId } }),
+      (await import('../models')).Barber.findByPk(barberId, { attributes: ['commissionType', 'commissionValue'] }),
       BarberNotification.findAll({
         where: { barberId },
         order: [['createdAt', 'DESC']],
@@ -51,9 +54,10 @@ export async function getBarberPortalOverview(barberId: number) {
       BarberNotification.count({ where: { barberId, readAt: null } }),
     ])
 
-  const todayCount = todayAppointments.filter((a) => a.status !== 'IN_PROGRESS').length
-  const daysUpcomingCount = upcoming.length
-  const pendingCommission = earnings.reduce((sum, e) => sum + Number(e.commissionAmount), 0)
+  const sum = (rows: typeof earnings) => rows.reduce((total, e) => total + Number(e.commissionAmount), 0)
+  const todayEarnings = sum(earnings.filter((e) => e.earnedAt && e.earnedAt.toISOString().slice(0, 10) === todayKey))
+  const weekEarnings = sum(earnings.filter((e) => e.earnedAt && e.earnedAt.toISOString().slice(0, 10) >= weekKey))
+  const monthEarnings = sum(earnings.filter((e) => e.earnedAt && e.earnedAt.toISOString().slice(0, 7) === monthKey))
 
   const dueSoon = todayAppointments
     .filter((a) => a.status === 'READY_FOR_SERVICE' || a.status === 'PAYMENT_VERIFIED')
@@ -62,10 +66,17 @@ export async function getBarberPortalOverview(barberId: number) {
     .map((a) => serializeAppointment(a))
 
   return {
-    todayCount,
-    daysUpcomingCount,
+    todayCount: todayAppointments.filter((a) => a.status !== 'IN_PROGRESS').length,
+    daysUpcomingCount: upcoming.length,
     completedCount: completed,
-    pendingCommission,
+    pendingCount,
+    todayEarnings,
+    weekEarnings,
+    monthEarnings,
+    totalEarnings: sum(earnings.filter((e) => e.status === 'EARNED' || e.status === 'PAID')),
+    pendingCommission: sum(earnings.filter((e) => e.status === 'PENDING' || e.status === 'EARNED')),
+    commissionType: barber?.commissionType ?? 'PERCENTAGE',
+    commissionValue: Number(barber?.commissionValue ?? 0),
     unreadCount,
     dueSoon,
     notifications: notifications.map((n) => serializeNotification(n)),
@@ -77,7 +88,12 @@ export async function listBarberPortalAppointments(
   query: BarberPortalQuery,
 ) {
   const { offset, limit, page, perPage } = getPagination(query as Record<string, unknown>)
-  const where: Record<string, unknown> = { barberId }
+  // A barber works an appointment when they are the booked barber OR the
+  // admin-assigned barber — assignments are the operative field for the
+  // customer → admin → barber flow.
+  const where: Record<string, unknown> = {
+    [Op.or]: [{ barberId }, { assignedBarberId: barberId }],
+  }
 
   if (query.status) where.status = query.status
   if (query.from || query.to) {
@@ -111,7 +127,10 @@ export async function listBarberPortalAppointments(
 
 export async function getBarberPortalAppointment(barberId: number, appointmentId: number) {
   const appointment = await Appointment.findOne({
-    where: { id: appointmentId, barberId },
+    where: {
+      id: appointmentId,
+      [Op.or]: [{ barberId }, { assignedBarberId: barberId }],
+    },
   })
   if (!appointment) {
     throw new NotFoundError('Appointment not found for this barber.')
@@ -126,7 +145,10 @@ export async function updateBarberPortalAppointmentStatus(
   to: 'IN_PROGRESS' | 'COMPLETED',
 ) {
   const appointment = await Appointment.findOne({
-    where: { id: appointmentId, barberId },
+    where: {
+      id: appointmentId,
+      [Op.or]: [{ barberId }, { assignedBarberId: barberId }],
+    },
   })
   if (!appointment) {
     throw new NotFoundError('Appointment not found for this barber.')
@@ -155,6 +177,7 @@ export async function listBarberPortalEarnings(barberId: number, query: BarberPo
   const { offset, limit, page, perPage } = getPagination(query as Record<string, unknown>)
   const where: Record<string, unknown> = { barberId }
   if (query.status) where.status = query.status
+  if (query.earningStatus) where.status = query.earningStatus
 
   const { rows, count } = await BarberEarning.findAndCountAll({
     where,

@@ -1,10 +1,82 @@
+import { Op } from 'sequelize'
 import { sequelize } from '../config/database'
-import { Appointment, Barber, BarberAssignmentHistory, BarberEarning } from '../models'
+import { Appointment, Barber, BarberAssignmentHistory, BarberAvailability, BarberEarning, BarberNotification, BarberService, Service } from '../models'
+import { AppointmentStatusValue } from '../config/appointmentStatuses'
 import { NotFoundError, UnprocessableError } from '../utils/errors'
 import { getAppointmentById } from './appointmentService'
 import { createEarningSnapshot } from './commissionService'
+import { hhmmToMinutes } from './availabilityService'
 import type { AssignBarberInput } from '../validators/barberEarning'
 import type { AppointmentPublic } from './appointmentService'
+
+/**
+ * Pre-assignment eligibility checks (requirement: never double-book, never
+ * assign an inactive/mismatched barber). Returns nothing — throws a
+ * descriptive UnprocessableError explaining exactly why assignment must fail.
+ */
+async function assertBarberAssignable(barberId: number, appointment: Appointment): Promise<void> {
+  const barber = await Barber.findByPk(barberId)
+  if (!barber) throw new NotFoundError('Selected barber not found.')
+  if (!barber.isActive) {
+    throw new UnprocessableError(`${barber.name} is inactive and cannot take appointments.`)
+  }
+
+  // The barber must actually provide the appointment's service.
+  const serviceLink = await BarberService.findOne({
+    where: { barberId, serviceId: appointment.serviceId },
+  })
+  if (!serviceLink) {
+    const service = await Service.findByPk(appointment.serviceId, { attributes: ['name'] })
+    throw new UnprocessableError(
+      `${barber.name} does not provide ${service?.name ?? 'this service'} and cannot be assigned.`,
+    )
+  }
+
+  // Working-hours check (only when the barber has a configured schedule).
+  const dayOfWeek = new Date(`${appointment.appointmentDate}T00:00:00`).getDay()
+  const schedule = await BarberAvailability.findAll({
+    where: { barberId, dayOfWeek, isAvailable: true },
+  })
+  if (schedule.length > 0) {
+    const startMin = hhmmToMinutes(appointment.appointmentTime)
+    const service = await Service.findByPk(appointment.serviceId, { attributes: ['duration'] })
+    const endMin = startMin + (service?.duration ?? 30)
+    const within = schedule.some(
+      (row) => startMin >= hhmmToMinutes(row.startTime) && endMin <= hhmmToMinutes(row.endTime),
+    )
+    if (!within) {
+      throw new UnprocessableError(
+        `${appointment.appointmentTime} is outside ${barber.name}'s working hours on ${appointment.appointmentDate}.`,
+      )
+    }
+  }
+
+  // Double-booking check against every non-cancelled appointment in the
+  // target barber's calendar for that date — including appointments where
+  // they are the ASSIGNED barber, not just the booked one.
+  const duration = (await Service.findByPk(appointment.serviceId, { attributes: ['duration'] }))?.duration ?? 30
+  const startMin = hhmmToMinutes(appointment.appointmentTime)
+  const endMin = startMin + duration
+  const sameDay = await Appointment.findAll({
+    where: {
+      appointmentDate: appointment.appointmentDate,
+      status: { [Op.ne]: AppointmentStatusValue.CANCELLED },
+      id: { [Op.ne]: appointment.id },
+      [Op.or]: [{ barberId }, { assignedBarberId: barberId }],
+    },
+    include: [{ model: Service, as: 'service', attributes: ['duration'] }],
+  })
+  for (const other of sameDay) {
+    const otherDuration = (other as unknown as { service?: { duration?: number } | null }).service?.duration ?? duration
+    const otherStart = hhmmToMinutes(other.appointmentTime)
+    const otherEnd = otherStart + otherDuration
+    if (startMin < otherEnd && endMin > otherStart) {
+      throw new UnprocessableError(
+        `${barber.name} is already booked at ${other.appointmentTime} on ${appointment.appointmentDate} (appointment ${other.referenceCode ?? `#${other.id}`}). Double-booking is not allowed.`,
+      )
+    }
+  }
+}
 
 /**
  * Admin barber assignment (requirement #5/#6).
@@ -52,13 +124,7 @@ export async function assignBarber(
   }
 
   if (input.barberId !== null) {
-    const barber = await Barber.findByPk(input.barberId)
-    if (!barber) {
-      throw new NotFoundError('Selected barber not found.')
-    }
-    if (!barber.isActive) {
-      throw new UnprocessableError('The selected barber is inactive.')
-    }
+    await assertBarberAssignable(input.barberId, appointment)
   }
 
   const currentAssignment = appointment.assignedBarberId ?? null
@@ -105,6 +171,19 @@ export async function assignBarber(
         next,
         Number(appointment.totalAmount),
         t,
+      )
+    }
+
+    // Notify the target barber (in-app, barber portal).
+    if (next !== null) {
+      await BarberNotification.create(
+        {
+          barberId: next,
+          type: 'ASSIGNMENT',
+          title: action === 'REASSIGNED' ? 'New appointment reassigned to you' : 'New appointment assigned to you',
+          message: `Appointment ${appointment.referenceCode ?? `#${appointmentId}`} (${appointment.appointmentDate} ${appointment.appointmentTime})${input.reason ? ` — reason: ${input.reason.trim()}` : ''}.`,
+        },
+        { transaction: t },
       )
     }
   })

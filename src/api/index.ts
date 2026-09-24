@@ -46,6 +46,9 @@ export interface BarberItem {
   id: number
   name: string
   slug: string
+  /** Admin-only login identity + contact. Present on admin list/`GET :id` responses, absent publicly. */
+  email: string | null
+  phone: string | null
   image: string | null
   specialty: string | null
   biography: string | null
@@ -60,6 +63,13 @@ export interface BarberItem {
   location?: string | null
   commissionType?: 'PERCENTAGE' | 'FIXED'
   commissionValue?: number
+  /** Barber Portal access (admin views only). */
+  portalEnabled?: boolean
+  hasPortalPassword?: boolean
+  /** True when the barber can take bookings today per their schedule (admin views only). */
+  availableToday?: boolean
+  /** Set on create/update when portal credentials were emailed: null = delivered, string = failure reason. */
+  credentialNotice?: string | null
 }
 
 export type AppointmentStatus =

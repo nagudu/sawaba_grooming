@@ -19,6 +19,8 @@ import { cn } from '../../utils/cn'
 
 interface BarberForm {
   name: string
+  email: string
+  phone: string
   imageUrl: string
   specialty: string
   biography: string
@@ -29,10 +31,15 @@ interface BarberForm {
   location: string
   commissionType: 'PERCENTAGE' | 'FIXED'
   commissionValue: string
+  portalEnabled: boolean
+  portalPassword: string
+  confirmPortalPassword: string
 }
 
 const EMPTY_FORM: BarberForm = {
   name: '',
+  email: '',
+  phone: '',
   imageUrl: '',
   specialty: '',
   biography: '',
@@ -43,6 +50,9 @@ const EMPTY_FORM: BarberForm = {
   location: '',
   commissionType: 'PERCENTAGE',
   commissionValue: '',
+  portalEnabled: false,
+  portalPassword: '',
+  confirmPortalPassword: '',
 }
 
 export default function AdminBarbersPage() {
@@ -63,6 +73,7 @@ export default function AdminBarbersPage() {
   const [deleting, setDeleting] = useState<BarberItem | null>(null)
   const [busy, setBusy] = useState(false)
   const [typeFilter, setTypeFilter] = useState<'' | 'INTERNAL' | 'EXTERNAL'>('')
+  const [availabilityFilter, setAvailabilityFilter] = useState<'' | 'true' | 'false'>('')
 
   const perPage = 12
   const debouncedSearch = useDebounced(search.trim(), 300)
@@ -71,7 +82,7 @@ export default function AdminBarbersPage() {
     setLoading(true)
     try {
       const data = await api.get<Paged<BarberItem>>(
-        `/api/barbers${buildQuery({ page: targetPage, perPage, search: query || undefined, includeInactive: 'true', barberType: typeFilter || undefined })}`,
+        `/api/barbers${buildQuery({ page: targetPage, perPage, search: query || undefined, includeInactive: 'true', barberType: typeFilter || undefined, availableToday: availabilityFilter || undefined })}`,
       )
       setBarbers(data.items)
       setTotal(data.total)
@@ -105,7 +116,7 @@ export default function AdminBarbersPage() {
   useEffect(() => {
     void load(1, debouncedSearch)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter])
+  }, [typeFilter, availabilityFilter])
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / perPage)), [total, perPage])
 
@@ -120,6 +131,8 @@ export default function AdminBarbersPage() {
     setEditing(barber)
     setForm({
       name: barber.name,
+      email: barber.email ?? '',
+      phone: barber.phone ?? '',
       imageUrl: barber.image ?? '',
       specialty: barber.specialty ?? '',
       biography: barber.biography ?? '',
@@ -130,16 +143,29 @@ export default function AdminBarbersPage() {
       location: barber.location ?? '',
       commissionType: barber.commissionType ?? 'PERCENTAGE',
       commissionValue: barber.commissionValue != null ? String(barber.commissionValue) : '',
+      portalEnabled: barber.portalEnabled ?? false,
+      portalPassword: '',
+      confirmPortalPassword: '',
     })
     setImageFile(null)
     setFormOpen(true)
   }
+
+  /** Appends the credential-email outcome to the save toast (null = delivered). */
+  const saveNotice = (base: string, credentialNotice?: string | null): string =>
+    credentialNotice === undefined
+      ? base
+      : credentialNotice === null
+        ? `${base} Portal credentials emailed to the barber.`
+        : `${base} ${credentialNotice}`
 
   const save = async () => {
     setSaving(true)
     try {
       const payload: Record<string, unknown> = {
         name: form.name.trim(),
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
         image: imageFile ? undefined : form.imageUrl.trim() || undefined,
         specialty: form.specialty.trim() || undefined,
         biography: form.biography.trim() || undefined,
@@ -151,17 +177,28 @@ export default function AdminBarbersPage() {
         commissionType: form.commissionType,
         commissionValue:
           form.commissionValue.trim() === '' ? undefined : Number(form.commissionValue),
+        portalEnabled: form.portalEnabled,
+        // Only send a password when the admin typed one (set/reset).
+        portalPassword: form.portalPassword.trim() ? form.portalPassword.trim() : undefined,
       }
 
       const useMultipart = imageFile !== null
       if (imageFile) payload.image = imageFile
 
       if (editing) {
-        await api.put(`/api/barbers/${editing.id}`, useMultipart ? toForm(payload) : payload, useMultipart)
-        showToast('Barber updated.')
+        const saved = await api.put<BarberItem>(
+          `/api/barbers/${editing.id}`,
+          useMultipart ? toForm(payload) : payload,
+          useMultipart,
+        )
+        showToast(saveNotice('Barber updated.', saved.credentialNotice))
       } else {
-        await api.post('/api/barbers', useMultipart ? toForm(payload) : payload, useMultipart)
-        showToast('Barber created.')
+        const saved = await api.post<BarberItem>(
+          '/api/barbers',
+          useMultipart ? toForm(payload) : payload,
+          useMultipart,
+        )
+        showToast(saveNotice('Barber created.', saved.credentialNotice))
       }
       setFormOpen(false)
       await load(editing ? page : 1)
@@ -259,6 +296,16 @@ export default function AdminBarbersPage() {
           <option value="INTERNAL">Internal barbers</option>
           <option value="EXTERNAL">External barbers</option>
         </select>
+        <select
+          value={availabilityFilter}
+          onChange={(event) => setAvailabilityFilter(event.target.value as '' | 'true' | 'false')}
+          className="field sm:w-48"
+          aria-label="Filter by availability today"
+        >
+          <option value="">All availability</option>
+          <option value="true">Available today</option>
+          <option value="false">Unavailable today</option>
+        </select>
       </div>
 
       <div className="card-lux overflow-hidden">
@@ -271,16 +318,18 @@ export default function AdminBarbersPage() {
                 <tr>
                   <Th>Barber</Th>
                   <Th>Type</Th>
+                  <Th>Availability</Th>
                   <Th>Commission</Th>
                   <Th>Specialty</Th>
                   <Th>Services</Th>
+                  <Th>Portal</Th>
                   <Th>Status</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-night-800">
                 {                  barbers.length === 0 ? (
-                  <EmptyRow colSpan={7} message="No barbers found." />
+                  <EmptyRow colSpan={9} message="No barbers found." />
                 ) : (
                   barbers.map((barber) => (
                     <tr key={barber.id} className="transition-colors hover:bg-night-900/60">
@@ -318,16 +367,39 @@ export default function AdminBarbersPage() {
                           <span className="mt-1 block text-[11px] text-night-500">📍 {barber.location}</span>
                         )}
                       </Td>
+                      <Td>
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
+                            barber.availableToday
+                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                              : 'border-night-600 bg-night-800 text-night-500',
+                          )}
+                        >
+                          {barber.availableToday ? 'Available today' : 'Off today'}
+                        </span>
+                      </Td>
                       <Td className="text-xs text-night-300">
                         {barber.commissionType === 'FIXED'
                           ? `₦${Number(barber.commissionValue ?? 0).toLocaleString()} fixed`
                           : `${Number(barber.commissionValue ?? 0)}%`}
                       </Td>
                       <Td>{barber.specialty ?? '—'}</Td>
-                      <Td>{barber.experience} yrs</Td>
                       <Td>
                         <span className="max-w-[200px] truncate text-xs text-night-400">
                           {(barber.services ?? []).map((service) => service.name).join(', ') || '—'}
+                        </span>
+                      </Td>
+                      <Td>
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
+                            barber.portalEnabled
+                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                              : 'border-night-600 bg-night-800 text-night-500',
+                          )}
+                        >
+                          {barber.portalEnabled ? 'Enabled' : 'Off'}
                         </span>
                       </Td>
                       <Td>
@@ -415,6 +487,24 @@ export default function AdminBarbersPage() {
                 placeholder="Ibrahim Musa"
               />
             </Field>
+            <Field label="Email" hint="Login identity for the Barber Portal. Must be unique.">
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+                className="field"
+                placeholder="ibrahim@example.com"
+              />
+            </Field>
+            <Field label="Phone Number" hint="Contact + login fallback. Saved to the barber profile.">
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(event) => setForm({ ...form, phone: event.target.value })}
+                className="field"
+                placeholder="0803 000 0000"
+              />
+            </Field>
             <Field label="Specialty" hint="Displayed under the barber's name.">
               <input
                 value={form.specialty}
@@ -497,6 +587,46 @@ export default function AdminBarbersPage() {
                 placeholder={form.commissionType === 'PERCENTAGE' ? '30' : '1500'}
               />
             </Field>
+          </div>
+
+          {/* Barber Portal access */}
+          <div className="rounded-xl border border-night-800 bg-night-900/40 p-4">
+            <label className="flex items-center gap-3 text-sm font-medium text-night-100">
+              <input
+                type="checkbox"
+                checked={form.portalEnabled}
+                onChange={(event) => setForm({ ...form, portalEnabled: event.target.checked })}
+                className="h-4 w-4 accent-[#c9a24b]"
+              />
+              Enable Barber Portal access
+            </label>
+            <p className="mt-1 text-xs text-night-500">
+              Lets this barber sign in at <span className="font-mono">/barber</span> to see their own schedule,
+              appointments and earnings. They only ever see their own data. When a password is set, the
+              credentials are emailed to the barber automatically.
+            </p>
+            {form.portalEnabled && (
+              <div className="mt-3">
+                <Field
+                  label={editing?.hasPortalPassword ? 'Set / reset portal password' : 'Portal password'}
+                  hint={
+                    editing?.hasPortalPassword
+                      ? 'Leave blank to keep the current password. Minimum 8 characters.'
+                      : 'Minimum 8 characters. Share it with the barber — they can change it after signing in.'
+                  }
+                >
+                  <input
+                    type="text"
+                    minLength={8}
+                    value={form.portalPassword}
+                    onChange={(event) => setForm({ ...form, portalPassword: event.target.value })}
+                    className="field font-mono"
+                    placeholder={editing?.hasPortalPassword ? '•••••••• (unchanged)' : 'e.g. sawaba-2026'}
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+            )}
           </div>
 
           <Field label="Biography">

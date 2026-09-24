@@ -1,10 +1,72 @@
+import bcrypt from 'bcryptjs'
 import { Op, fn, col } from 'sequelize'
 import { Barber, BarberAvailability, BarberService, Review, Service, Appointment } from '../models'
 import { NotFoundError } from '../utils/errors'
 import { getPagination } from '../utils/response'
 import { slugify } from '../utils/slug'
+import { sendEmail, EmailDeliveryError } from './mailer'
+import { DEFAULT_HOURS, hhmmToMinutes } from './availabilityService'
 import type { CreateBarberInput, UpdateBarberInput } from '../validators/barber'
 import type { Paged } from '../types'
+
+/** Portal passwords are always bcrypt-hashed at rest; raw values never persist. */
+async function hashPortalPassword(plain: string): Promise<string> {
+  return bcrypt.hash(plain, 12)
+}
+
+/** Portal base URL — configurable for staging/production; defaults to local dev. */
+function portalUrl(): string {
+  return (process.env.PORTAL_URL ?? 'http://localhost:5173/barber').replace(/\/$/, '')
+}
+
+/**
+ * Emails portal credentials to a barber when admin enables portal access.
+ * The raw password exists only here (in memory) — it is never persisted or
+ * logged. Failure to deliver is surfaced to the admin as a warning message
+ * (the save itself already succeeded), so a broken mailer can't silently
+ * leave a barber without credentials.
+ */
+async function sendPortalCredentialsEmail(barber: Barber, rawPassword: string): Promise<string | null> {
+  if (!barber.email) {
+    return 'No email address on file for this barber — credentials were not sent.'
+  }
+  try {
+    const url = portalUrl()
+    await sendEmail({
+      to: barber.email,
+      subject: 'Your SAWABA Barber Portal access',
+      text: [
+        `Hello ${barber.name},`,
+        '',
+        'You have been granted access to the SAWABA Grooming Studio Barber Portal.',
+        `Sign in here: ${url}`,
+        '',
+        `Email or phone: ${barber.email ?? barber.phone ?? ''}`,
+        `Password: ${rawPassword}`,
+        '',
+        'For security, please change this password after your first sign-in (Profile → Change password).',
+        '',
+        '— SAWABA Grooming Studio',
+      ].join('\n'),
+      html: [
+        `<p>Hello ${barber.name},</p>`,
+        `<p>You have been granted access to the <strong>SAWABA Grooming Studio Barber Portal</strong>.</p>`,
+        `<p><a href="${url}" style="display:inline-block;background:#c9a24b;color:#14141a;padding:10px 22px;border-radius:8px;text-decoration:none;font-weight:600;">Sign in to the Barber Portal</a></p>`,
+        `<p style="font-size:14px;">Email or phone: <strong>${barber.email ?? barber.phone ?? ''}</strong><br/>Password: <strong style="font-family:monospace;font-size:15px;">${rawPassword}</strong></p>`,
+        `<p style="font-size:13px;color:#666;">For security, please change this password after your first sign-in.</p>`,
+        `<p style="font-size:12px;color:#999;">— SAWABA Grooming Studio</p>`,
+      ].join('\n'),
+    })
+    return null // delivered
+  } catch (error) {
+    if (error instanceof EmailDeliveryError) {
+      console.error(`[barber] portal credentials email to ${barber.email} failed: ${error.userMessage}`)
+      return `Credentials saved, but the email could not be delivered: ${error.userMessage}`
+    }
+    console.error(`[barber] portal credentials email to ${barber.email} failed unexpectedly:`, error)
+    return 'Credentials saved, but the email could not be sent right now. Please share them manually.'
+  }
+}
 
 export interface BarberPublic {
   id: number
@@ -20,6 +82,8 @@ export interface BarberPublic {
   reviewCount?: number
   reviewAverage?: number
   isActive: boolean
+  /** True when the barber can take bookings today (schedule not passed / not off-duty). Admin views only. */
+  availableToday?: boolean
   appointmentCount?: number
   createdAt: Date
   updatedAt: Date
@@ -32,6 +96,38 @@ export interface BarberAdmin extends BarberPublic {
   location: string | null
   commissionType: 'PERCENTAGE' | 'FIXED'
   commissionValue: number
+  /** Whether the barber may sign in to the Barber Portal. */
+  portalEnabled: boolean
+  /** Whether a portal password exists (true/false — the hash never leaves the server). */
+  hasPortalPassword: boolean
+}
+
+/**
+ * Whether the barber can take bookings today, mirroring the booking engine's
+ * schedule semantics: active + on today's schedule (a configured availability
+ * row with isAvailable=true, or the studio's default hours when unconfigured)
+ * + the day's window hasn't fully passed (a 30-minute slot must still fit
+ * before closing time). Booking conflicts are deliberately NOT considered —
+ * this badge is about schedule availability, not remaining free minutes.
+ */
+export async function isBarberAvailableToday(barber: Barber): Promise<boolean> {
+  if (!barber.isActive) return false
+  const now = new Date()
+  const dayOfWeek = now.getDay()
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+
+  const rows = await BarberAvailability.findAll({ where: { barberId: barber.id } })
+  let window: { start: number; end: number }
+  if (rows.length > 0) {
+    const todayRow = rows.find((row) => row.dayOfWeek === dayOfWeek && row.isAvailable)
+    if (!todayRow) return false
+    window = { start: hhmmToMinutes(todayRow.startTime), end: hhmmToMinutes(todayRow.endTime) }
+  } else {
+    const fallback = DEFAULT_HOURS[dayOfWeek]
+    if (!fallback) return false
+    window = { start: hhmmToMinutes(fallback.start), end: hhmmToMinutes(fallback.end) }
+  }
+  return window.end >= nowMinutes + 30
 }
 
 /**
@@ -81,6 +177,9 @@ export function serializeBarberForAdmin(
   base.location = barber.location ?? null
   base.commissionType = barber.commissionType ?? 'PERCENTAGE'
   base.commissionValue = Number(barber.commissionValue ?? 0)
+  base.portalEnabled = barber.portalEnabled ?? false
+  // Boolean only — the hash itself NEVER leaves the server.
+  base.hasPortalPassword = Boolean(barber.passwordHash)
   return base
 }
 
@@ -140,16 +239,30 @@ async function uniqueSlug(name: string, excludeId?: number): Promise<string> {
   }
 }
 
-export async function createBarber(input: CreateBarberInput): Promise<BarberAdmin> {
-  const { serviceIds, ...data } = input
+export async function createBarber(input: CreateBarberInput): Promise<BarberAdmin & { credentialNotice?: string | null }> {
+  const { serviceIds, portalPassword, ...data } = input
   const slug = await uniqueSlug(data.name)
-  const barber = await Barber.create({ ...data, slug })
+  const barber = await Barber.create({
+    ...data,
+    slug,
+    portalEnabled: data.portalEnabled ?? false,
+    passwordHash: portalPassword ? await hashPortalPassword(portalPassword) : null,
+  })
 
   if (serviceIds && serviceIds.length > 0) {
     await barber.setServices(serviceIds)
   }
 
-  return getBarberByIdForAdmin(barber.id)
+  // New barber with portal access → email the credentials automatically.
+  // credentialNotice is only ATTACHED when an email attempt actually happened
+  // (null = delivered, string = failure reason) — absent otherwise — so the
+  // admin UI never claims an email was sent when none was attempted.
+  let credentialNotice: string | null | undefined
+  if (data.portalEnabled && portalPassword) {
+    credentialNotice = await sendPortalCredentialsEmail(barber, portalPassword)
+  }
+  const created = await getBarberByIdForAdmin(barber.id)
+  return credentialNotice === undefined ? created : { ...created, credentialNotice }
 }
 
 export async function listBarbers(
@@ -160,6 +273,7 @@ export async function listBarbers(
     search?: string
     barberType?: string
     location?: string
+    availableToday?: string
     page?: number
     perPage?: number
   },
@@ -167,6 +281,11 @@ export async function listBarbers(
 ): Promise<Paged<BarberPublic>> {
   const { page, perPage, offset, limit } = getPagination(query as Record<string, unknown>)
   const includeInactive = query.includeInactive === 'true'
+  // Availability is computed from per-barber schedule rows (not a column), so
+  // an availableToday filter can't run in SQL. When set, we fetch ALL matching
+  // rows, compute availability, filter, then paginate in memory — correct
+  // pagination beats an offset-then-filter bug. Barber tables are small
+  // (tens of rows), so this is cheap.
 
   const where = {
     ...(!includeInactive
@@ -191,7 +310,8 @@ export async function listBarbers(
     ...(query.location ? { location: { [Op.like]: `%${query.location}%` } } : {}),
   }
 
-  const { rows, count } = await Barber.findAndCountAll({
+  const availabilityFilter = query.availableToday === 'true' || query.availableToday === 'false'
+  const findOptions = {
     where,
     include: [
       {
@@ -208,16 +328,38 @@ export async function listBarbers(
       },
     ],
     distinct: true,
-    order: [['name', 'ASC']],
-    offset,
-    limit,
-  })
+    order: [['name', 'ASC']] as [string, string][],
+    // With an availability filter we must see ALL matches before filtering.
+    ...(availabilityFilter ? {} : { offset, limit }),
+  }
+
+  const { rows, count } = await Barber.findAndCountAll(findOptions)
 
   // Admin callers get business fields (type/commission/location); public callers never do.
   const items = rows.map((barber) =>
     options.adminView ? serializeBarberForAdmin(barber, true) : serializeBarber(barber, true),
   )
   await attachReviewStats(items)
+
+  // Attach the Available-today badge (admin views) and/or apply the filter.
+  // items[i] corresponds to rows[i] (same map order), so we compute directly
+  // against rows — both paths need the value.
+  if (options.adminView || availabilityFilter) {
+    for (let i = 0; i < items.length; i += 1) {
+      ;(items[i] as BarberAdmin).availableToday = await isBarberAvailableToday(rows[i])
+    }
+  }
+
+  let finalItems = items
+  let finalTotal = count
+  if (availabilityFilter) {
+    const wantAvailable = query.availableToday === 'true'
+    const filtered = items.filter(
+      (item) => (item as BarberAdmin).availableToday === wantAvailable,
+    )
+    finalTotal = filtered.length
+    finalItems = filtered.slice(offset, offset + limit)
+  }
 
   if (includeInactive) {
     const countRows = await Appointment.findAll({
@@ -236,8 +378,8 @@ export async function listBarbers(
   }
 
   return {
-    items,
-    total: count,
+    items: finalItems,
+    total: finalTotal,
     page,
     perPage,
   }
@@ -263,18 +405,22 @@ export async function getBarberByIdForAdmin(id: number): Promise<BarberAdmin> {
   return serialized
 }
 
-export async function updateBarber(id: number, input: UpdateBarberInput): Promise<BarberAdmin> {
+export async function updateBarber(id: number, input: UpdateBarberInput): Promise<BarberAdmin & { credentialNotice?: string | null }> {
   const barber = await Barber.findByPk(id)
   if (!barber) {
     throw new NotFoundError('Barber not found.')
   }
 
-  const { serviceIds, ...data } = input
+  const { serviceIds, portalPassword, ...data } = input
 
-  if (Object.keys(data).length > 0) {
+  if (Object.keys(data).length > 0 || portalPassword !== undefined) {
     const changes: Record<string, unknown> = { ...data }
     if (data.name && data.name !== barber.name) {
       changes.slug = await uniqueSlug(data.name, id)
+    }
+    if (portalPassword !== undefined) {
+      // Empty string/null clears the password (disabling login); a value sets it.
+      changes.passwordHash = portalPassword ? await hashPortalPassword(portalPassword) : null
     }
     await barber.update(changes)
   }
@@ -282,7 +428,15 @@ export async function updateBarber(id: number, input: UpdateBarberInput): Promis
     await barber.setServices(serviceIds)
   }
 
-  return getBarberByIdForAdmin(id)
+  // Email credentials when a NEW password was set (either enabling the portal
+  // for the first time or rotating it). Clearing the password never emails.
+  // Field is absent from the response when no attempt was made (see create).
+  let credentialNotice: string | null | undefined
+  if ((barber.portalEnabled ?? false) && portalPassword) {
+    credentialNotice = await sendPortalCredentialsEmail(barber, portalPassword)
+  }
+  const fresh = await getBarberByIdForAdmin(id)
+  return credentialNotice === undefined ? fresh : { ...fresh, credentialNotice }
 }
 
 /**

@@ -16,6 +16,8 @@ export const barberPortalQuerySchema = z.object({
       'CANCELLED',
     ])
     .optional(),
+  /** Ledger filter for the earnings list (PENDING → EARNED → PAID lifecycle). */
+  earningStatus: z.enum(['PENDING', 'EARNED', 'PAID', 'CANCELLED']).optional(),
   page: z.coerce.number().int().min(1).optional(),
   perPage: z.coerce.number().int().min(1).max(100).optional(),
 })

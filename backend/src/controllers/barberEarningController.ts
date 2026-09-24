@@ -3,6 +3,7 @@ import {
   listEarnings,
   getEarningsSummary,
   getCommissionReport,
+  getBarberPerformance,
   markEarningPaid,
 } from '../services/commissionService'
 import { assignBarber, getAssignmentHistory } from '../services/assignmentService'
@@ -31,6 +32,15 @@ export async function commissionReportHandler(req: Request, res: Response, next:
   try {
     const report = await getCommissionReport(req.query as unknown as EarningsQuery)
     successRes(res, 'Commission report retrieved.', report, 200)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function barberPerformanceHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const rows = await getBarberPerformance(req.query as unknown as EarningsQuery)
+    successRes(res, 'Barber performance report retrieved.', rows, 200)
   } catch (error) {
     next(error)
   }

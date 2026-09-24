@@ -36,7 +36,12 @@ export async function createBarberHandler(req: Request, res: Response, next: Nex
 
     const input: CreateBarberInput = { ...req.body, image }
     const barber = await createBarber(input)
-    successRes(res, 'Barber created successfully.', barber, 201)
+    const message = barber.credentialNotice
+      ? `Barber created successfully. ${barber.credentialNotice}`
+      : 'Barber created successfully.'
+    // credentialNotice stays in the payload so the admin UI can show the
+    // email-delivery outcome (null = sent, string = failure reason).
+    successRes(res, message, barber, 201)
   } catch (error) {
     next(error)
   }
@@ -47,6 +52,7 @@ export async function listBarbersHandler(req: Request, res: Response, next: Next
     const query = { ...(req.query as Record<string, unknown>) } as Record<string, unknown> & {
       includeInactive?: string
       barberType?: string
+      availableToday?: string
     }
     const authHeader = req.headers.authorization
     const isAdminRequest = Boolean(authHeader && authHeader.startsWith('Bearer '))
@@ -54,6 +60,7 @@ export async function listBarbersHandler(req: Request, res: Response, next: Next
       // Public callers never get internal filters or inactive barbers.
       delete query.includeInactive
       delete query.barberType
+      delete query.availableToday
     }
     const result = await listBarbers(query as never, { adminView: isAdminRequest })
     successRes(res, 'Barbers retrieved.', result, 200)
@@ -87,7 +94,10 @@ export async function updateBarberHandler(req: Request, res: Response, next: Nex
 
     const input: UpdateBarberInput = { ...req.body, image }
     const barber = await updateBarber(id, input)
-    successRes(res, 'Barber updated successfully.', barber, 200)
+    const message = barber.credentialNotice
+      ? `Barber updated successfully. ${barber.credentialNotice}`
+      : 'Barber updated successfully.'
+    successRes(res, message, barber, 200)
   } catch (error) {
     next(error)
   }

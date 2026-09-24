@@ -73,7 +73,7 @@ export interface TimeSlot {
  * Mirrors the seeded schedule so unconfigured barbers stay bookable
  * instead of silently having zero slots.
  */
-const DEFAULT_HOURS: Record<number, { start: string; end: string }> = {
+export const DEFAULT_HOURS: Record<number, { start: string; end: string }> = {
   0: { start: '11:00', end: '18:00' }, // Sunday
   1: { start: '09:00', end: '20:00' },
   2: { start: '09:00', end: '20:00' },

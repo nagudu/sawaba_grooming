@@ -57,6 +57,24 @@ interface ReportTotals {
   }
 }
 
+interface PerformanceRow {
+  barberId: number
+  barberName: string
+  barberType: 'INTERNAL' | 'EXTERNAL'
+  barberLocation: string | null
+  isActive: boolean
+  totalBookings: number
+  completedBookings: number
+  cancelledBookings: number
+  inProgressBookings: number
+  pendingBookings: number
+  completionRate: number
+  cancellationRate: number
+  revenue: number
+  avgTicket: number
+  commission: number
+}
+
 const naira = (n: number) => `₦${Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
 function dateInput(d: Date): string {
@@ -69,6 +87,7 @@ export default function AdminBarberEarningsPage() {
   const [rows, setRows] = useState<EarningRow[]>([])
   const [summary, setSummary] = useState<SummaryRow[]>([])
   const [totals, setTotals] = useState<ReportTotals['totals'] | null>(null)
+  const [performance, setPerformance] = useState<PerformanceRow[]>([])
   const [loading, setLoading] = useState(true)
   const [markingId, setMarkingId] = useState<number | null>(null)
 
@@ -94,14 +113,16 @@ export default function AdminBarberEarningsPage() {
     setLoading(true)
     try {
       const qs = buildQuery({ ...filters, perPage: 50 })
-      const [list, sum, rep] = await Promise.all([
+      const [list, sum, rep, perf] = await Promise.all([
         api.get<Paged<EarningRow>>(`/api/admin/barber-earnings${qs}`),
         api.get<SummaryRow[]>(`/api/admin/barber-earnings/summary${qs}`),
         api.get<ReportTotals>(`/api/admin/barber-earnings/report${qs}`),
+        api.get<PerformanceRow[]>(`/api/admin/barber-earnings/performance${qs}`),
       ])
       setRows(list.items)
       setSummary(sum)
       setTotals(rep.totals)
+      setPerformance(perf)
     } catch (error) {
       notifyError(error)
     } finally {
@@ -229,6 +250,92 @@ export default function AdminBarberEarningsPage() {
           ))}
         </div>
       )}
+
+      {/* Barber performance report — bookings, completion rate, revenue per barber */}
+      <div className="card-lux mb-6 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-night-800 px-6 py-4">
+          <div>
+            <h2 className="font-display text-lg text-night-50">Barber performance</h2>
+            <p className="mt-0.5 text-xs text-night-500">
+              Bookings, completion and revenue per barber for the selected filters. Commission comes from the frozen snapshot ledger.
+            </p>
+          </div>
+        </div>
+        {loading ? (
+          <LoadingSpinner label="Loading performance report" />
+        ) : performance.length === 0 ? (
+          <p className="px-6 py-8 text-center text-sm text-night-500">No barbers match your filters.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1050px]">
+              <thead className="border-b border-night-800 bg-night-900/60">
+                <tr>
+                  <Th>Barber</Th>
+                  <Th>Type</Th>
+                  <Th>Bookings</Th>
+                  <Th>Completed</Th>
+                  <Th>Cancelled</Th>
+                  <Th>Active / Pending</Th>
+                  <Th>Completion rate</Th>
+                  <Th>Revenue</Th>
+                  <Th>Avg ticket</Th>
+                  <Th>Commission</Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-night-800">
+                {performance.map((p) => (
+                  <tr key={p.barberId} className="transition-colors hover:bg-night-900/60">
+                    <Td>
+                      <p className="font-semibold text-night-100">
+                        {p.barberName}
+                        {!p.isActive && <span className="ml-2 text-[10px] uppercase tracking-wider text-night-600">inactive</span>}
+                      </p>
+                      {p.barberLocation && <p className="text-[11px] text-night-500">📍 {p.barberLocation}</p>}
+                    </Td>
+                    <Td>
+                      <span
+                        className={cn(
+                          'inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
+                          p.barberType === 'EXTERNAL'
+                            ? 'border-violet-500/40 bg-violet-500/10 text-violet-300'
+                            : 'border-sky-500/40 bg-sky-500/10 text-sky-300',
+                        )}
+                      >
+                        {p.barberType === 'EXTERNAL' ? 'External' : 'Internal'}
+                      </span>
+                    </Td>
+                    <Td className="font-semibold text-night-50">{p.totalBookings}</Td>
+                    <Td className="text-emerald-300">{p.completedBookings}</Td>
+                    <Td className={p.cancelledBookings > 0 ? 'text-rose-300' : 'text-night-400'}>{p.cancelledBookings}</Td>
+                    <Td className="text-night-300">
+                      {p.inProgressBookings + p.pendingBookings}
+                      <p className="text-[11px] text-night-600">{p.inProgressBookings} in service · {p.pendingBookings} pending</p>
+                    </Td>
+                    <Td>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-14 overflow-hidden rounded-full bg-night-800">
+                          <div
+                            className={cn(
+                              'h-full rounded-full',
+                              p.completionRate >= 75 ? 'bg-emerald-400' : p.completionRate >= 40 ? 'bg-gold-400' : 'bg-rose-400',
+                            )}
+                            style={{ width: `${Math.min(100, p.completionRate)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-night-200">{p.completionRate}%</span>
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-night-600">{p.cancellationRate}% cancelled</p>
+                    </Td>
+                    <Td>{naira(p.revenue)}</Td>
+                    <Td className="text-night-300">{naira(p.avgTicket)}</Td>
+                    <Td className="font-semibold text-gold-300">{naira(p.commission)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Per-barber summary (#11) */}
       {summary.length > 0 && (

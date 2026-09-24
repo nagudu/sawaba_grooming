@@ -161,7 +161,9 @@ export default function AdminLayout() {
           </NavLink>
         </header>
 
-        <main className="p-6 md:p-8">
+        {/* Content caps at the same width as the public site's container so
+            ultra-wide monitors don't stretch cards/tables thin. */}
+        <main className="mx-auto w-full max-w-7xl p-4 sm:p-6 md:p-8">
           <Outlet />
         </main>
       </div>

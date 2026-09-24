@@ -22,7 +22,10 @@ export default function SmartImage({
   fit = 'cover',
   ...rest
 }: SmartImageProps) {
-  const [imgSrc, setImgSrc] = useState(src)
+  // Initialize with the fallback when src is missing/empty: a srcless <img>
+  // never fires `onError`, so waiting for the error handler would strand the
+  // caller with a broken image frame (e.g. barbers without a photo).
+  const [imgSrc, setImgSrc] = useState(src || fallbackSrc || FALLBACK_SVG)
   const handleError = () => {
     if (imgSrc !== (fallbackSrc ?? FALLBACK_SVG)) {
       setImgSrc(fallbackSrc ?? FALLBACK_SVG)

@@ -3,6 +3,7 @@ import {
   listEarningsHandler,
   earningsSummaryHandler,
   commissionReportHandler,
+  barberPerformanceHandler,
   markEarningPaidHandler,
   assignBarberHandler,
   assignmentHistoryHandler,
@@ -25,6 +26,7 @@ barberEarningsRouter.use(requireAdmin)
 barberEarningsRouter.get('/', validate(earningsQuerySchema, 'query'), listEarningsHandler)
 barberEarningsRouter.get('/summary', validate(earningsQuerySchema, 'query'), earningsSummaryHandler)
 barberEarningsRouter.get('/report', validate(earningsQuerySchema, 'query'), commissionReportHandler)
+barberEarningsRouter.get('/performance', validate(earningsQuerySchema, 'query'), barberPerformanceHandler)
 barberEarningsRouter.post('/:id/paid', validate(idParamsSchema, 'params'), validate(markPaidSchema), markEarningPaidHandler)
 
 /** Appointment assignment endpoints (mounted under /api/admin/barber-earnings for cohesion). */

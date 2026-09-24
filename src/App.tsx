@@ -4,6 +4,7 @@ import { Layout } from './components/layout/Layout'
 import { ToastProvider } from './components/ui/ToastNotification'
 import { AdminAuthProvider } from './store/adminAuth'
 import { CustomerAuthProvider } from './store/customerAuth'
+import { BarberAuthProvider, useBarberAuth } from './store/barberAuth'
 import OfflineIndicator from './components/ui/OfflineIndicator'
 import { getCustomerToken } from './api/account'
 import { getAdminToken } from './api'
@@ -51,6 +52,16 @@ import AdminPaymentsPage from './pages/admin/AdminPaymentsPage'
 import AdminPaymentSettingsPage from './pages/admin/AdminPaymentSettingsPage'
 import AdminAppearancePage from './pages/admin/AdminAppearancePage'
 
+// ── Barber Portal ────────────────────────────────────────────────────────────
+import BarberLayout from './pages/barber/BarberLayout'
+import BarberLoginPage from './pages/barber/BarberLoginPage'
+import BarberDashboardPage from './pages/barber/BarberDashboardPage'
+import BarberAppointmentsPage from './pages/barber/BarberAppointmentsPage'
+import BarberDayViewPage from './pages/barber/BarberDayViewPage'
+import BarberEarningsPage from './pages/barber/BarberEarningsPage'
+import BarberNotificationsPage from './pages/barber/BarberNotificationsPage'
+import BarberAvailabilityPage from './pages/barber/BarberAvailabilityPage'
+
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
 function RequireCustomer({ children }: { children: React.ReactNode }) {
@@ -71,6 +82,41 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
     return <Navigate to="/admin/login" replace />
   }
   return <>{children}</>
+}
+
+function RequireBarber({ children }: { children: React.ReactNode }) {
+  const { barber, loading } = useBarberAuth()
+  if (loading) return null
+  if (!barber) {
+    return <Navigate to="/barber/login" replace />
+  }
+  return <>{children}</>
+}
+
+// ─── Barber Portal routes (own chrome — no site navbar, no admin sidebar) ─────
+
+function BarberRoutes() {
+  return (
+    <Routes>
+      <Route path="/barber/login" element={<BarberLoginPage />} />
+      <Route
+        path="/barber"
+        element={
+          <RequireBarber>
+            <BarberLayout />
+          </RequireBarber>
+        }
+      >
+        <Route index element={<BarberDashboardPage />} />
+        <Route path="appointments" element={<BarberAppointmentsPage />} />
+        <Route path="day-view" element={<BarberDayViewPage />} />
+        <Route path="earnings" element={<BarberEarningsPage />} />
+        <Route path="notifications" element={<BarberNotificationsPage />} />
+        <Route path="availability" element={<BarberAvailabilityPage />} />
+      </Route>
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  )
 }
 
 // ─── Public / marketing routes (wrapped in the site Layout) ──────────────────
@@ -172,6 +218,21 @@ function AppRoutes() {
 
   if (location.pathname.startsWith('/admin')) {
     return <AdminRoutes />
+  }
+
+  // Catch the /baber typo (and other /bar* slips) BEFORE the /barber dispatch —
+  // a misspelled portal URL should reach the portal, not a 404.
+  const barberTypo = location.pathname.match(/^\/(baber|barbe|brber|barbr)(\/.*)?$/)
+  if (barberTypo) {
+    return <Navigate to={`/barber${barberTypo[2] ?? '/login'}${location.search}`} replace />
+  }
+
+  if (location.pathname === '/barber' || location.pathname.startsWith('/barber/')) {
+    return (
+      <BarberAuthProvider>
+        <BarberRoutes />
+      </BarberAuthProvider>
+    )
   }
 
   if (location.pathname.startsWith('/account')) {

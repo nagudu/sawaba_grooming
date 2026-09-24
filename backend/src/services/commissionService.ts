@@ -1,5 +1,5 @@
 import { Op, type Transaction } from 'sequelize'
-import { Appointment, Barber, BarberEarning, Payment } from '../models'
+import { Appointment, Barber, BarberEarning, BarberNotification, Payment } from '../models'
 import { NotFoundError, UnprocessableError } from '../utils/errors'
 import { getPagination } from '../utils/response'
 import { AppointmentStatusValue } from '../config/appointmentStatuses'
@@ -163,6 +163,15 @@ export async function syncEarningForAppointment(appointmentId: number, transacti
   const paymentPaid = payment?.status === 'PAID'
   if (paymentPaid) {
     await earning.update({ status: 'EARNED', earnedAt: new Date() }, { transaction })
+    await BarberNotification.create(
+      {
+        barberId: earning.barberId,
+        type: 'EARNING',
+        title: 'Commission earned',
+        message: `Your commission of ₦${Number(earning.commissionAmount).toLocaleString()} for appointment #${appointmentId} is now earned and awaiting payout.`,
+      },
+      { transaction },
+    )
   }
 }
 
@@ -397,6 +406,126 @@ export async function getCommissionReport(query: EarningsQuery): Promise<Commiss
   }
 }
 
+export interface BarberPerformanceRow {
+  barberId: number
+  barberName: string
+  barberType: BarberType
+  barberLocation: string | null
+  isActive: boolean
+  totalBookings: number
+  completedBookings: number
+  cancelledBookings: number
+  inProgressBookings: number
+  pendingBookings: number
+  completionRate: number
+  cancellationRate: number
+  revenue: number
+  avgTicket: number
+  commission: number
+}
+
+/**
+ * Per-barber performance report (requirement #16/#18) — appointment-based
+ * metrics that the earnings ledger alone cannot show: bookings, completion /
+ * cancellation rates, revenue and average ticket per barber.
+ *
+ * A barber counts toward a booking when they are the assigned barber, or —
+ * when no assignment was made — the customer's booked barber. Cancelled
+ * bookings are excluded from revenue/avg-ticket but still reported so the
+ * cancellation rate is honest.
+ */
+export async function getBarberPerformance(query: EarningsQuery): Promise<BarberPerformanceRow[]> {
+  const barberWhere = {
+    ...(query.barberType ? { barberType: query.barberType } : {}),
+    ...(query.location ? { location: { [Op.like]: `%${query.location}%` } } : {}),
+    ...(query.barberId ? { id: query.barberId } : {}),
+  }
+
+  const barbers = await Barber.findAll({ where: barberWhere, order: [['name', 'ASC']] })
+  if (barbers.length === 0) return []
+
+  const dateFilter = query.from || query.to
+    ? {
+        appointmentDate: {
+          ...(query.from ? { [Op.gte]: query.from } : {}),
+          ...(query.to ? { [Op.lte]: query.to } : {}),
+        },
+      }
+    : {}
+
+  const appointments = await Appointment.findAll({
+    where: {
+      [Op.or]: [
+        { assignedBarberId: { [Op.in]: barbers.map((b) => b.id) } },
+        { assignedBarberId: null, barberId: { [Op.in]: barbers.map((b) => b.id) } },
+      ],
+      ...dateFilter,
+    },
+  })
+
+  const rows: BarberPerformanceRow[] = barbers.map((barber) => {
+    const mine = appointments.filter(
+      (a) => (a.assignedBarberId ?? a.barberId) === barber.id,
+    )
+    const completed = mine.filter((a) => a.status === 'COMPLETED')
+    const cancelled = mine.filter((a) => a.status === 'CANCELLED')
+    const inProgress = mine.filter((a) => a.status === 'IN_PROGRESS')
+    const pending = mine.filter(
+      (a) =>
+        a.status !== 'COMPLETED' && a.status !== 'CANCELLED' && a.status !== 'IN_PROGRESS',
+    )
+    const billable = completed.length > 0 ? completed : mine.filter((a) => a.status !== 'CANCELLED')
+    const revenue = billable.reduce((sum, a) => sum + Number(a.totalAmount), 0)
+
+    return {
+      barberId: barber.id,
+      barberName: barber.name,
+      barberType: barber.barberType ?? 'INTERNAL',
+      barberLocation: barber.location ?? null,
+      isActive: barber.isActive ?? true,
+      totalBookings: mine.length,
+      completedBookings: completed.length,
+      cancelledBookings: cancelled.length,
+      inProgressBookings: inProgress.length,
+      pendingBookings: pending.length,
+      completionRate: mine.length === 0 ? 0 : Math.round((completed.length / mine.length) * 1000) / 10,
+      cancellationRate: mine.length === 0 ? 0 : Math.round((cancelled.length / mine.length) * 1000) / 10,
+      revenue,
+      avgTicket: billable.length === 0 ? 0 : Math.round((revenue / billable.length) * 100) / 100,
+      commission: 0,
+    }
+  })
+
+  // Commission totals come from the frozen snapshot ledger, not live config,
+  // so a rate change never rewrites reported history (#9).
+  const earningWhere = {
+    barberId: { [Op.in]: barbers.map((b) => b.id) },
+    ...(query.status ? { status: query.status } : {}),
+    ...(query.from || query.to
+      ? {
+          createdAt: {
+            ...(query.from ? { [Op.gte]: new Date(`${query.from}T00:00:00`) } : {}),
+            ...(query.to ? { [Op.lte]: new Date(`${query.to}T23:59:59.999`) } : {}),
+          },
+        }
+      : {}),
+  }
+  const earnings = await BarberEarning.findAll({ where: earningWhere })
+  const commissionByBarber = new Map<number, number>()
+  for (const earning of earnings) {
+    if (earning.status === 'CANCELLED') continue
+    commissionByBarber.set(
+      earning.barberId,
+      (commissionByBarber.get(earning.barberId) ?? 0) + Number(earning.commissionAmount),
+    )
+  }
+  for (const row of rows) {
+    row.commission = commissionByBarber.get(row.barberId) ?? 0
+  }
+
+  return rows
+}
+
 /** Admin settles a payout — only EARNED rows can be marked PAID. */
 export async function markEarningPaid(earningId: number): Promise<EarningPublic> {
   const earning = await BarberEarning.findByPk(earningId, {
@@ -413,5 +542,11 @@ export async function markEarningPaid(earningId: number): Promise<EarningPublic>
     )
   }
   await earning.update({ status: 'PAID', paidAt: new Date() })
+  await BarberNotification.create({
+    barberId: earning.barberId,
+    type: 'EARNING',
+    title: 'Commission paid',
+    message: `Your commission of ₦${Number(earning.commissionAmount).toLocaleString()} for appointment #${earning.appointmentId} has been paid out.`,
+  })
   return serializeEarning(earning)
 }

@@ -58,8 +58,8 @@ export default function AdminGalleryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Local preview of the chosen file — shows exactly how the full image will
-  // appear on the public gallery (object-contain, nothing cropped).
+  // Local preview of the chosen file — mirrors the public gallery tile
+  // (4:5 frame + object-cover) so the admin sees the true final crop.
   useEffect(() => {
     if (!imageFile) {
       setPreviewUrl(null)
@@ -156,27 +156,28 @@ export default function AdminGalleryPage() {
           No gallery images yet. Add your first one.
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        // Same tile system as the public Gallery (GalleryCard): a uniform
+        // 4:5 frame with object-cover so every upload fills its card
+        // edge-to-edge — no letterbox bands, no stretched previews. Captions
+        // overlay the image, keeping the grid compact and consistent.
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
           {items.map((item) => (
             <div
               key={item.id}
-              className="card-lux group relative overflow-hidden transition-colors hover:border-gold-500/40"
+              className="group relative aspect-[4/5] w-full overflow-hidden rounded-2xl border border-night-800 bg-night-900 transition-colors hover:border-gold-500/60"
             >
-              {/* Same full-image rendering as the public Gallery card:
-                  object-contain in a fixed frame — nothing is cropped. */}
-              <div className="h-48 w-full bg-night-950/60">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  loading="lazy"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <div className="p-4">
-                <p className="truncate font-display text-sm text-night-100">{item.title}</p>
-                <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-500">
-                  {item.category}
-                </p>
+              <img
+                src={item.image}
+                alt={item.title}
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover object-center"
+              />
+              {/* Bottom scrim + caption overlay (identical treatment to the public card) */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-night-950/90 via-night-950/15 to-transparent opacity-80" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 p-4">
+                <p className="truncate text-sm font-semibold text-night-50">{item.title}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-gold-400">{item.category}</p>
               </div>
               <div
                 className={cn(
@@ -272,11 +273,12 @@ export default function AdminGalleryPage() {
                 <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">
                   Preview — exactly how it appears on the public gallery
                 </span>
-                <div className="h-48 w-full overflow-hidden rounded-lg border border-night-700 bg-night-950/60">
+                {/* Mirror the public tile: 4:5 frame + object-cover. */}
+                <div className="aspect-[4/5] w-full overflow-hidden rounded-lg border border-night-700 bg-night-950/60">
                   <img
                     src={previewUrl}
                     alt="Upload preview"
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-cover object-center"
                   />
                 </div>
               </div>
