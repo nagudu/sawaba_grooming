@@ -61,7 +61,7 @@ export default function BarberProfilePage() {
   if (loading) {
     return (
       <PageTransition>
-        <section className="bg-night-950 py-24">
+        <section className="bg-night-950 py-16">
           <div className="container-app flex flex-col items-center gap-4 py-20 text-night-400">
             <LoadingSpinner className="h-8 w-8 text-gold-500" />
             <p className="text-sm">Loading barber profile…</p>
@@ -79,7 +79,7 @@ export default function BarberProfilePage() {
           crumb="Barbers"
           title="We Couldn't Find That Barber"
         />
-        <section className="bg-night-950 py-24">
+        <section className="bg-night-950 py-16">
           <div className="container-app">
             <EmptyState
               title="This profile does not exist"
@@ -134,7 +134,7 @@ export default function BarberProfilePage() {
         image="/images/pagehero.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr]">
             <motion.div

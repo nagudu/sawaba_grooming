@@ -100,7 +100,7 @@ export default function ContactPage() {
         image="/images/cta.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           <div className="grid gap-6 sm:grid-cols-2">
             {contactCards.map((card, index) => (
@@ -137,9 +137,9 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section className="bg-coal py-24 md:py-32">
+      <section className="bg-coal py-16 md:py-20">
         <div className="container-app">
-          <div className="grid gap-14 lg:grid-cols-2">
+          <div className="grid gap-10 lg:grid-cols-2">
             <div>
               <SectionTitle
                 align="left"
@@ -197,7 +197,7 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <section className="bg-night-950 py-24">
+      <section className="bg-night-950 py-16">
         <div className="container-app">
           <SectionTitle
             eyebrow="Find Us"

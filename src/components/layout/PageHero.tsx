@@ -29,7 +29,7 @@ export default function PageHero({
         <div className="absolute inset-0 bg-gradient-to-b from-night-950/70 via-night-950/85 to-night-950" />
       </div>
 
-      <div className="container-app relative py-24 md:py-32">
+      <div className="container-app relative py-14 md:py-20">
         <motion.nav
           aria-label="Breadcrumb"
           initial={{ opacity: 0, y: 16 }}

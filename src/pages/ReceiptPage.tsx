@@ -52,7 +52,7 @@ export default function ReceiptPage() {
 
   return (
     <PageTransition>
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           <div className="mb-10 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gold-400">

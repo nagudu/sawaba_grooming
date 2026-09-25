@@ -103,12 +103,12 @@ export default function Footer() {
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-500/60 to-transparent" />
         <div className="absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(70%_100%_at_50%_0%,rgba(201,162,75,0.08),transparent_65%)]" />
-        <div className="absolute inset-y-0 right-0 w-[420px] bg-[radial-gradient(70%_70%_at_100%_100%,rgba(201,162,75,0.05),transparent_70%)]" />
+        <div className="absolute inset-y-0 right-0 w-[min(420px,100%)] bg-[radial-gradient(70%_70%_at_100%_100%,rgba(201,162,75,0.05),transparent_70%)]" />
       </div>
 
       {/* ── Call to action band ─────────────────────────────────────────── */}
       <div className="relative border-b border-night-800/70">
-        <div className="container-app flex flex-col items-start justify-between gap-8 py-12 md:flex-row md:items-center md:py-14">
+        <div className="container-app flex flex-col items-start justify-between gap-6 py-10 md:flex-row md:items-center md:py-12">
           <div className="max-w-xl">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold-500">
               The Premier Grooming Studio
@@ -135,8 +135,8 @@ export default function Footer() {
       </div>
 
       {/* ── Main footer grid ────────────────────────────────────────────── */}
-      <div className="container-app relative pb-12 pt-16 md:pt-20">
-        <div className="grid gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-12">
+      <div className="container-app relative pb-10 pt-12 md:pt-14">
+        <div className="grid gap-x-8 gap-y-8 md:grid-cols-2 lg:grid-cols-12">
           {/* Brand */}
           <div className="md:col-span-2 lg:col-span-4">
             <Link

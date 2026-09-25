@@ -142,11 +142,11 @@ export default function Navbar({ onMobileOpen }: NavbarProps) {
             </span>
           </Link>
 
+          <span className="hidden lg:contents">
           <ButtonLink
             to="/book"
             variant="gold"
             size="sm"
-            className="hidden lg:inline-flex"
             onClick={(event) => {
               // Already on /book → smooth-scroll to the form instead of a no-op reload.
               if (window.location.pathname === '/book') {
@@ -160,6 +160,7 @@ export default function Navbar({ onMobileOpen }: NavbarProps) {
           >
             Book Now
           </ButtonLink>
+          </span>
 
           <button
             type="button"

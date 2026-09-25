@@ -55,7 +55,7 @@ export default function PricingPage() {
         image="/images/pagehero.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           {loading ? (
             <div className="flex flex-col items-center gap-4 py-20 text-night-400">
@@ -86,7 +86,7 @@ export default function PricingPage() {
 
               <motion.div
                 key={category}
-                className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
                 initial="hidden"
                 animate="show"
                 variants={{ show: { transition: { staggerChildren: 0.06 } } }}
@@ -115,7 +115,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="bg-coal py-24 md:py-28">
+      <section className="bg-coal py-16 md:py-20">
         <div className="container-app">
           <SectionTitle
             eyebrow="Good to Know"

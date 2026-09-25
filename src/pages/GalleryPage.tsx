@@ -82,10 +82,10 @@ export default function GalleryPage() {
         image="/images/about-3.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           {error ? (
-            <div className="mt-16">
+            <div className="mt-10">
               <EmptyState
                 icon={<Images className="h-10 w-10" />}
                 title="Unable to load gallery"
@@ -123,7 +123,7 @@ export default function GalleryPage() {
                   <GallerySkeleton />
                 </>
               ) : filtered.length === 0 ? (
-                <div className="mt-16">
+                <div className="mt-10">
                   <EmptyState
                     icon={<Images className="h-10 w-10" />}
                     title="No photos in this category"

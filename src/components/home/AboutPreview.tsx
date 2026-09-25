@@ -12,8 +12,8 @@ const highlights = [
 
 export default function AboutPreview() {
   return (
-    <section id="about-preview" className="bg-night-950 py-24 md:py-32">
-      <div className="container-app grid min-w-0 items-center gap-14 overflow-x-clip lg:grid-cols-2">
+    <section id="about-preview" className="bg-night-950 py-16 md:py-20">
+      <div className="container-app grid min-w-0 items-center gap-10 overflow-x-clip lg:grid-cols-2">
         <motion.div
           className="relative overflow-x-clip"
           initial={{ opacity: 0, x: -32 }}

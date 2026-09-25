@@ -39,7 +39,7 @@ export default function ServiceDetailsPage() {
   if (loading) {
     return (
       <PageTransition>
-        <section className="bg-night-950 py-24">
+        <section className="bg-night-950 py-16">
           <div className="container-app flex flex-col items-center gap-4 py-20 text-night-400">
             <LoadingSpinner className="h-8 w-8 text-gold-500" />
             <p className="text-sm">Loading service…</p>
@@ -57,7 +57,7 @@ export default function ServiceDetailsPage() {
           crumb="Service"
           title="We Couldn't Find That Service"
         />
-        <section className="bg-night-950 py-24">
+        <section className="bg-night-950 py-16">
           <div className="container-app">
             <EmptyState
               title="This service does not exist"
@@ -88,7 +88,7 @@ export default function ServiceDetailsPage() {
         image="/images/about-story.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           <div className="grid gap-12 lg:grid-cols-[1.15fr_0.85fr]">
             <motion.div
@@ -200,7 +200,7 @@ export default function ServiceDetailsPage() {
         </div>
       </section>
 
-      <section className="bg-coal py-24 md:py-28">
+      <section className="bg-coal py-16 md:py-20">
         <div className="container-app">
           <div className="flex items-end justify-between gap-4">
             <h2 className="font-display text-3xl text-night-50">

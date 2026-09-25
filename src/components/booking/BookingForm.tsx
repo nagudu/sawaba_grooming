@@ -890,7 +890,7 @@ export default function BookingForm({
           </div>
         </div>
 
-        <div className="space-y-10">
+        <div className="space-y-8">
 
           {/* ── Step 1: Service ── */}
           <section>

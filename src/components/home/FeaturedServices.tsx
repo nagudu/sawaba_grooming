@@ -11,7 +11,7 @@ export default function FeaturedServices() {
   if (!loading && featured.length === 0) return null
 
   return (
-    <section className="bg-coal py-24 md:py-32">
+    <section className="bg-coal py-16 md:py-20">
       <div className="container-app">
         <SectionTitle
           eyebrow="Our Services"

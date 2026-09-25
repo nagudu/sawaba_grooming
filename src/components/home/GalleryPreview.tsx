@@ -38,7 +38,7 @@ export default function GalleryPreview() {
 
   if (loading) {
     return (
-      <section className="bg-night-900 py-24 md:py-32">
+      <section className="bg-night-900 py-16 md:py-20">
         <div className="container-app">
           <LoadingSpinner label="Loading gallery" />
         </div>
@@ -49,7 +49,7 @@ export default function GalleryPreview() {
   if (images.length === 0) return null
 
   return (
-    <section className="bg-night-900 py-24 md:py-32">
+    <section className="bg-night-900 py-16 md:py-20">
       <div className="container-app">
         <SectionTitle
           eyebrow="Our Work"

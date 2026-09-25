@@ -61,9 +61,9 @@ export default function AboutPage() {
         description="SAWABA is more than a barbershop. It is a grooming house built on craft, respect and an uncompromising eye for detail."
       />
 
-      <section className="overflow-x-clip bg-night-950 py-24 md:py-32">
+      <section className="overflow-x-clip bg-night-950 py-16 md:py-20">
         <div className="container-app">
-          <div className="grid min-w-0 items-center gap-14 overflow-x-clip lg:grid-cols-2">
+          <div className="grid min-w-0 items-center gap-10 overflow-x-clip lg:grid-cols-2">
             <motion.div
               initial={{ opacity: 0, x: -32 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -118,7 +118,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-coal py-24 md:py-32">
+      <section className="bg-coal py-16 md:py-20">
         <div className="container-app">
           <div className="grid gap-6 md:grid-cols-2">
             <motion.div
@@ -159,7 +159,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           <SectionTitle
             eyebrow="Our Values"
@@ -191,9 +191,9 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="overflow-x-clip bg-coal py-24 md:py-32">
+      <section className="overflow-x-clip bg-coal py-16 md:py-20">
         <div className="container-app">
-          <div className="grid min-w-0 items-center gap-14 overflow-x-clip lg:grid-cols-2">
+          <div className="grid min-w-0 items-center gap-10 overflow-x-clip lg:grid-cols-2">
             <motion.div
               initial={{ opacity: 0, x: -32 }}
               whileInView={{ opacity: 1, x: 0 }}

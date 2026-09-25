@@ -30,7 +30,7 @@ export default function BarbersPage() {
         image="/images/about-2.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           <div className="mx-auto flex max-w-xl items-center gap-3 rounded-xl border border-night-800 bg-night-900 px-5 py-1 transition-colors focus-within:border-gold-500">
             <Search className="h-5 w-5 text-night-500" />
@@ -45,12 +45,12 @@ export default function BarbersPage() {
           </div>
 
           {loading ? (
-            <div className="mt-16 flex flex-col items-center gap-4 py-16 text-night-400">
+            <div className="mt-10 flex flex-col items-center gap-4 py-16 text-night-400">
               <LoadingSpinner className="h-8 w-8 text-gold-500" />
               <p className="text-sm">Loading our team…</p>
             </div>
           ) : error ? (
-            <div className="mt-16">
+            <div className="mt-10">
               <EmptyState
                 icon={<Users className="h-10 w-10" />}
                 title="Could not load the team"
@@ -58,7 +58,7 @@ export default function BarbersPage() {
               />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="mt-16">
+            <div className="mt-10">
               <EmptyState
                 icon={<Users className="h-10 w-10" />}
                 title="No barbers found"

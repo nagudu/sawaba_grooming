@@ -116,7 +116,7 @@ export default function PaystackCallbackPage() {
         image="/images/pagehero.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app max-w-xl">
 
           {/* ── Verifying ── */}

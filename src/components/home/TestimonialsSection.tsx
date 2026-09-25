@@ -30,7 +30,7 @@ export default function TestimonialsSection() {
   }, [])
 
   return (
-    <section className="bg-coal py-24 md:py-32">
+    <section className="bg-coal py-16 md:py-20">
       <div className="container-app">
         <SectionTitle
           eyebrow="Testimonials"

@@ -3,7 +3,7 @@ import { ButtonLink } from '../ui/Button'
 
 export default function CTASection() {
   return (
-    <section className="relative overflow-hidden bg-night-950 py-24 md:py-32">
+    <section className="relative overflow-hidden bg-night-950 py-16 md:py-20">
       <div className="absolute inset-0">
         <img
           src="/images/cta.jpg"

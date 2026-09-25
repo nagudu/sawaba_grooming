@@ -810,7 +810,7 @@ export default function PaymentPage() {
         image="/images/pagehero.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app max-w-3xl">
           {loading ? (
             <div className="flex flex-col items-center gap-4 py-20 text-night-400">

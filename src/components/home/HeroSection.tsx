@@ -31,7 +31,7 @@ export default function HeroSection() {
         <div className="absolute inset-0 bg-gradient-to-t from-night-950 via-transparent to-night-950/40" />
       </div>
 
-      <div className="container-app relative pt-32 pb-24 md:pt-40">
+      <div className="container-app relative pt-24 pb-16 md:pt-28">
         <div className="max-w-3xl">
           <motion.div
             className="flex items-center gap-3"

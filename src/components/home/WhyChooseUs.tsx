@@ -44,7 +44,7 @@ const features = [
 
 export default function WhyChooseUs() {
   return (
-    <section className="bg-night-900 py-24 md:py-32">
+    <section className="bg-night-900 py-16 md:py-20">
       <div className="container-app">
         <SectionTitle
           eyebrow="Why Choose SAWABA"

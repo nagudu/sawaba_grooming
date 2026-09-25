@@ -145,7 +145,7 @@ export default function ReviewsPage() {
         image="/images/about-2.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           <div id="write-review" className="mx-auto max-w-3xl scroll-mt-28">
             <div className="card-lux p-8 md:p-10">
@@ -332,7 +332,7 @@ export default function ReviewsPage() {
             </div>
           </div>
 
-          <div className="mt-24">
+          <div className="mt-14">
             <div className="flex items-center gap-3">
               <span className="h-px w-8 bg-gold-500" />
               <h2 className="font-display text-3xl text-night-50">Client Reviews</h2>

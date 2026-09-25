@@ -412,7 +412,7 @@ export default function AdminContactsPage() {
           ) : !thread && selected ? (
             <LoadingSpinner label="Opening message" />
           ) : !thread ? (
-            <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center">
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-night-700 bg-night-900 text-night-500">
                 <Mail className="h-6 w-6" />
               </span>

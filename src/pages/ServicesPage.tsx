@@ -43,10 +43,10 @@ export default function ServicesPage() {
         image="/images/about-story.jpg"
       />
 
-      <section className="bg-night-950 py-24 md:py-32">
+      <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
           {loading ? (
-            <div className="flex flex-col items-center gap-4 py-24 text-night-400">
+            <div className="flex flex-col items-center gap-4 py-16 text-night-400">
               <LoadingSpinner className="h-8 w-8 text-gold-500" />
               <p className="text-sm">Loading services…</p>
             </div>
@@ -77,7 +77,7 @@ export default function ServicesPage() {
               </div>
 
               {filtered.length === 0 ? (
-                <div className="mt-16">
+                <div className="mt-10">
                   <EmptyState
                     icon={<Scissors className="h-10 w-10" />}
                     title="No services in this category"
