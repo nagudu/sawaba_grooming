@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { KeyRound, LoaderCircle, LogIn, UserPlus } from 'lucide-react'
 import PageTransition from '../../components/ui/PageTransition'
-import PageHero from '../../components/layout/PageHero'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/ToastNotification'
 import { accountApi } from '../../api/account'
+import { site } from '../../data/services'
 import { useCustomerAuth } from '../../store/customerAuth'
 import { cn } from '../../utils/cn'
 
@@ -109,15 +109,32 @@ export default function CustomerLoginPage() {
 
   return (
     <PageTransition>
-      <PageHero
-        eyebrow="Customer Account"
-        crumb="Login"
-        title="Returning Customer? Login"
-        description="Your details are saved — booking again takes seconds."
-        image="/images/pagehero.jpg"
-      />
+      <section className="flex min-h-screen flex-col items-center justify-center gap-8 bg-night-950 px-4 py-16">
+        <div className="flex flex-col items-center">
+          <svg className="h-14 w-14" viewBox="0 0 64 64" aria-hidden="true">
+            <rect width="64" height="64" rx="14" fill="#0a0a0c" />
+            <g
+              fill="none"
+              stroke="#c9a24b"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="24" cy="30" r="9" />
+              <path d="M30 24 L44 12" />
+              <path d="M34 24 L50 12" />
+              <path d="M24 39 L24 52" />
+            </g>
+            <circle cx="44" cy="20" r="1.6" fill="#c9a24b" />
+          </svg>
+          <span className="mt-3 font-display text-2xl leading-none font-semibold tracking-[0.12em] text-night-50">
+            {site.name}
+          </span>
+          <span className="mt-2 text-[8.5px] font-semibold tracking-[0.32em] text-gold-500 uppercase">
+            Grooming Studio
+          </span>
+        </div>
 
-      <section className="bg-night-950 py-24">
         <div className="container-app max-w-md">
           <div className="rounded-2xl border border-night-800 bg-night-900/40 p-7">
             {/* Mode tabs */}
