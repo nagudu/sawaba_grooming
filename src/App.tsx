@@ -51,6 +51,7 @@ import AdminCustomersPage from './pages/admin/AdminCustomersPage'
 import AdminPaymentsPage from './pages/admin/AdminPaymentsPage'
 import AdminPaymentSettingsPage from './pages/admin/AdminPaymentSettingsPage'
 import AdminAppearancePage from './pages/admin/AdminAppearancePage'
+import AdminProfilePage from './pages/admin/AdminProfilePage'
 
 // ── Barber Portal ────────────────────────────────────────────────────────────
 import BarberLayout from './pages/barber/BarberLayout'
@@ -210,6 +211,7 @@ function AdminRoutes() {
         <Route path="reviews" element={<AdminReviewsPage />} />
         <Route path="contacts" element={<AdminContactsPage />} />
         <Route path="customers" element={<AdminCustomersPage />} />
+        <Route path="profile" element={<AdminProfilePage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

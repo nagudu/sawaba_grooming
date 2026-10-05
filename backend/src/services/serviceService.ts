@@ -1,8 +1,8 @@
-import { prisma } from '../config/prisma'
+import { prisma } from '../config/database'
+import type { Prisma, Service as ServiceModel } from '@prisma/client'
 import { ConflictError, NotFoundError } from '../utils/errors'
 import { slugify } from '../utils/slug'
 import { getPagination } from '../utils/response'
-import type { Prisma, Service as ServiceModel } from '../generated/prisma/client'
 import type { CreateServiceInput, UpdateServiceInput } from '../validators/service'
 import type { Paged } from '../types'
 
@@ -16,7 +16,6 @@ export interface ServicePublic {
   image: string | null
   category: string
   isActive: boolean
-  // The live columns are nullable; Sequelize's model declared them non-null.
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -64,7 +63,6 @@ export async function listServices(
   includeInactive = false,
 ): Promise<Paged<ServicePublic>> {
   const { page, perPage, offset, limit } = getPagination(query as Record<string, unknown>)
-
   const where: Prisma.ServiceWhereInput = {
     ...(query.category ? { category: query.category } : {}),
     ...(!includeInactive
@@ -106,7 +104,6 @@ export async function updateService(id: number, input: UpdateServiceInput): Prom
   }
 
   const slug = input.name && input.name !== service.name ? await uniqueSlug(input.name, id) : undefined
-
   const updated = await prisma.service.update({
     where: { id },
     data: {

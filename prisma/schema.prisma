@@ -1,0 +1,565 @@
+// Prisma Schema for SAWABA Grooming Studio
+// Supports MySQL (local dev) and PostgreSQL (production / Vercel)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  BARBER
+}
+
+enum OtpPurpose {
+  LOGIN
+  REGISTER
+}
+
+enum BarberType {
+  INTERNAL
+  EXTERNAL
+}
+
+enum CommissionType {
+  PERCENTAGE
+  FIXED
+}
+
+enum AppointmentStatus {
+  PAYMENT_REQUIRED
+  PAYMENT_SUBMITTED
+  PAYMENT_VERIFIED
+  PAYMENT_REJECTED
+  READY_FOR_SERVICE
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  OPAY
+  BANK_TRANSFER
+  CASH
+  OTHER
+  ONLINE
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING_VERIFICATION
+  PAID
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+enum CheckoutSessionStatus {
+  OPEN
+  AWAITING_PAYMENT
+  CONVERTED
+  EXPIRED
+}
+
+enum EarningStatus {
+  PENDING
+  EARNED
+  PAID
+  CANCELLED
+}
+
+enum AssignmentAction {
+  ASSIGNED
+  REASSIGNED
+  REMOVED
+}
+
+enum BarberNotificationType {
+  ASSIGNMENT
+  EARNING
+  APPOINTMENT
+  SYSTEM
+}
+
+enum GalleryCategory {
+  HAIRCUT
+  FADE
+  BEARD
+  STYLING
+  KIDS
+  SALON
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ContactMessageStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
+}
+
+enum ContactReplyStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Admin {
+  id                        Int                       @id @default(autoincrement())
+  name                      String                    @db.VarChar(100)
+  email                     String                    @unique @db.VarChar(255)
+  password                  String                    @db.VarChar(255)
+  role                      Role                      @default(ADMIN)
+  avatarUrl                 String?                   @map("avatar_url") @db.VarChar(500)
+  isActive                  Boolean                   @default(true) @map("is_active")
+  createdAt                 DateTime                  @default(now()) @map("created_at")
+  updatedAt                 DateTime                  @updatedAt @map("updated_at")
+
+  contactReplies            ContactReply[]
+  commissionRateHistories   CommissionRateHistory[]
+  barberAssignmentHistories BarberAssignmentHistory[]
+
+  @@index([email])
+  @@map("admins")
+}
+
+model Customer {
+  id                 Int           @id @default(autoincrement())
+  fullName           String        @map("full_name") @db.VarChar(150)
+  phone              String        @db.VarChar(30)
+  email              String?       @db.VarChar(255)
+  customerCode       String?       @unique @map("customer_code") @db.VarChar(12)
+  passwordHash       String?       @map("password_hash") @db.VarChar(255)
+  preferredBarberId  Int?          @map("preferred_barber_id")
+  favoriteServiceId  Int?          @map("favorite_service_id")
+  avatarUrl          String?       @map("avatar_url") @db.VarChar(500)
+  googleSub          String?       @unique @map("google_sub") @db.VarChar(255)
+  phoneVerified      Boolean       @default(true) @map("phone_verified")
+  reminderOptIn      Boolean       @default(true) @map("reminder_opt_in")
+  isActive           Boolean       @default(true) @map("is_active")
+  lastLoginAt        DateTime?     @map("last_login_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  appointments       Appointment[]
+  payments           Payment[]
+
+  @@index([phone])
+  @@index([email])
+  @@map("customers")
+}
+
+model CustomerOtp {
+  id         Int        @id @default(autoincrement())
+  phone      String     @db.VarChar(30)
+  purpose    OtpPurpose
+  codeHash   String     @map("code_hash") @db.VarChar(255)
+  attempts   Int        @default(0)
+  consumedAt DateTime?  @map("consumed_at")
+  expiresAt  DateTime   @map("expires_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  @@index([phone, purpose])
+  @@map("customer_otps")
+}
+
+model PasswordResetOtp {
+  id         Int       @id @default(autoincrement())
+  email      String    @db.VarChar(255)
+  codeHash   String    @map("code_hash") @db.VarChar(255)
+  target     String    @default("ADMIN") @db.VarChar(20)
+  attempts   Int       @default(0)
+  consumedAt DateTime? @map("consumed_at")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("password_reset_otps")
+}
+
+model Service {
+  id               Int               @id @default(autoincrement())
+  name             String            @db.VarChar(150)
+  slug             String            @unique @db.VarChar(160)
+  description      String?           @db.Text
+  price            Decimal           @db.Decimal(10, 2)
+  duration         Int
+  image            String?           @db.VarChar(500)
+  category         String            @default("HAIRCUTS") @db.VarChar(50)
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  barberServices   BarberService[]
+  appointments     Appointment[]
+  checkoutSessions CheckoutSession[]
+
+  @@index([slug])
+  @@index([category])
+  @@index([isActive])
+  @@map("services")
+}
+
+model Barber {
+  id                  Int                       @id @default(autoincrement())
+  name                String                    @db.VarChar(150)
+  slug                String                    @unique @db.VarChar(160)
+  image               String?                   @db.VarChar(500)
+  phone               String?                   @db.VarChar(32)
+  email               String?                   @db.VarChar(255)
+  specialty           String?                   @db.VarChar(255)
+  biography           String?                   @db.Text
+  experience          Int                       @default(0)
+  rating              Decimal                   @default(0.0) @db.Decimal(2, 1)
+  barberType          BarberType                @default(INTERNAL) @map("barber_type")
+  location            String?                   @db.VarChar(150)
+  commissionType      CommissionType            @default(PERCENTAGE) @map("commission_type")
+  commissionValue     Decimal                   @default(0.0) @map("commission_value") @db.Decimal(10, 2)
+  isActive            Boolean                   @default(true) @map("is_active")
+  portalEnabled       Boolean                   @default(false) @map("portal_enabled")
+  passwordHash        String?                   @map("password_hash") @db.VarChar(255)
+  createdAt           DateTime                  @default(now()) @map("created_at")
+  updatedAt           DateTime                  @updatedAt @map("updated_at")
+
+  barberServices      BarberService[]
+  availabilities      BarberAvailability[]
+  galleries           Gallery[]
+  appointments        Appointment[]             @relation("BookedBarber")
+  assignedAppointments Appointment[]            @relation("AssignedBarber")
+  checkoutSessions    CheckoutSession[]
+  earnings            BarberEarning[]
+  previousAssignments BarberAssignmentHistory[] @relation("PreviousBarber")
+  newAssignments      BarberAssignmentHistory[] @relation("NewBarber")
+  commissionHistory   CommissionRateHistory[]
+  notifications       BarberNotification[]
+  reviews             Review[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("barbers")
+}
+
+model BarberService {
+  id        Int      @id @default(autoincrement())
+  barberId  Int      @map("barber_id")
+  serviceId Int      @map("service_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, serviceId])
+  @@map("barber_services")
+}
+
+model BarberAvailability {
+  id          Int      @id @default(autoincrement())
+  barberId    Int      @map("barber_id")
+  dayOfWeek   Int      @map("day_of_week")
+  startTime   String   @map("start_time") @db.VarChar(8)
+  endTime     String   @map("end_time") @db.VarChar(8)
+  isAvailable Boolean  @default(true) @map("is_available")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  barber      Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, dayOfWeek])
+  @@map("barber_availability")
+}
+
+model Appointment {
+  id                 Int                       @id @default(autoincrement())
+  referenceCode      String?                   @unique @map("reference_code") @db.VarChar(30)
+  customerName       String                    @map("customer_name") @db.VarChar(150)
+  customerPhone      String                    @map("customer_phone") @db.VarChar(30)
+  customerEmail      String?                   @map("customer_email") @db.VarChar(255)
+  customerLocation   String?                   @map("customer_location") @db.VarChar(150)
+  customerId         Int?                      @map("customer_id")
+  serviceId          Int                       @map("service_id")
+  barberId           Int                       @map("barber_id")
+  assignedBarberId   Int?                      @map("assigned_barber_id")
+  assignedAt         DateTime?                 @map("assigned_at")
+  assignedBy         Int?                      @map("assigned_by")
+  appointmentDate    String                    @map("appointment_date") @db.VarChar(10)
+  appointmentTime    String                    @map("appointment_time") @db.VarChar(8)
+  totalAmount        Decimal                   @default(0.0) @map("total_amount") @db.Decimal(10, 2)
+  notes              String?                   @db.Text
+  serviceStartedAt   DateTime?                 @map("service_started_at")
+  completedAt        DateTime?                 @map("completed_at")
+  cancelledAt        DateTime?                 @map("cancelled_at")
+  cancellationReason String?                   @map("cancellation_reason") @db.Text
+  cancelledBy        Int?                      @map("cancelled_by")
+  status             AppointmentStatus         @default(PAYMENT_REQUIRED)
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+
+  customer           Customer?                 @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  service            Service                   @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  barber             Barber                    @relation("BookedBarber", fields: [barberId], references: [id], onDelete: Restrict)
+  assignedBarber     Barber?                   @relation("AssignedBarber", fields: [assignedBarberId], references: [id], onDelete: SetNull)
+
+  payment            Payment?
+  earning            BarberEarning?
+  assignmentHistory  BarberAssignmentHistory[]
+
+  @@index([appointmentDate, appointmentTime])
+  @@index([barberId, appointmentDate])
+  @@index([status])
+  @@map("appointments")
+}
+
+model Payment {
+  id                   Int           @id @default(autoincrement())
+  appointmentId        Int           @unique @map("appointment_id")
+  customerId           Int?          @map("customer_id")
+  amount               Decimal       @default(0.0) @db.Decimal(10, 2)
+  paymentMethod        PaymentMethod? @map("payment_method")
+  transactionReference String?       @map("transaction_reference") @db.VarChar(191)
+  paymentDate          String?       @map("payment_date") @db.VarChar(10)
+  receiptUrl           String?       @map("receipt_url") @db.VarChar(500)
+  receiptPublicId      String?       @map("receipt_public_id") @db.VarChar(500)
+  providerRef          String?       @map("provider_ref") @db.VarChar(64)
+  note                 String?       @db.Text
+  status               PaymentStatus @default(UNPAID)
+  rejectionReason      String?       @map("rejection_reason") @db.Text
+  verifiedBy           Int?          @map("verified_by")
+  verifiedAt           DateTime?     @map("verified_at")
+  accessToken          String        @unique @map("access_token") @db.VarChar(64)
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  appointment          Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  customer             Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([appointmentId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+model PaymentSetting {
+  id                    Int      @id @default(autoincrement())
+  shopName              String   @map("shop_name") @db.VarChar(150)
+  shopAddress           String?  @map("shop_address") @db.VarChar(300)
+  shopPhone             String?  @map("shop_phone") @db.VarChar(30)
+  shopLogo              String?  @map("shop_logo") @db.VarChar(500)
+  bankName              String?  @map("bank_name") @db.VarChar(100)
+  accountName           String?  @map("account_name") @db.VarChar(150)
+  accountNumber         String?  @map("account_number") @db.VarChar(30)
+  opayAccountName       String?  @map("opay_account_name") @db.VarChar(150)
+  opayAccountNumber     String?  @map("opay_account_number") @db.VarChar(30)
+  paymentInstructions   String?  @map("payment_instructions") @db.Text
+  enabledPaymentMethods Json     @map("enabled_payment_methods")
+  minAmount             Decimal  @default(0.0) @map("min_amount") @db.Decimal(10, 2)
+  fullPaymentRequired   Boolean  @default(true) @map("full_payment_required")
+  receiptRequired       Boolean  @default(true) @map("receipt_required")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("payment_settings")
+}
+
+model CheckoutSession {
+  id                     Int                   @id @default(autoincrement())
+  sessionToken           String                @unique @map("session_token") @db.VarChar(64)
+  customerName           String                @map("customer_name") @db.VarChar(150)
+  customerPhone          String                @map("customer_phone") @db.VarChar(20)
+  customerEmail          String?               @map("customer_email") @db.VarChar(191)
+  customerLocation       String?               @map("customer_location") @db.VarChar(150)
+  serviceId              Int                   @map("service_id")
+  barberId               Int                   @map("barber_id")
+  appointmentDate        String                @map("appointment_date") @db.VarChar(10)
+  appointmentTime        String                @map("appointment_time") @db.VarChar(8)
+  notes                  String?               @db.Text
+  totalAmount            Decimal               @default(0.0) @map("total_amount") @db.Decimal(10, 2)
+  paymentMethod          PaymentMethod?        @map("payment_method")
+  transactionReference   String?               @map("transaction_reference") @db.VarChar(191)
+  status                 CheckoutSessionStatus @default(OPEN)
+  paystackReference      String?               @map("paystack_reference") @db.VarChar(191)
+  convertedAppointmentId Int?                  @map("converted_appointment_id")
+  receiptUrl             String?               @map("receipt_url") @db.VarChar(500)
+  receiptPublicId        String?               @map("receipt_public_id") @db.VarChar(500)
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+
+  service                Service               @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  barber                 Barber                @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([appointmentDate])
+  @@index([paystackReference])
+  @@map("checkout_sessions")
+}
+
+model BarberEarning {
+  id                     Int            @id @default(autoincrement())
+  appointmentId          Int            @unique @map("appointment_id")
+  barberId               Int            @map("barber_id")
+  barberTypeSnapshot     BarberType     @map("barber_type_snapshot")
+  commissionType         CommissionType @map("commission_type")
+  commissionRateSnapshot Decimal        @map("commission_rate_snapshot") @db.Decimal(10, 2)
+  serviceAmount          Decimal        @map("service_amount") @db.Decimal(10, 2)
+  commissionAmount       Decimal        @map("commission_amount") @db.Decimal(10, 2)
+  studioAmount           Decimal        @map("studio_amount") @db.Decimal(10, 2)
+  status                 EarningStatus  @default(PENDING)
+  earnedAt               DateTime?      @map("earned_at")
+  paidAt                 DateTime?      @map("paid_at")
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @updatedAt @map("updated_at")
+
+  appointment            Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  barber                 Barber         @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barberId, status])
+  @@index([appointmentId])
+  @@index([status])
+  @@map("barber_earnings")
+}
+
+model BarberAssignmentHistory {
+  id               Int              @id @default(autoincrement())
+  appointmentId    Int              @map("appointment_id")
+  previousBarberId Int?             @map("previous_barber_id")
+  newBarberId      Int?             @map("new_barber_id")
+  action           AssignmentAction
+  reason           String?          @db.VarChar(300)
+  changedByAdminId Int?             @map("changed_by_admin_id")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  appointment      Appointment      @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  previousBarber   Barber?          @relation("PreviousBarber", fields: [previousBarberId], references: [id], onDelete: SetNull)
+  newBarber        Barber?          @relation("NewBarber", fields: [newBarberId], references: [id], onDelete: SetNull)
+  changedBy        Admin?           @relation(fields: [changedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([appointmentId])
+  @@map("barber_assignment_history")
+}
+
+model CommissionRateHistory {
+  id               Int            @id @default(autoincrement())
+  barberId         Int            @map("barber_id")
+  commissionType   CommissionType @map("commission_type")
+  commissionValue  Decimal        @map("commission_value") @db.Decimal(10, 2)
+  effectiveFrom    DateTime       @default(now()) @map("effective_from")
+  changedByAdminId Int?           @map("changed_by_admin_id")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  barber           Barber         @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  changedBy        Admin?         @relation(fields: [changedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([barberId])
+  @@index([effectiveFrom])
+  @@map("commission_rate_history")
+}
+
+model BarberNotification {
+  id        Int                    @id @default(autoincrement())
+  barberId  Int                    @map("barber_id")
+  type      BarberNotificationType @default(SYSTEM)
+  title     String                 @db.VarChar(160)
+  message   String                 @db.Text
+  readAt    DateTime?              @map("read_at")
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+
+  barber    Barber                 @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barberId])
+  @@index([readAt])
+  @@map("barber_notifications")
+}
+
+model Gallery {
+  id        Int             @id @default(autoincrement())
+  title     String          @db.VarChar(200)
+  image     String          @db.VarChar(500)
+  category  GalleryCategory @default(HAIRCUT)
+  barberId  Int?            @map("barber_id")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  barber    Barber?         @relation(fields: [barberId], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([barberId])
+  @@map("gallery")
+}
+
+model Review {
+  id            Int          @id @default(autoincrement())
+  customerName  String       @map("customer_name") @db.VarChar(150)
+  customerPhone String?      @map("customer_phone") @db.VarChar(32)
+  customerEmail String?      @map("customer_email") @db.VarChar(255)
+  customerImage String?      @map("customer_image") @db.VarChar(500)
+  serviceId     Int?         @map("service_id")
+  serviceName   String?      @map("service_name") @db.VarChar(150)
+  barberId      Int?         @map("barber_id")
+  rating        Int          @default(5)
+  comment       String       @db.Text
+  status        ReviewStatus @default(PENDING)
+  isApproved    Boolean      @default(false) @map("is_approved")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  barber        Barber?      @relation(fields: [barberId], references: [id], onDelete: SetNull)
+
+  @@index([isApproved])
+  @@index([status])
+  @@index([barberId])
+  @@map("reviews")
+}
+
+model ContactMessage {
+  id         Int                  @id @default(autoincrement())
+  name       String               @db.VarChar(150)
+  phone      String?              @db.VarChar(30)
+  email      String               @db.VarChar(255)
+  subject    String?              @db.VarChar(200)
+  message    String               @db.Text
+  isRead     Boolean              @default(false) @map("is_read")
+  status     ContactMessageStatus @default(NEW)
+  repliedAt  DateTime?            @map("replied_at")
+  archivedAt DateTime?            @map("archived_at")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  replies    ContactReply[]
+
+  @@index([isRead])
+  @@map("contact_messages")
+}
+
+model ContactReply {
+  id                Int                @id @default(autoincrement())
+  contactMessageId  Int                @map("contact_message_id")
+  adminId           Int?               @map("admin_id")
+  adminName         String?            @map("admin_name") @db.VarChar(100)
+  recipientEmail    String             @map("recipient_email") @db.VarChar(255)
+  subject           String             @db.VarChar(250)
+  message           String             @db.Text
+  status            ContactReplyStatus @default(PENDING)
+  providerMessageId String?            @map("provider_message_id") @db.VarChar(255)
+  sentAt            DateTime?          @map("sent_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  contactMessage    ContactMessage     @relation(fields: [contactMessageId], references: [id], onDelete: Cascade)
+  admin             Admin?             @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([contactMessageId])
+  @@map("contact_replies")
+}

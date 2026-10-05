@@ -8,7 +8,7 @@
  * identical through both ORMs.
  */
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
-import { PrismaClient } from '../generated/prisma/client'
+import { PrismaClient } from '@prisma/client'
 import { env } from '../config/env'
 import { serializePrisma } from '../utils/prismaSerialize'
 import { sequelize } from '../config/database'

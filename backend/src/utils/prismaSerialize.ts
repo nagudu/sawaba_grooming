@@ -1,4 +1,4 @@
-import { Prisma } from '../generated/prisma/client'
+import { Prisma } from '@prisma/client'
 import { DATE_ONLY_FIELDS, DECIMAL_SCALE } from '../config/prismaFieldTypes'
 
 /**

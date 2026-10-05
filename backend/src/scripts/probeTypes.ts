@@ -5,7 +5,7 @@
  * Run: npx tsx src/scripts/probeTypes.ts
  */
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
-import { PrismaClient } from '../generated/prisma/client'
+import { PrismaClient } from '@prisma/client'
 import { env } from '../config/env'
 import { Service, Payment, Appointment } from '../models'
 import { sequelize } from '../config/database'

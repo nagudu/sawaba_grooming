@@ -1,7 +1,7 @@
-import { prisma } from '../config/prisma'
+import { prisma } from '../config/database'
+import type { Prisma, Review as ReviewModel, ReviewStatus as PrismaReviewStatus } from '@prisma/client'
 import { NotFoundError } from '../utils/errors'
 import { getPagination } from '../utils/response'
-import type { Prisma, Review as ReviewModel } from '../generated/prisma/client'
 import type { CreateReviewInput, UpdateReviewInput } from '../validators/review'
 import type { Paged, ReviewStatus } from '../types'
 
@@ -32,11 +32,9 @@ function serializeReview(review: ReviewModel): ReviewPublic {
     serviceId: review.serviceId ?? null,
     serviceName: review.serviceName ?? null,
     barberId: review.barberId ?? null,
-    // rating is an UNSIGNED TINYINT in MariaDB, so Prisma already hands back a number.
     rating: review.rating,
     comment: review.comment,
     status: review.status as ReviewStatus,
-    // Derived from status, exactly as before — the stored is_approved column is not read.
     isApproved: review.status === 'APPROVED',
     createdAt: review.createdAt,
     updatedAt: review.updatedAt,
@@ -71,18 +69,16 @@ export async function listReviews(query: {
   perPage?: number
 }): Promise<Paged<ReviewPublic>> {
   const { page, perPage, offset, limit } = getPagination(query)
-
   const where: Prisma.ReviewWhereInput = {}
+
   if (query.status) {
-    if (query.status !== 'all') where.status = query.status
+    if (query.status !== 'all') where.status = query.status as PrismaReviewStatus
   } else if (query.approved === 'true') {
     where.status = 'APPROVED'
   } else if (query.approved === 'false') {
     where.status = 'PENDING'
   }
 
-  // Filter by barber when the validated `barberId` query param is present —
-  // used by barber profiles to fetch only their own approved reviews.
   if (query.barberId) {
     where.barberId = query.barberId
   }
@@ -98,7 +94,12 @@ export async function listReviews(query: {
   }
 
   const [rows, total] = await prisma.$transaction([
-    prisma.review.findMany({ where, orderBy: { createdAt: 'desc' }, skip: offset, take: limit }),
+    prisma.review.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limit,
+    }),
     prisma.review.count({ where }),
   ])
 
@@ -113,9 +114,11 @@ export async function updateReview(id: number, input: UpdateReviewInput): Promis
 
   const patch: Prisma.ReviewUpdateInput = { ...input }
   if (input.status !== undefined) {
+    patch.status = input.status as PrismaReviewStatus
     patch.isApproved = input.status === 'APPROVED'
   } else if (input.isApproved !== undefined) {
     patch.status = input.isApproved ? 'APPROVED' : 'PENDING'
+    patch.isApproved = input.isApproved
   }
 
   const updated = await prisma.review.update({ where: { id }, data: patch })
@@ -131,6 +134,10 @@ export async function deleteReview(id: number): Promise<void> {
 }
 
 export async function approveReview(id: number): Promise<ReviewPublic> {
+  const existing = await prisma.review.findUnique({ where: { id }, select: { id: true } })
+  if (!existing) {
+    throw new NotFoundError('Review not found.')
+  }
   const updated = await prisma.review.update({
     where: { id },
     data: { status: 'APPROVED', isApproved: true },
@@ -139,6 +146,10 @@ export async function approveReview(id: number): Promise<ReviewPublic> {
 }
 
 export async function rejectReview(id: number): Promise<ReviewPublic> {
+  const existing = await prisma.review.findUnique({ where: { id }, select: { id: true } })
+  if (!existing) {
+    throw new NotFoundError('Review not found.')
+  }
   const updated = await prisma.review.update({
     where: { id },
     data: { status: 'REJECTED', isApproved: false },

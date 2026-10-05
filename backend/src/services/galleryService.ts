@@ -1,9 +1,8 @@
-import { prisma } from '../config/prisma'
+import { prisma } from '../config/database'
+import type { GalleryCategory, Prisma } from '@prisma/client'
 import { AppError, NotFoundError } from '../utils/errors'
 import { getPagination } from '../utils/response'
 import { deleteImageByUrl } from '../utils/upload'
-import type { Prisma } from '../generated/prisma/client'
-import type { GalleryCategory } from '../generated/prisma/enums'
 import type { CreateGalleryInput, UpdateGalleryInput } from '../validators/gallery'
 import type { Paged } from '../types'
 
@@ -18,10 +17,8 @@ export interface GalleryPublic {
   barber?: { id: number; name: string } | null
 }
 
-// The public shape always embeds the linked barber as `{ id, name }`.
-// `select` mirrors the old Sequelize `attributes: ['id', 'name']` include.
 const withBarber = {
-  barbers: { select: { id: true, name: true } },
+  barber: { select: { id: true, name: true } },
 } satisfies Prisma.GalleryInclude
 
 type GalleryRow = Prisma.GalleryGetPayload<{ include: typeof withBarber }>
@@ -35,13 +32,16 @@ function serializeGallery(image: GalleryRow): GalleryPublic {
     barberId: image.barberId ?? null,
     createdAt: image.createdAt,
     updatedAt: image.updatedAt,
-    barber: image.barbers ? { id: image.barbers.id, name: image.barbers.name } : null,
+    barber: image.barber ? { id: image.barber.id, name: image.barber.name } : null,
   }
 }
 
 export async function createGallery(input: CreateGalleryInput): Promise<GalleryPublic> {
   if (input.barberId) {
-    const barber = await prisma.barber.findUnique({ where: { id: input.barberId }, select: { id: true } })
+    const barber = await prisma.barber.findUnique({
+      where: { id: input.barberId },
+      select: { id: true },
+    })
     if (!barber) {
       throw new NotFoundError('Linked barber does not exist.')
     }
@@ -70,14 +70,19 @@ export async function listGallery(query: {
   perPage?: number
 }): Promise<Paged<GalleryPublic>> {
   const { page, perPage, offset, limit } = getPagination(query)
-
   const where: Prisma.GalleryWhereInput = {
     ...(query.category ? { category: query.category as GalleryCategory } : {}),
     ...(query.barberId ? { barberId: query.barberId } : {}),
   }
 
   const [rows, total] = await prisma.$transaction([
-    prisma.gallery.findMany({ where, include: withBarber, orderBy: { createdAt: 'desc' }, skip: offset, take: limit }),
+    prisma.gallery.findMany({
+      where,
+      include: withBarber,
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limit,
+    }),
     prisma.gallery.count({ where }),
   ])
 
@@ -102,7 +107,10 @@ export async function updateGalleryItem(
   }
 
   if (input.barberId) {
-    const barber = await prisma.barber.findUnique({ where: { id: input.barberId }, select: { id: true } })
+    const barber = await prisma.barber.findUnique({
+      where: { id: input.barberId },
+      select: { id: true },
+    })
     if (!barber) {
       throw new NotFoundError('Linked barber does not exist.')
     }
@@ -127,6 +135,5 @@ export async function deleteGalleryItem(id: number): Promise<void> {
   }
 
   await deleteImageByUrl(image.image).catch(() => undefined)
-
   await prisma.gallery.delete({ where: { id } })
 }
