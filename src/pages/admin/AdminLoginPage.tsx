@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, LoaderCircle, Lock, Mail, Scissors } from 'lucide-react'
 import { useAdminAuth } from '../../store/adminAuth'
 import { useToast } from '../../components/ui/ToastNotification'
+import ForgotPasswordModal from '../../components/auth/ForgotPasswordModal'
 
 export default function AdminLoginPage() {
   const { login } = useAdminAuth()
@@ -13,6 +14,7 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -68,10 +70,19 @@ export default function AdminLoginPage() {
               </div>
             </label>
 
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">
-                Password
-              </span>
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">
+                  Password
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(true)}
+                  className="text-xs text-gold-400 transition-colors hover:text-gold-300"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div className="relative">
                 <Lock className="field-icon h-4 w-4" />
                 <input
@@ -84,7 +95,7 @@ export default function AdminLoginPage() {
                   className="field pl-11"
                 />
               </div>
-            </label>
+            </div>
 
             <button
               type="submit"
@@ -109,6 +120,14 @@ export default function AdminLoginPage() {
           Authorized personnel only.
         </p>
       </motion.div>
+
+      <ForgotPasswordModal
+        isOpen={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        defaultEmail={email}
+        target="ADMIN"
+        onSuccess={(resetEmail) => setEmail(resetEmail)}
+      />
     </div>
   )
 }

@@ -16,6 +16,7 @@ import {
   Scissors,
   ShieldCheck,
   Star,
+  UserCheck,
   Users,
   X,
 } from 'lucide-react'
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { to: '/admin/contacts', label: 'Contact Messages', icon: Contact2 },
   { to: '/admin/payment-settings', label: 'Payment Settings', icon: Settings2 },
   { to: '/admin/appearance', label: 'Appearance', icon: Palette },
+  { to: '/admin/profile', label: 'Admin Profile', icon: UserCheck },
 ]
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -80,15 +82,30 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="border-t border-night-800 p-4">
         {admin && (
-          <div className="mb-3 flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 font-display text-sm font-semibold text-gold-400">
-              {admin.name.charAt(0).toUpperCase()}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-night-100">{admin.name}</p>
+          <NavLink
+            to="/admin/profile"
+            onClick={onNavigate}
+            className="group mb-3 flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-night-900"
+            title="Manage Admin Profile & Security"
+          >
+            {admin.avatarUrl ? (
+              <img
+                src={admin.avatarUrl}
+                alt={admin.name}
+                className="h-9 w-9 rounded-full object-cover border border-gold-500/40"
+              />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 font-display text-sm font-semibold text-gold-400">
+                {admin.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-night-100 group-hover:text-gold-300">
+                {admin.name}
+              </p>
               <p className="truncate text-xs text-night-500">{admin.email}</p>
             </div>
-          </div>
+          </NavLink>
         )}
         <button
           type="button"
@@ -108,6 +125,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { admin } = useAdminAuth()
 
   return (
     <div className="min-h-screen bg-night-950">
@@ -152,13 +170,33 @@ export default function AdminLayout() {
             <Gauge className="h-4 w-4 text-gold-500" />
             Management Console
           </div>
-          <NavLink
-            to="/"
-            className="flex items-center gap-2 rounded-lg border border-night-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-night-300 transition-colors hover:border-gold-500/50 hover:text-gold-300"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            View Site
-          </NavLink>
+          <div className="flex items-center gap-3">
+            <NavLink
+              to="/admin/profile"
+              className="flex items-center gap-2.5 rounded-lg border border-night-700 bg-night-900/60 px-3 py-1.5 text-xs font-semibold text-night-200 transition-colors hover:border-gold-500/50 hover:text-gold-300"
+              title="Admin Profile"
+            >
+              {admin?.avatarUrl ? (
+                <img
+                  src={admin.avatarUrl}
+                  alt={admin.name}
+                  className="h-6 w-6 rounded-full object-cover border border-gold-500/40"
+                />
+              ) : (
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gold-500/15 text-[11px] font-bold text-gold-400">
+                  {admin?.name?.charAt(0).toUpperCase() || 'A'}
+                </span>
+              )}
+              <span className="hidden sm:inline">{admin?.name || 'Profile'}</span>
+            </NavLink>
+            <NavLink
+              to="/"
+              className="flex items-center gap-2 rounded-lg border border-night-700 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-night-300 transition-colors hover:border-gold-500/50 hover:text-gold-300"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              View Site
+            </NavLink>
+          </div>
         </header>
 
         {/* Content caps at the same width as the public site's container so

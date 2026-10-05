@@ -5,9 +5,10 @@ import PageTransition from '../../components/ui/PageTransition'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/ToastNotification'
 import { accountApi } from '../../api/account'
-import { site } from '../../data/services'
 import { useCustomerAuth } from '../../store/customerAuth'
 import { cn } from '../../utils/cn'
+import { site } from '../../data/services'
+import ForgotPasswordModal from '../../components/auth/ForgotPasswordModal'
 
 type Mode = 'otp' | 'password' | 'register'
 
@@ -22,6 +23,7 @@ export default function CustomerLoginPage() {
   const [devCode, setDevCode] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [forgotOpen, setForgotOpen] = useState(false)
   const { showToast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -235,9 +237,18 @@ export default function CustomerLoginPage() {
                 ) : (
                   <>
                     <label className="block">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
-                        Password
-                      </span>
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
+                          Password
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setForgotOpen(true)}
+                          className="text-xs font-medium text-gold-400 hover:text-gold-300"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
                       <input
                         type="password"
                         value={password}
@@ -319,6 +330,12 @@ export default function CustomerLoginPage() {
             )}
           </p>
         </div>
+
+        <ForgotPasswordModal
+          isOpen={forgotOpen}
+          onClose={() => setForgotOpen(false)}
+          target="CUSTOMER"
+        />
       </section>
     </PageTransition>
   )

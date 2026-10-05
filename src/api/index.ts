@@ -25,6 +25,7 @@ export interface AdminProfile {
   name: string
   email: string
   role: string
+  avatarUrl?: string | null
   isActive: boolean
 }
 
@@ -307,12 +308,29 @@ export const api = {
       method: 'PUT',
       body: isForm ? (body as FormData) : JSON.stringify(body ?? {}),
     }),
-  patch: <T>(path: string, body?: unknown) =>
+  patch: <T>(path: string, body?: unknown, isForm = false) =>
     apiFetch<T>(path, {
       method: 'PATCH',
-      body: JSON.stringify(body ?? {}),
+      body: isForm ? (body as FormData) : JSON.stringify(body ?? {}),
     }),
   del: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
+}
+
+export const authApi = {
+  forgotPasswordRequest: (email: string, target: 'ADMIN' | 'CUSTOMER' = 'ADMIN') =>
+    api.post<{ devCode?: string }>('/api/auth/forgot-password/request', { email, target }),
+  forgotPasswordVerify: (email: string, code: string, target: 'ADMIN' | 'CUSTOMER' = 'ADMIN') =>
+    api.post<{ valid: boolean }>('/api/auth/forgot-password/verify', { email, code, target }),
+  forgotPasswordReset: (email: string, code: string, newPassword: string, target: 'ADMIN' | 'CUSTOMER' = 'ADMIN') =>
+    api.post('/api/auth/forgot-password/reset', { email, code, newPassword, target }),
+  updateProfile: (data: FormData | { name?: string; email?: string; avatarUrl?: string | null }) => {
+    if (data instanceof FormData) {
+      return api.patch<{ admin: AdminProfile }>('/api/auth/profile', data, true)
+    }
+    return api.patch<{ admin: AdminProfile }>('/api/auth/profile', data)
+  },
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post('/api/auth/change-password', { currentPassword, newPassword }),
 }
 
 export const buildQuery = (params: Record<string, string | number | undefined>): string => {
