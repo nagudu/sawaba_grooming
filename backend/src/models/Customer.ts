@@ -17,6 +17,10 @@ export class Customer extends Model<InferAttributes<Customer>, InferCreationAttr
   declare preferredBarberId: CreationOptional<number | null>
   declare favoriteServiceId: CreationOptional<number | null>
   declare avatarUrl: CreationOptional<string | null>
+  /** Google's stable per-account user id (the `sub` claim). Null = not linked. */
+  declare googleSub: CreationOptional<string | null>
+  /** False for accounts created by Google, which have no phone number yet. */
+  declare phoneVerified: CreationOptional<boolean>
   declare reminderOptIn: CreationOptional<boolean>
   declare isActive: CreationOptional<boolean>
   declare lastLoginAt: CreationOptional<Date | null>
@@ -65,6 +69,15 @@ Customer.init(
       type: DataTypes.STRING(500),
       allowNull: true,
     },
+    googleSub: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    phoneVerified: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
     reminderOptIn: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -85,6 +98,10 @@ Customer.init(
   {
     sequelize,
     tableName: 'customers',
-    indexes: [{ fields: ['phone'] }, { fields: ['email'] }],
+    indexes: [
+      { fields: ['phone'] },
+      { fields: ['email'] },
+      { unique: true, fields: ['google_sub'] },
+    ],
   },
 )

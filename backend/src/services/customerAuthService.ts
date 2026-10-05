@@ -237,6 +237,7 @@ export async function updateCustomerProfile(
   customerId: number,
   patch: {
     fullName?: string
+    phone?: string
     email?: string | null
     avatarUrl?: string | null
     preferredBarberId?: number | null
@@ -251,6 +252,20 @@ export async function updateCustomerProfile(
   const fields: Record<string, unknown> = {}
   if (patch.fullName !== undefined && patch.fullName.trim()) {
     fields.fullName = patch.fullName.trim()
+  }
+  if (patch.phone !== undefined && patch.phone.trim()) {
+    const phone = normalizeNigerianPhone(patch.phone)
+    if (!isPlausiblePhone(phone)) {
+      throw new UnprocessableError('Provide a valid phone number.')
+    }
+    // One account per phone number — the same rule the register path enforces.
+    const taken = await Customer.findOne({ where: { phone } })
+    if (taken && taken.id !== customer.id) {
+      throw new ConflictError('This phone number is already in use by another account.')
+    }
+    fields.phone = phone
+    // Supplying a real number clears the Google placeholder state.
+    fields.phoneVerified = true
   }
   if (patch.email !== undefined) {
     const email = patch.email ? patch.email.trim().toLowerCase() : null
@@ -282,6 +297,10 @@ export function serializeCustomer(customer: Customer): Record<string, unknown> {
     favoriteServiceId: customer.favoriteServiceId,
     reminderOptIn: customer.reminderOptIn,
     isActive: customer.isActive,
+    // False for accounts created via Google, which still need a real number.
+    phoneVerified: customer.phoneVerified,
+    // Whether a Google account is linked. The `sub` itself is never exposed.
+    hasGoogleAccount: Boolean(customer.googleSub),
     createdAt: customer.createdAt,
     lastLoginAt: customer.lastLoginAt,
   }

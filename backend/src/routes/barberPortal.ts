@@ -5,7 +5,7 @@ import {
   barberPortalQuerySchema,
   barberAppointmentTimeParamsSchema,
   barberMarkNotificationReadSchema,
-  barberAvailabilityInputSchema,
+  barberAvailabilityBodySchema,
 } from '../validators/barberPortal'
 import {
   getBarberPortalOverviewHandler,
@@ -39,4 +39,4 @@ barberPortalRouter.get('/earnings', validate(barberPortalQuerySchema, 'query'), 
 barberPortalRouter.get('/notifications', validate(barberPortalQuerySchema, 'query'), listBarberPortalNotificationsHandler)
 barberPortalRouter.put('/notifications/read', validate(barberMarkNotificationReadSchema, 'body'), markBarberNotificationsReadHandler)
 barberPortalRouter.get('/availability', getBarberPortalAvailabilityHandler)
-barberPortalRouter.put('/availability', validate(barberAvailabilityInputSchema, 'body'), upsertBarberPortalAvailabilityHandler)
+barberPortalRouter.put('/availability', validate(barberAvailabilityBodySchema, 'body'), upsertBarberPortalAvailabilityHandler)

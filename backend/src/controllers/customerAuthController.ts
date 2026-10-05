@@ -9,8 +9,11 @@ import {
   verifyLoginOtp,
 } from '../services/customerAuthService'
 import { getBookingPrefill } from '../services/customerMeService'
+import { loginOrRegisterWithGoogle } from '../services/googleCustomerService'
+import { verifyGoogleIdToken } from '../services/googleAuthService'
 import { successRes } from '../utils/response'
 import type {
+  CustomerGoogleAuthInput,
   CustomerLoginPasswordInput,
   CustomerOtpRequestInput,
   CustomerOtpVerifyInput,
@@ -58,6 +61,39 @@ export async function loginPasswordHandler(req: Request, res: Response, next: Ne
     const { phone, password } = req.body as CustomerLoginPasswordInput
     const { token, customer } = await loginWithPassword(phone, password)
     successRes(res, 'Welcome back!', { token, customer: serializeCustomer(customer) }, 200)
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Signs a customer in with a Google Identity Services credential. The ID token
+ * is verified against Google's certificates before anything is read from it.
+ */
+export async function googleAuthHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { credential } = req.body as CustomerGoogleAuthInput
+    const identity = await verifyGoogleIdToken(credential)
+    const { token, customer, outcome } = await loginOrRegisterWithGoogle(identity)
+
+    const message =
+      outcome === 'created'
+        ? 'Account created. Welcome to SAWABA!'
+        : outcome === 'linked'
+          ? 'Google account linked. Welcome back!'
+          : 'Welcome back!'
+
+    successRes(
+      res,
+      message,
+      {
+        token,
+        customer: serializeCustomer(customer),
+        outcome,
+        needsPhone: !customer.phoneVerified,
+      },
+      outcome === 'created' ? 201 : 200,
+    )
   } catch (error) {
     next(error)
   }

@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
   changePasswordHandler,
+  googleAuthHandler,
   loginPasswordHandler,
   meHandler,
   prefillHandler,
@@ -13,6 +14,7 @@ import { requireCustomer } from '../middleware/customerAuth'
 import { validate } from '../middleware/validate'
 import { customerAuthLimiter, otpLimiter } from '../middleware/rateLimiter'
 import {
+  customerGoogleAuthSchema,
   customerLoginPasswordSchema,
   customerOtpRequestSchema,
   customerOtpVerifySchema,
@@ -60,6 +62,34 @@ customerAuthRouter.post('/register', customerAuthLimiter, validate(customerRegis
  *     summary: Login with phone + password (public)
  */
 customerAuthRouter.post('/login', customerAuthLimiter, validate(customerLoginPasswordSchema), loginPasswordHandler)
+
+/**
+ * @swagger
+ * /api/account/google:
+ *   post:
+ *     tags: [Account]
+ *     summary: Sign in or sign up with Google (public)
+ *     description: >
+ *       Accepts a Google Identity Services ID token ("credential"). The token is
+ *       verified server-side against Google's certificates and audience, then
+ *       the customer is matched by Google account id (sub), or linked by a
+ *       Google-verified email, or created. Never returns a duplicate account.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [credential]
+ *             properties:
+ *               credential: { type: string, description: Google ID token (JWT) }
+ *     responses:
+ *       200: { description: Signed in (existing or linked account) }
+ *       201: { description: Account created }
+ *       401: { description: Credential could not be verified }
+ *       422: { description: Google sign-in not configured }
+ */
+customerAuthRouter.post('/google', customerAuthLimiter, validate(customerGoogleAuthSchema), googleAuthHandler)
 
 customerAuthRouter.get('/me', requireCustomer, meHandler)
 customerAuthRouter.patch('/me', requireCustomer, validate(customerProfileUpdateSchema), updateProfileHandler)

@@ -36,4 +36,13 @@ export const env = {
     password: process.env.ADMIN_SEED_PASSWORD ?? 'ChangeMe123!',
     name: process.env.ADMIN_SEED_NAME ?? 'SAWABA Admin',
   },
+  // Google Identity Services. Deliberately OPTIONAL: when the client id is
+  // missing the server still boots and email/password + phone-OTP login keep
+  // working — the "Continue with Google" button is simply not offered.
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+  },
 } as const
+
+/** True when Google sign-in is usable end to end. */
+export const isGoogleAuthEnabled = (): boolean => env.google.clientId.trim().length > 0

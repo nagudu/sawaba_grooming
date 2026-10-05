@@ -136,9 +136,31 @@ async function startServer(): Promise<void> {
       }
     }
 
-    app.listen(env.port, () => {
+    const server = app.listen(env.port, () => {
       console.log(`[server] running on http://localhost:${env.port}`)
       console.log(`[server] swagger docs: http://localhost:${env.port}/api/docs`)
+    })
+
+    // A second backend is the most common local mistake, and Express only reports
+    // it as a bare "EADDRINUSE" stack trace. Say what actually happened and exit
+    // cleanly instead of leaving an unhandled 'error' event to crash the process.
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(
+          [
+            '',
+            `[server] port ${env.port} is already in use — another SAWABA backend is still running.`,
+            '        Only one backend can bind the port, and the Vite dev proxy targets exactly this one.',
+            '',
+            '  Find it:   netstat -ano | findstr :' + env.port,
+            '  Stop it:   taskkill /PID <pid> /F',
+            '  Or free it: set PORT to something else in backend/.env',
+            '',
+          ].join('\n'),
+        )
+        process.exit(1)
+      }
+      throw err
     })
   } catch (error) {
     console.error('[server] failed to start:', error)

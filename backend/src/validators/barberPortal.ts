@@ -38,7 +38,11 @@ export const barberAvailabilityInputSchema = z.object({
   isAvailable: z.boolean({ required_error: 'isAvailable is required.' }),
 })
 
+/** The portal saves a whole weekly schedule in one PUT, so the body is a list of entries. A single entry stays accepted for backwards compatibility. */
+export const barberAvailabilityBodySchema = z.union([barberAvailabilityInputSchema, z.array(barberAvailabilityInputSchema)])
+
 export type BarberPortalQuery = z.infer<typeof barberPortalQuerySchema>
 export type BarberAppointmentTimeParams = z.infer<typeof barberAppointmentTimeParamsSchema>
 export type BarberMarkNotificationReadInput = z.infer<typeof barberMarkNotificationReadSchema>
 export type BarberAvailabilityInput = z.infer<typeof barberAvailabilityInputSchema>
+export type BarberAvailabilityBody = z.infer<typeof barberAvailabilityBodySchema>

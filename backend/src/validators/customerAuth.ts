@@ -47,6 +47,7 @@ export const customerLoginPasswordSchema = z.object({
 export const customerProfileUpdateSchema = z
   .object({
     fullName: z.string().trim().min(2).max(150).optional(),
+    phone: phone.optional(),
     email: z
       .string()
       .trim()
@@ -74,8 +75,22 @@ export const customerCancelSchema = z.object({
   reason: z.string().trim().max(500).optional().nullable(),
 })
 
+/**
+ * Google Identity Services hands the browser a JWT ("credential"). The body is
+ * only the transport — the token is verified server-side against Google's
+ * certificates before any customer is created or signed in.
+ */
+export const customerGoogleAuthSchema = z.object({
+  credential: z
+    .string({ required_error: 'Google sign-in was not completed. Please try again.' })
+    .trim()
+    .min(20, 'Google sign-in was not completed. Please try again.')
+    .max(4096, 'Invalid Google credential.'),
+})
+
 export type CustomerOtpRequestInput = z.infer<typeof customerOtpRequestSchema>
 export type CustomerOtpVerifyInput = z.infer<typeof customerOtpVerifySchema>
 export type CustomerRegisterInput = z.infer<typeof customerRegisterSchema>
 export type CustomerLoginPasswordInput = z.infer<typeof customerLoginPasswordSchema>
 export type CustomerProfileUpdateInput = z.infer<typeof customerProfileUpdateSchema>
+export type CustomerGoogleAuthInput = z.infer<typeof customerGoogleAuthSchema>
