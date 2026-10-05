@@ -169,14 +169,14 @@ async function sendContactReply(input) {
         '',
         '—',
         `${input.adminName}`,
-        'SAWABA Grooming Salon',
+        'SAWABA Grooming Studio',
         '',
         `In reply to your message: "${originalSubject}"`,
     ].join('\n');
     const html = [
         `<p>Hello ${escapeHtml(greetingName)},</p>`,
         `<p>${escapeHtml(trimmed).replace(/\n/g, '<br />')}</p>`,
-        '<p style="margin-top:24px;">—<br /><strong>' + escapeHtml(input.adminName) + '</strong><br />SAWABA Grooming Salon</p>',
+        '<p style="margin-top:24px;">—<br /><strong>' + escapeHtml(input.adminName) + '</strong><br />SAWABA Grooming Studio</p>',
         `<p style="color:#888;font-size:12px;margin-top:24px;">In reply to your message: "${escapeHtml(originalSubject)}"</p>`,
     ].join('');
     if (!contact.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {

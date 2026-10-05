@@ -202,6 +202,20 @@ async function updateCustomerProfile(customerId, patch) {
     if (patch.fullName !== undefined && patch.fullName.trim()) {
         fields.fullName = patch.fullName.trim();
     }
+    if (patch.phone !== undefined && patch.phone.trim()) {
+        const phone = (0, phone_1.normalizeNigerianPhone)(patch.phone);
+        if (!(0, phone_1.isPlausiblePhone)(phone)) {
+            throw new errors_1.UnprocessableError('Provide a valid phone number.');
+        }
+        // One account per phone number — the same rule the register path enforces.
+        const taken = await models_1.Customer.findOne({ where: { phone } });
+        if (taken && taken.id !== customer.id) {
+            throw new errors_1.ConflictError('This phone number is already in use by another account.');
+        }
+        fields.phone = phone;
+        // Supplying a real number clears the Google placeholder state.
+        fields.phoneVerified = true;
+    }
     if (patch.email !== undefined) {
         const email = patch.email ? patch.email.trim().toLowerCase() : null;
         if (email && email !== customer.email) {
@@ -235,6 +249,10 @@ function serializeCustomer(customer) {
         favoriteServiceId: customer.favoriteServiceId,
         reminderOptIn: customer.reminderOptIn,
         isActive: customer.isActive,
+        // False for accounts created via Google, which still need a real number.
+        phoneVerified: customer.phoneVerified,
+        // Whether a Google account is linked. The `sub` itself is never exposed.
+        hasGoogleAccount: Boolean(customer.googleSub),
         createdAt: customer.createdAt,
         lastLoginAt: customer.lastLoginAt,
     };

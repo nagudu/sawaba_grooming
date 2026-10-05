@@ -19,6 +19,7 @@ function serializeReview(review) {
         customerImage: review.customerImage,
         serviceId: review.serviceId ?? null,
         serviceName: review.serviceName ?? null,
+        barberId: review.barberId ?? null,
         rating: Number(review.rating),
         comment: review.comment,
         status: review.status,
@@ -35,6 +36,7 @@ async function createReview(input) {
         customerImage: input.customerImage ?? null,
         serviceId: input.serviceId ?? null,
         serviceName: input.serviceName ?? null,
+        barberId: input.barberId ?? null,
         rating: input.rating,
         comment: input.comment,
         status: 'PENDING',
@@ -54,6 +56,11 @@ async function listReviews(query) {
     }
     else if (query.approved === 'false') {
         where.status = 'PENDING';
+    }
+    // Filter by barber when the validated `barberId` query param is present —
+    // used by barber profiles to fetch only their own approved reviews.
+    if (query.barberId) {
+        where.barberId = query.barberId;
     }
     if (query.search) {
         where[sequelize_1.Op.or] = [

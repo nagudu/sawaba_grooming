@@ -175,6 +175,11 @@ function CustomerAccountRoutes() {
         {/* Keep old /account/appointments URL working */}
         <Route path="appointments" element={<Navigate to="/account/bookings" replace />} />
       </Route>
+
+      {/* Any other /account/* URL has no matching route above — without this
+          catch-all React Router renders nothing at all (a blank white page),
+          because AppRoutes claims the whole /account prefix. */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

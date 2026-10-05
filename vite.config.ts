@@ -10,6 +10,20 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    // Build output and QA scratch live inside the project root, so chokidar
+    // watches them by default. Every `npm run build` then fires a burst of HMR
+    // updates and even full page reloads (deploy/spa/index.html) in a running
+    // dev server. None of it affects the app, so ignore it outright.
+    watch: {
+      ignored: [
+        '**/dist/**',
+        '**/deploy/**',
+        '**/.freebuff/**',
+        '**/node_modules/**',
+        '**/backend/uploads/**',
+        '**/.git/**',
+      ],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

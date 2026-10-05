@@ -4,6 +4,7 @@ exports.initializePaystackHandler = initializePaystackHandler;
 exports.verifyPaystackHandler = verifyPaystackHandler;
 exports.paystackWebhookHandler = paystackWebhookHandler;
 const paystackService_1 = require("../services/paystackService");
+const checkoutService_1 = require("../services/checkoutService");
 const response_1 = require("../utils/response");
 async function initializePaystackHandler(req, res, next) {
     try {
@@ -34,7 +35,11 @@ async function paystackWebhookHandler(req, res) {
     }
     try {
         const payload = JSON.parse(rawBody);
-        const applied = await (0, paystackService_1.handlePaystackWebhook)(payload);
+        // Checkout-session payments first, then legacy appointment payments.
+        let applied = await (0, checkoutService_1.handleCheckoutWebhook)(payload);
+        if (!applied) {
+            applied = await (0, paystackService_1.handlePaystackWebhook)(payload);
+        }
         // Always 200 once the signature is valid, even for ignored events.
         res.status(200).json({ success: true, applied });
     }

@@ -10,7 +10,7 @@ const response_1 = require("../utils/response");
 const upload_1 = require("../utils/upload");
 async function createServiceHandler(req, res, next) {
     try {
-        const uploadedImage = req.file ? await (0, upload_1.uploadImageToCloudinary)(req.file.buffer, 'sawaba-services') : null;
+        const uploadedImage = req.file ? await (0, upload_1.uploadImageToCloudinary)(req.file.buffer, 'sawaba-services', req.file.mimetype) : null;
         const input = {
             ...req.body,
             image: req.body.image ?? uploadedImage?.url ?? null,
@@ -45,13 +45,17 @@ async function getServiceByIdHandler(req, res, next) {
 async function updateServiceHandler(req, res, next) {
     try {
         const id = Number(req.params.id);
-        const uploadedImage = req.file ? await (0, upload_1.uploadImageToCloudinary)(req.file.buffer, 'sawaba-services') : null;
+        const uploadedImage = req.file ? await (0, upload_1.uploadImageToCloudinary)(req.file.buffer, 'sawaba-services', req.file.mimetype) : null;
         const existing = await (0, serviceService_1.getServiceById)(id);
         const input = {
             ...req.body,
             image: req.body.image ?? uploadedImage?.url ?? existing.image,
         };
         const service = await (0, serviceService_1.updateService)(id, input);
+        // Clean up the replaced upload (only when the image actually changed).
+        if (uploadedImage && existing.image && existing.image !== service.image) {
+            await (0, upload_1.deleteImageByUrl)(existing.image).catch(() => undefined);
+        }
         (0, response_1.successRes)(res, 'Service updated successfully.', service, 200);
     }
     catch (error) {

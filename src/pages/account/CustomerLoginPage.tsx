@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { KeyRound, LoaderCircle, LogIn, UserPlus } from 'lucide-react'
+import { KeyRound, LoaderCircle, LogIn, ShieldCheck, UserPlus } from 'lucide-react'
 import PageTransition from '../../components/ui/PageTransition'
 import { Button } from '../../components/ui/Button'
+import GoogleSignInButton from '../../components/auth/GoogleSignInButton'
+import { isGoogleSignInAvailable } from '../../lib/googleIdentity'
 import { useToast } from '../../components/ui/ToastNotification'
-import { accountApi } from '../../api/account'
+import { accountApi, type CustomerProfile } from '../../api/account'
 import { site } from '../../data/services'
 import { useCustomerAuth } from '../../store/customerAuth'
 import { cn } from '../../utils/cn'
 
 type Mode = 'otp' | 'password' | 'register'
+
+/** A Google sign-in that succeeded but still needs a real phone number. */
+interface PendingGoogleProfile {
+  profile: CustomerProfile
+}
 
 export default function CustomerLoginPage() {
   const [mode, setMode] = useState<Mode>('otp')
@@ -22,16 +29,23 @@ export default function CustomerLoginPage() {
   const [devCode, setDevCode] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [googleBusy, setGoogleBusy] = useState(false)
+  const [pendingGoogle, setPendingGoogle] = useState<PendingGoogleProfile | null>(null)
+  const [googlePhone, setGooglePhone] = useState('')
   const { showToast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, customer } = useCustomerAuth()
+  const { login, customer, refresh } = useCustomerAuth()
 
   const from = (location.state as { from?: string } | null)?.from ?? '/account'
 
+  // A Google account that has just been created still needs a phone number, so
+  // hold the redirect while the "one last step" card is on screen. `login()` and
+  // `setPendingGoogle()` are called in the same handler, so both are already
+  // applied by the time this runs.
   useEffect(() => {
-    if (customer) navigate(from, { replace: true })
-  }, [customer, from, navigate])
+    if (customer && !pendingGoogle) navigate(from, { replace: true })
+  }, [customer, pendingGoogle, from, navigate])
 
   async function handleSendOtp() {
     if (phone.trim().length < 10 || busy) return
@@ -107,6 +121,72 @@ export default function CustomerLoginPage() {
     }
   }
 
+  /**
+   * Receives the Google ID token. Nothing is trusted from it here — the
+   * backend verifies the signature/audience and decides whether to sign in,
+   * link an existing account, or create one.
+   */
+  async function handleGoogleCredential(credential: string) {
+    if (googleBusy) return
+    setGoogleBusy(true)
+    setError(null)
+    try {
+      const result = await accountApi.loginWithGoogle(credential)
+      login(result.customer, result.token)
+      showToast(
+        result.outcome === 'created'
+          ? `Account created. Welcome, ${result.customer.fullName.split(' ')[0]}!`
+          : `Welcome back, ${result.customer.fullName.split(' ')[0]}!`,
+        'success',
+      )
+      if (result.needsPhone) {
+        setPendingGoogle({ profile: result.customer })
+        setGooglePhone('')
+        return
+      }
+      navigate(from, { replace: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-in failed. Please try again.')
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
+
+  function handleGoogleCancel() {
+    setGoogleBusy(false)
+    setError('Google sign-in was cancelled. Your details were not changed.')
+  }
+
+  function handleGoogleLoadError(message: string) {
+    setGoogleBusy(false)
+    setError(message)
+  }
+
+  /** Completes a Google-created account by attaching a real phone number. */
+  async function handleCompleteGoogleProfile() {
+    if (!pendingGoogle) return
+    if (googlePhone.trim().length < 10 || googleBusy) return
+    setGoogleBusy(true)
+    setError(null)
+    try {
+      const { customer: updated } = await accountApi.updateProfile({ phone: googlePhone.trim() })
+      await refresh()
+      setPendingGoogle(null)
+      showToast('Phone number saved.', 'success')
+      navigate(from, { replace: true })
+      void updated
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save your phone number.')
+    } finally {
+      setGoogleBusy(false)
+    }
+  }
+
+  function skipGoogleProfile() {
+    setPendingGoogle(null)
+    navigate(from, { replace: true })
+  }
+
   return (
     <PageTransition>
       <section className="flex min-h-screen flex-col items-center justify-center gap-8 bg-night-950 px-4 py-16">
@@ -137,6 +217,95 @@ export default function CustomerLoginPage() {
 
         <div className="container-app max-w-md">
           <div className="rounded-2xl border border-night-800 bg-night-900/40 p-7">
+            {pendingGoogle ? (
+              /* ── Google created the account; it needs a phone number ───── */
+              <div className="space-y-5">
+                <div className="flex flex-col items-center text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10">
+                    <ShieldCheck className="h-5 w-5 text-gold-400" />
+                  </span>
+                  <h2 className="mt-4 font-display text-xl font-semibold text-night-50">
+                    One last step
+                  </h2>
+                  <p className="mt-2 text-sm leading-relaxed text-night-400">
+                    You are signed in as {pendingGoogle.profile.fullName}. Add the phone number
+                    we will use for your appointment reminders.
+                  </p>
+                </div>
+
+                {error && (
+                  <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                    {error}
+                  </p>
+                )}
+
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
+                    Phone number
+                  </span>
+                  <input
+                    type="tel"
+                    value={googlePhone}
+                    onChange={(event) => setGooglePhone(event.target.value)}
+                    className="field"
+                    placeholder="e.g. 08012345678"
+                    autoComplete="tel"
+                    autoFocus
+                    onKeyDown={(event) => event.key === 'Enter' && void handleCompleteGoogleProfile()}
+                  />
+                </label>
+
+                <div className="space-y-3">
+                  <Button
+                    variant="gold"
+                    size="lg"
+                    loading={googleBusy}
+                    className="w-full"
+                    onClick={() => void handleCompleteGoogleProfile()}
+                  >
+                    Save &amp; Continue
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    className="w-full"
+                    disabled={googleBusy}
+                    onClick={skipGoogleProfile}
+                  >
+                    Skip for now
+                  </Button>
+                </div>
+
+                <p className="text-center text-xs text-night-500">
+                  You can add this later in your profile.
+                </p>
+              </div>
+            ) : (
+              <>
+            {/* ── Google Identity Services ───────────────────────────── */}
+            {isGoogleSignInAvailable() && (
+              <div className="mb-6">
+                <GoogleSignInButton
+                  onCredential={(credential) => void handleGoogleCredential(credential)}
+                  onCancel={handleGoogleCancel}
+                  onError={handleGoogleLoadError}
+                  disabled={googleBusy || busy}
+                  context={mode === 'register' ? 'signup' : 'signin'}
+                />
+                <p className="mt-3 text-center text-[11px] leading-relaxed text-night-500">
+                  We never see your Google password.
+                </p>
+
+                <div className="my-5 flex items-center gap-3">
+                  <span className="h-px flex-1 bg-night-800" />
+                  <span className="text-[10px] font-semibold tracking-[0.2em] text-night-500 uppercase">
+                    or use your phone
+                  </span>
+                  <span className="h-px flex-1 bg-night-800" />
+                </div>
+              </div>
+            )}
+
             {/* Mode tabs */}
             <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-night-800 bg-night-950/60 p-1">
               {(
@@ -306,6 +475,8 @@ export default function CustomerLoginPage() {
                   Already have an account? Login
                 </button>
               </div>
+            )}
+              </>
             )}
           </div>
 

@@ -19,6 +19,10 @@ export interface CustomerProfile {
   favoriteServiceId: number | null
   reminderOptIn: boolean
   isActive: boolean
+  /** False for accounts created via Google, which still need a real number. */
+  phoneVerified: boolean
+  /** Whether a Google account is linked to this profile. */
+  hasGoogleAccount: boolean
   createdAt: string
   lastLoginAt: string | null
 }
@@ -148,9 +152,24 @@ export const accountApi = {
       body: JSON.stringify({ phone, password }),
     }),
   me: () => accountFetch<{ customer: CustomerProfile }>('/api/account/me'),
+  /**
+   * Exchanges a Google Identity Services ID token for a SAWABA session.
+   * The backend verifies the token before creating or linking any account.
+   */
+  loginWithGoogle: (credential: string) =>
+    accountFetch<{
+      token: string
+      customer: CustomerProfile
+      outcome: 'logged_in' | 'linked' | 'created'
+      needsPhone: boolean
+    }>('/api/account/google', {
+      method: 'POST',
+      body: JSON.stringify({ credential }),
+    }),
   updateProfile: (
     patch: Partial<{
       fullName: string
+      phone: string
       email: string | null
       avatarUrl: string | null
       preferredBarberId: number | null

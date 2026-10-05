@@ -18,6 +18,7 @@ const errors_1 = require("../utils/errors");
 const response_1 = require("../utils/response");
 const upload_1 = require("../utils/upload");
 const paymentSettingsService_1 = require("./paymentSettingsService");
+const commissionService_1 = require("./commissionService");
 const appointmentStatuses_1 = require("../config/appointmentStatuses");
 const appointmentInclude = [
     {
@@ -60,6 +61,10 @@ async function applyProviderVerification(appointmentId, info) {
             await appointment.update({ status: appointmentStatuses_1.AppointmentStatusValue.READY_FOR_SERVICE });
         }
     }
+    // Money is now confirmed — re-evaluate the commission ledger (#19). If the
+    // appointment is already COMPLETED the earning flips to EARNED here; if the
+    // appointment completes later, the status transition re-syncs it.
+    await (0, commissionService_1.syncEarningForAppointment)(appointmentId);
     return getPublicPaymentByAppointmentId(appointmentId);
 }
 async function getPublicPaymentByAppointmentId(appointmentId) {
@@ -174,12 +179,12 @@ async function submitPayment(token, input, receiptBuffer) {
     let receiptUrl = payment.receiptUrl;
     let receiptPublicId = payment.receiptPublicId;
     if (receiptBuffer) {
-        const uploaded = await (0, upload_1.uploadImageToCloudinary)(receiptBuffer, 'sawaba-receipts');
+        const uploaded = await (0, upload_1.uploadImageToCloudinary)(receiptBuffer, 'sawaba-receipts', 'image/jpeg');
         receiptUrl = uploaded.url;
         receiptPublicId = uploaded.publicId;
         if (payment.receiptPublicId && payment.receiptPublicId !== receiptPublicId) {
             try {
-                await (0, upload_1.deleteImageFromCloudinary)(payment.receiptPublicId);
+                await (0, upload_1.deleteImageByUrl)(payment.receiptUrl ?? '');
             }
             catch {
                 // best-effort cleanup of the previous receipt

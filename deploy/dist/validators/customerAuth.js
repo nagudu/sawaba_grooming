@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.customerCancelSchema = exports.customerPasswordChangeSchema = exports.customerProfileUpdateSchema = exports.customerLoginPasswordSchema = exports.customerRegisterSchema = exports.customerOtpVerifySchema = exports.customerOtpRequestSchema = void 0;
+exports.customerGoogleAuthSchema = exports.customerCancelSchema = exports.customerPasswordChangeSchema = exports.customerProfileUpdateSchema = exports.customerLoginPasswordSchema = exports.customerRegisterSchema = exports.customerOtpVerifySchema = exports.customerOtpRequestSchema = void 0;
 const zod_1 = require("zod");
 const phone = zod_1.z
     .string({ required_error: 'Phone number is required.' })
@@ -44,6 +44,7 @@ exports.customerLoginPasswordSchema = zod_1.z.object({
 exports.customerProfileUpdateSchema = zod_1.z
     .object({
     fullName: zod_1.z.string().trim().min(2).max(150).optional(),
+    phone: phone.optional(),
     email: zod_1.z
         .string()
         .trim()
@@ -67,5 +68,17 @@ exports.customerPasswordChangeSchema = zod_1.z.object({
 });
 exports.customerCancelSchema = zod_1.z.object({
     reason: zod_1.z.string().trim().max(500).optional().nullable(),
+});
+/**
+ * Google Identity Services hands the browser a JWT ("credential"). The body is
+ * only the transport — the token is verified server-side against Google's
+ * certificates before any customer is created or signed in.
+ */
+exports.customerGoogleAuthSchema = zod_1.z.object({
+    credential: zod_1.z
+        .string({ required_error: 'Google sign-in was not completed. Please try again.' })
+        .trim()
+        .min(20, 'Google sign-in was not completed. Please try again.')
+        .max(4096, 'Invalid Google credential.'),
 });
 //# sourceMappingURL=customerAuth.js.map

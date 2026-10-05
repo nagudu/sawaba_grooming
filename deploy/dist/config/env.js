@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.env = void 0;
+exports.isGoogleAuthEnabled = exports.env = void 0;
 require("dotenv/config");
 function required(name) {
     const value = process.env[name];
@@ -24,10 +24,12 @@ exports.env = {
         .split(',')
         .map((o) => o.trim())
         .filter(Boolean),
+    // Optional: only needed when UPLOAD_DRIVER=cloudinary. The default local
+    // disk driver works offline with no third-party account at all.
     cloudinary: {
-        cloudName: required('CLOUDINARY_CLOUD_NAME'),
-        apiKey: required('CLOUDINARY_API_KEY'),
-        apiSecret: required('CLOUDINARY_API_SECRET'),
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? '',
+        apiKey: process.env.CLOUDINARY_API_KEY ?? '',
+        apiSecret: process.env.CLOUDINARY_API_SECRET ?? '',
         uploadFolder: process.env.CLOUDINARY_UPLOAD_FOLDER ?? 'sawaba-salon',
     },
     adminSeed: {
@@ -35,5 +37,14 @@ exports.env = {
         password: process.env.ADMIN_SEED_PASSWORD ?? 'ChangeMe123!',
         name: process.env.ADMIN_SEED_NAME ?? 'SAWABA Admin',
     },
+    // Google Identity Services. Deliberately OPTIONAL: when the client id is
+    // missing the server still boots and email/password + phone-OTP login keep
+    // working — the "Continue with Google" button is simply not offered.
+    google: {
+        clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+    },
 };
+/** True when Google sign-in is usable end to end. */
+const isGoogleAuthEnabled = () => exports.env.google.clientId.trim().length > 0;
+exports.isGoogleAuthEnabled = isGoogleAuthEnabled;
 //# sourceMappingURL=env.js.map

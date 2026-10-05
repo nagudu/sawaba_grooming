@@ -11,12 +11,12 @@ const models_1 = require("../models");
 const phone_1 = require("../utils/phone");
 const errors_1 = require("../utils/errors");
 /** Normalizes input and looks up (or creates) the single customer per phone. */
-async function findOrCreateCustomer(input) {
+async function findOrCreateCustomer(input, t) {
     const phone = (0, phone_1.normalizeNigerianPhone)(input.phone);
     if (!(0, phone_1.isPlausiblePhone)(phone)) {
         throw new errors_1.UnprocessableError('Provide a valid phone number.');
     }
-    const existing = await models_1.Customer.findOne({ where: { phone } });
+    const existing = await models_1.Customer.findOne({ where: { phone }, ...(t ? { transaction: t } : {}) });
     if (existing) {
         // Keep the appointment copy in sync with the most recent spelling of the
         // customer's name/email without overwriting a richer stored value.
@@ -26,14 +26,14 @@ async function findOrCreateCustomer(input) {
         if (input.email && !existing.email)
             patch.email = input.email;
         if (Object.keys(patch).length)
-            await existing.update(patch);
+            await existing.update(patch, { transaction: t });
         return existing;
     }
     return models_1.Customer.create({
         fullName: input.fullName,
         phone,
         email: input.email ?? null,
-    });
+    }, t ? { transaction: t } : undefined);
 }
 /** Stable display code CUS-0001 — a reference, never a security credential. */
 async function ensureCustomerCode(customer) {

@@ -74,7 +74,7 @@ function getFromAddress() {
     // double-wrapping makes providers reject the from field).
     if (/<[^<>\s]+@[^<>\s]+\.[^<>\s]+>$/.test(raw))
         return raw;
-    const fromName = process.env.SMTP_FROM_NAME ?? 'SAWABA Grooming Salon';
+    const fromName = process.env.SMTP_FROM_NAME ?? 'SAWABA Grooming Studio';
     return `${fromName} <${raw}>`;
 }
 /** Maps a raw SMTP failure to a clean, user-safe explanation. */
@@ -103,6 +103,15 @@ function resendDeliveryError(status, message, cause) {
         return new EmailDeliveryError('Email service authentication failed.', cause);
     }
     if (status === 403) {
+        // Resend has TWO very different 403s — report the real one, not a generic guess.
+        const ownerMatch = message.match(/your own email address \(([^)]+)\)/i);
+        if (ownerMatch) {
+            return new EmailDeliveryError(`Email is in provider test mode — replies can only be delivered to ${ownerMatch[1]} until a sending domain is verified or SMTP is configured. The reply was not sent.`, cause);
+        }
+        const domainMatch = message.match(/The ([^\s]+) domain is not verified/i);
+        if (domainMatch) {
+            return new EmailDeliveryError(`The sending domain "${domainMatch[1]}" is not verified with the email provider — verify it at resend.com/domains or configure SMTP. The reply was not sent.`, cause);
+        }
         if (/domain|verif|testing emails|allowed to send/i.test(message)) {
             return new EmailDeliveryError('The email service cannot send from this sender yet — the sender domain must be verified with the provider first. The reply was not sent.', cause);
         }
@@ -201,8 +210,22 @@ async function sendEmail(email) {
     }
     const from = getFromAddress();
     const provider = activeProvider();
-    if (provider === 'resend')
-        return sendViaResend(email, from);
+    if (provider === 'resend') {
+        try {
+            return await sendViaResend(email, from);
+        }
+        catch (error) {
+            // A configured SMTP transport is a real fallback: sandbox limits,
+            // unverified domains or a Resend outage must not block replies when
+            // working SMTP credentials exist. If SMTP is absent (or also fails),
+            // the original failure surfaces unchanged.
+            if (getTransport()) {
+                console.warn('[mailer] resend rejected — trying SMTP fallback:', error.message);
+                return sendViaSmtp(email, from);
+            }
+            throw error;
+        }
+    }
     if (provider === 'smtp')
         return sendViaSmtp(email, from);
     throw new EmailDeliveryError('Email service is not configured. Please contact the administrator.');
@@ -219,6 +242,9 @@ async function verifyEmailProvider() {
             // confirms the key is valid AND allowed to send — which is all we need.
             if (error.name === 'restricted_api_key') {
                 console.log('[mailer] key is send-only (restricted_api_key) — sending is permitted');
+                // If SMTP is also configured, it is the fallback path — verify it too.
+                if (getTransport())
+                    await getTransport().verify();
                 return;
             }
             throw new EmailDeliveryError(error.statusCode === 401 || error.statusCode === 403
