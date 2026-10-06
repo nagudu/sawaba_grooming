@@ -17,7 +17,7 @@ async function withUploadedImage(req, next, fallback) {
     if (!file)
         return fallback;
     try {
-        const uploaded = await (0, upload_1.uploadImageToCloudinary)(file.buffer, 'sawaba-barbers');
+        const uploaded = await (0, upload_1.uploadImageToCloudinary)(file.buffer, 'sawaba-barbers', file.mimetype);
         return uploaded.url;
     }
     catch (error) {
@@ -32,7 +32,12 @@ async function createBarberHandler(req, res, next) {
             return;
         const input = { ...req.body, image };
         const barber = await (0, barberService_1.createBarber)(input);
-        (0, response_1.successRes)(res, 'Barber created successfully.', barber, 201);
+        const message = barber.credentialNotice
+            ? `Barber created successfully. ${barber.credentialNotice}`
+            : 'Barber created successfully.';
+        // credentialNotice stays in the payload so the admin UI can show the
+        // email-delivery outcome (null = sent, string = failure reason).
+        (0, response_1.successRes)(res, message, barber, 201);
     }
     catch (error) {
         next(error);
@@ -40,8 +45,16 @@ async function createBarberHandler(req, res, next) {
 }
 async function listBarbersHandler(req, res, next) {
     try {
-        const query = req.query;
-        const result = await (0, barberService_1.listBarbers)(query);
+        const query = { ...req.query };
+        const authHeader = req.headers.authorization;
+        const isAdminRequest = Boolean(authHeader && authHeader.startsWith('Bearer '));
+        if (!isAdminRequest) {
+            // Public callers never get internal filters or inactive barbers.
+            delete query.includeInactive;
+            delete query.barberType;
+            delete query.availableToday;
+        }
+        const result = await (0, barberService_1.listBarbers)(query, { adminView: isAdminRequest });
         (0, response_1.successRes)(res, 'Barbers retrieved.', result, 200);
     }
     catch (error) {
@@ -50,7 +63,13 @@ async function listBarbersHandler(req, res, next) {
 }
 async function getBarberByIdHandler(req, res, next) {
     try {
-        const barber = await (0, barberService_1.getBarberById)(Number(req.params.id));
+        // Admin-authenticated requests get the full business profile (type,
+        // commission, location); public requests see the clean public profile.
+        const authHeader = req.headers.authorization;
+        const isAdminRequest = Boolean(authHeader && authHeader.startsWith('Bearer '));
+        const barber = isAdminRequest
+            ? await (0, barberService_1.getBarberByIdForAdmin)(Number(req.params.id))
+            : await (0, barberService_1.getBarberById)(Number(req.params.id));
         (0, response_1.successRes)(res, 'Barber retrieved.', barber, 200);
     }
     catch (error) {
@@ -66,7 +85,10 @@ async function updateBarberHandler(req, res, next) {
             return;
         const input = { ...req.body, image };
         const barber = await (0, barberService_1.updateBarber)(id, input);
-        (0, response_1.successRes)(res, 'Barber updated successfully.', barber, 200);
+        const message = barber.credentialNotice
+            ? `Barber updated successfully. ${barber.credentialNotice}`
+            : 'Barber updated successfully.';
+        (0, response_1.successRes)(res, message, barber, 200);
     }
     catch (error) {
         next(error);
@@ -88,8 +110,8 @@ async function deleteBarberHandler(req, res, next) {
             return;
         }
         await (0, barberService_1.deleteBarber)(id);
-        if (existing.image && existing.image.includes('cloudinary')) {
-            await (0, upload_1.deleteImageFromCloudinary)(existing.image.split('/').pop()?.split('.')[0] ?? '').catch(() => undefined);
+        if (existing.image) {
+            await (0, upload_1.deleteImageByUrl)(existing.image).catch(() => undefined);
         }
         (0, response_1.successRes)(res, 'Barber deleted successfully.', { deactivated: false }, 200);
     }

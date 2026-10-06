@@ -10,10 +10,12 @@ exports.deleteAppointmentHandler = deleteAppointmentHandler;
 const appointmentService_1 = require("../services/appointmentService");
 const response_1 = require("../utils/response");
 const appointmentStatuses_1 = require("../config/appointmentStatuses");
+/** Multipart requests deliver every field as a string — passthrough unchanged; zod coerces. */
 async function createAppointmentHandler(req, res, next) {
     try {
         const input = req.body;
-        const appointment = await (0, appointmentService_1.createAppointment)(input);
+        const receiptFile = req.file;
+        const appointment = await (0, appointmentService_1.createAppointment)(input, receiptFile?.buffer ?? null, receiptFile?.mimetype);
         (0, response_1.successRes)(res, 'Your appointment request has been successfully submitted. We will contact you to confirm your appointment.', appointment, 201);
     }
     catch (error) {

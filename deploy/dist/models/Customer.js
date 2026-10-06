@@ -46,6 +46,15 @@ Customer.init({
         type: sequelize_1.DataTypes.STRING(500),
         allowNull: true,
     },
+    googleSub: {
+        type: sequelize_1.DataTypes.STRING(255),
+        allowNull: true,
+    },
+    phoneVerified: {
+        type: sequelize_1.DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+    },
     reminderOptIn: {
         type: sequelize_1.DataTypes.BOOLEAN,
         allowNull: false,
@@ -65,6 +74,10 @@ Customer.init({
 }, {
     sequelize: database_1.sequelize,
     tableName: 'customers',
-    indexes: [{ fields: ['phone'] }, { fields: ['email'] }],
+    indexes: [
+        { fields: ['phone'] },
+        { fields: ['email'] },
+        { unique: true, fields: ['google_sub'] },
+    ],
 });
 //# sourceMappingURL=Customer.js.map

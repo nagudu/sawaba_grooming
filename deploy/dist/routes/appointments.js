@@ -6,6 +6,7 @@ const appointmentController_1 = require("../controllers/appointmentController");
 const auth_1 = require("../middleware/auth");
 const validate_1 = require("../middleware/validate");
 const rateLimiter_1 = require("../middleware/rateLimiter");
+const upload_1 = require("../utils/upload");
 const appointment_1 = require("../validators/appointment");
 exports.appointmentsRouter = (0, express_1.Router)();
 /**
@@ -57,7 +58,11 @@ exports.appointmentsRouter = (0, express_1.Router)();
  *       422:
  *         description: Validation failed (past date, unavailable barber, etc).
  */
-exports.appointmentsRouter.post('/', rateLimiter_1.submitLimiter, (0, validate_1.validate)(appointment_1.createAppointmentSchema), appointmentController_1.createAppointmentHandler);
+/**
+ * Multipart so a BANK_TRANSFER/OPAY booking can carry its receipt in the same
+ * request — a transfer booking without a receipt is rejected (see service).
+ */
+exports.appointmentsRouter.post('/', rateLimiter_1.submitLimiter, upload_1.upload.single('receipt'), (0, validate_1.validate)(appointment_1.createAppointmentSchema), appointmentController_1.createAppointmentHandler);
 /**
  * @swagger
  * /api/appointments:
@@ -70,9 +75,10 @@ exports.appointmentsRouter.post('/', rateLimiter_1.submitLimiter, (0, validate_1
  *     parameters:
  *       - in: query
  *         name: status
-*           schema:
- *             type: string
- *             enum: [PAYMENT_REQUIRED, PAYMENT_SUBMITTED, PAYMENT_VERIFIED, PAYMENT_REJECTED, READY_FOR_SERVICE, IN_PROGRESS, COMPLETED, CANCELLED]
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [PAYMENT_REQUIRED, PAYMENT_SUBMITTED, PAYMENT_VERIFIED, PAYMENT_REJECTED, READY_FOR_SERVICE, IN_PROGRESS, COMPLETED, CANCELLED]
  *       - in: query
  *         name: barberId
  *         schema:

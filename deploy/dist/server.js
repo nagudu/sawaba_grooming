@@ -45,6 +45,7 @@ const env_1 = require("./config/env");
 const database_1 = require("./config/database");
 const routes_1 = require("./routes");
 const swagger_1 = require("./swagger");
+const ensureColumns_1 = require("./scripts/ensureColumns");
 const rateLimiter_1 = require("./middleware/rateLimiter");
 const errorHandler_1 = require("./middleware/errorHandler");
 const node_path_1 = __importDefault(require("node:path"));
@@ -85,6 +86,16 @@ app.get('/api/docs/spec', (_req, res) => {
     res.send(swagger_1.swaggerSpec);
 });
 app.use('/api', routes_1.apiRouter);
+// Locally uploaded images (offline-first storage driver). Served by the
+// backend itself so barber/gallery/service images work with no internet.
+const uploadsDir = process.env.UPLOADS_DIR
+    ? node_path_1.default.resolve(process.env.UPLOADS_DIR)
+    : node_path_1.default.resolve(__dirname, '../uploads');
+node_fs_1.default.mkdirSync(uploadsDir, { recursive: true });
+// Seed copies use stable filenames whose content can be re-pointed, so they
+// get a short cache (no immutable). Admin uploads get unique names and are
+// served by the same mount — a day of caching is plenty for either case.
+app.use('/uploads', express_1.default.static(uploadsDir, { maxAge: '1d' }));
 app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -117,7 +128,13 @@ async function startServer() {
     try {
         await (0, database_1.connectDatabase)();
         console.log('[server] database connection established');
-        // Use { force: false, alter: process.env.NODE_ENV === 'development' } on first start via db:sync instead.
+        // Add-only drift healer: sync({force:false}) never adds columns to
+        // existing tables, so a model that outgrows its table would 500 every
+        // query. Heal first, then let sync create any missing tables.
+        const healed = await (0, ensureColumns_1.ensureModelColumns)();
+        if (healed.length > 0) {
+            console.log(`[server] schema drift healed: ${healed.join(', ')}`);
+        }
         await database_1.sequelize.sync({ force: false });
         console.log('[server] models synchronized');
         // First-boot demo seeding (deployment bootstrap): idempotent, only runs

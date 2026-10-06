@@ -32,6 +32,11 @@ Appointment.init({
         allowNull: true,
         validate: { isEmail: true },
     },
+    customerLocation: {
+        type: sequelize_1.DataTypes.STRING(150),
+        allowNull: true,
+        comment: 'Customer-stated location/area at booking. Helps admin pick the right barber — never auto-assigns.',
+    },
     customerId: {
         type: sequelize_1.DataTypes.INTEGER.UNSIGNED,
         allowNull: true,
@@ -43,6 +48,19 @@ Appointment.init({
     barberId: {
         type: sequelize_1.DataTypes.INTEGER.UNSIGNED,
         allowNull: false,
+    },
+    assignedBarberId: {
+        type: sequelize_1.DataTypes.INTEGER.UNSIGNED,
+        allowNull: true,
+        comment: 'Admin-assigned barber. Falls back to barberId when null.',
+    },
+    assignedAt: {
+        type: sequelize_1.DataTypes.DATE,
+        allowNull: true,
+    },
+    assignedBy: {
+        type: sequelize_1.DataTypes.INTEGER.UNSIGNED,
+        allowNull: true,
     },
     appointmentDate: {
         type: sequelize_1.DataTypes.DATEONLY,

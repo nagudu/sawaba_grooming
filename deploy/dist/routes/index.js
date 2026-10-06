@@ -16,8 +16,13 @@ const customerAuth_1 = require("./customerAuth");
 const customerMe_1 = require("./customerMe");
 const payments_1 = require("./payments");
 const paystack_1 = require("./paystack");
+const checkout_1 = require("./checkout");
 const adminPayments_1 = require("./adminPayments");
 const adminPaymentSettings_1 = require("./adminPaymentSettings");
+const barberEarnings_1 = require("./barberEarnings");
+const commissionRates_1 = require("./commissionRates");
+const barberAuth_1 = require("./barberAuth");
+const barberPortal_1 = require("./barberPortal");
 exports.apiRouter = (0, express_1.Router)();
 exports.apiRouter.use('/auth', auth_1.authRouter);
 exports.apiRouter.use('/services', services_1.servicesRouter);
@@ -34,8 +39,15 @@ exports.apiRouter.use('/account', customerMe_1.customerMeRouter);
 // swallow /payments/paystack/* paths with token="paystack".
 exports.apiRouter.use('/payments/paystack', paystack_1.paystackRouter);
 exports.apiRouter.use('/payments', payments_1.paymentsRouter);
+exports.apiRouter.use('/checkout', checkout_1.checkoutRouter);
 exports.apiRouter.use('/admin/dashboard', dashboard_1.dashboardRouter);
 exports.apiRouter.use('/admin/customers', customers_1.customersRouter);
 exports.apiRouter.use('/admin/payments', adminPayments_1.adminPaymentsRouter);
 exports.apiRouter.use('/admin/payment-settings', adminPaymentSettings_1.adminPaymentSettingsRouter);
+exports.apiRouter.use('/admin/barber-earnings', barberEarnings_1.barberEarningsRouter);
+exports.apiRouter.use('/admin/commission-rates', commissionRates_1.commissionRatesRouter);
+// Barber Portal — separate namespace so barber tokens never touch admin APIs.
+exports.apiRouter.use('/barber/auth', barberAuth_1.barberAuthRouter);
+exports.apiRouter.use('/barber/portal', barberPortal_1.barberPortalRouter);
+exports.apiRouter.use('/admin/appointments', barberEarnings_1.assignmentRouter);
 //# sourceMappingURL=index.js.map

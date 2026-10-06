@@ -11,7 +11,7 @@ const upload_1 = require("../utils/upload");
 const errors_1 = require("../utils/errors");
 async function createGalleryHandler(req, res, next) {
     try {
-        const uploadedImage = req.file ? await (0, upload_1.uploadImageToCloudinary)(req.file.buffer, 'sawaba-gallery') : null;
+        const uploadedImage = req.file ? await (0, upload_1.uploadImageToCloudinary)(req.file.buffer, 'sawaba-gallery', req.file.mimetype) : null;
         const input = {
             ...req.body,
             image: req.body.image ?? uploadedImage?.url ?? null,
@@ -49,7 +49,7 @@ async function getGalleryByIdHandler(req, res, next) {
 async function updateGalleryHandler(req, res, next) {
     try {
         const id = Number(req.params.id);
-        const uploadedImage = req.file ? await (0, upload_1.uploadImageToCloudinary)(req.file.buffer, 'sawaba-gallery') : null;
+        const uploadedImage = req.file ? await (0, upload_1.uploadImageToCloudinary)(req.file.buffer, 'sawaba-gallery', req.file.mimetype) : null;
         const input = {
             ...req.body,
             image: req.body.image ?? uploadedImage?.url ?? undefined,

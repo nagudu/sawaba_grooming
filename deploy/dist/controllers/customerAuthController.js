@@ -4,12 +4,15 @@ exports.requestOtpHandler = requestOtpHandler;
 exports.verifyOtpHandler = verifyOtpHandler;
 exports.registerHandler = registerHandler;
 exports.loginPasswordHandler = loginPasswordHandler;
+exports.googleAuthHandler = googleAuthHandler;
 exports.meHandler = meHandler;
 exports.updateProfileHandler = updateProfileHandler;
 exports.changePasswordHandler = changePasswordHandler;
 exports.prefillHandler = prefillHandler;
 const customerAuthService_1 = require("../services/customerAuthService");
 const customerMeService_1 = require("../services/customerMeService");
+const googleCustomerService_1 = require("../services/googleCustomerService");
+const googleAuthService_1 = require("../services/googleAuthService");
 const response_1 = require("../utils/response");
 async function requestOtpHandler(req, res, next) {
     try {
@@ -46,6 +49,31 @@ async function loginPasswordHandler(req, res, next) {
         const { phone, password } = req.body;
         const { token, customer } = await (0, customerAuthService_1.loginWithPassword)(phone, password);
         (0, response_1.successRes)(res, 'Welcome back!', { token, customer: (0, customerAuthService_1.serializeCustomer)(customer) }, 200);
+    }
+    catch (error) {
+        next(error);
+    }
+}
+/**
+ * Signs a customer in with a Google Identity Services credential. The ID token
+ * is verified against Google's certificates before anything is read from it.
+ */
+async function googleAuthHandler(req, res, next) {
+    try {
+        const { credential } = req.body;
+        const identity = await (0, googleAuthService_1.verifyGoogleIdToken)(credential);
+        const { token, customer, outcome } = await (0, googleCustomerService_1.loginOrRegisterWithGoogle)(identity);
+        const message = outcome === 'created'
+            ? 'Account created. Welcome to SAWABA!'
+            : outcome === 'linked'
+                ? 'Google account linked. Welcome back!'
+                : 'Welcome back!';
+        (0, response_1.successRes)(res, message, {
+            token,
+            customer: (0, customerAuthService_1.serializeCustomer)(customer),
+            outcome,
+            needsPhone: !customer.phoneVerified,
+        }, outcome === 'created' ? 201 : 200);
     }
     catch (error) {
         next(error);

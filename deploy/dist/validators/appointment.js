@@ -1,13 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.availabilityQuerySchema = exports.listAppointmentsQuerySchema = exports.appointmentStatusSchema = exports.updateAppointmentSchema = exports.createAppointmentSchema = exports.idParamsSchema = void 0;
+exports.availabilityQuerySchema = exports.listAppointmentsQuerySchema = exports.appointmentStatusSchema = exports.updateAppointmentSchema = exports.createAppointmentSchema = exports.BOOKING_PAYMENT_METHODS = exports.idParamsSchema = void 0;
 const zod_1 = require("zod");
 const types_1 = require("../types");
 const PHONE_PATTERN = /^\+?[\d\s()-]{7,20}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 exports.idParamsSchema = zod_1.z.object({
     id: zod_1.z.coerce.number().int().positive('Id must be a positive integer.'),
-});
+}); /** Methods a customer may choose at booking time. ONLINE means Paystack checkout. */
+exports.BOOKING_PAYMENT_METHODS = ['OPAY', 'BANK_TRANSFER', 'CASH', 'OTHER', 'ONLINE'];
+/** Multipart fields arrive as strings — empty ones must become undefined, not ''. */
+const emptyToUndefined = (value) => (value === '' ? undefined : value);
 exports.createAppointmentSchema = zod_1.z
     .object({
     customerName: zod_1.z.string().trim().min(2, 'Name must be at least 2 characters.').max(150),
@@ -15,14 +18,22 @@ exports.createAppointmentSchema = zod_1.z
         .string()
         .trim()
         .regex(PHONE_PATTERN, 'Provide a valid phone number.'),
-    customerEmail: zod_1.z.string().trim().toLowerCase().email('Provide a valid email address.').optional().nullable(),
+    customerEmail: zod_1.z.preprocess(emptyToUndefined, zod_1.z.string().trim().toLowerCase().email('Provide a valid email address.').optional().nullable()),
+    /** Customer's location/area — optional context that helps admin choose the right barber. Never auto-assigns. */
+    customerLocation: zod_1.z.preprocess(emptyToUndefined, zod_1.z.string().trim().max(150).optional().nullable().or(zod_1.z.literal(''))),
     serviceId: zod_1.z.coerce.number().int().positive('A valid service is required.'),
     barberId: zod_1.z.coerce.number().int().positive('A valid barber is required.'),
     appointmentDate: zod_1.z.string().date('Provide a valid date (YYYY-MM-DD).'),
     appointmentTime: zod_1.z
         .string()
         .regex(TIME_PATTERN, 'Provide a valid time in HH:mm format.'),
-    notes: zod_1.z.string().trim().max(2000).optional().nullable(),
+    notes: zod_1.z.preprocess(emptyToUndefined, zod_1.z.string().trim().max(2000).optional().nullable()),
+    // Payment rules are enforced in the service layer (enabled-methods check +
+    // mandatory receipt for non-cash, non-online methods).
+    paymentMethod: zod_1.z.enum(exports.BOOKING_PAYMENT_METHODS, {
+        errorMap: () => ({ message: 'Choose a payment method to submit your appointment.' }),
+    }),
+    transactionReference: zod_1.z.preprocess(emptyToUndefined, zod_1.z.string().trim().max(191).optional().default('')),
 })
     .superRefine((data, ctx) => {
     const selected = new Date(`${data.appointmentDate}T${data.appointmentTime}:00`);
@@ -48,7 +59,9 @@ exports.updateAppointmentSchema = zod_1.z
     customerName: zod_1.z.string().trim().min(2, 'Name must be at least 2 characters.').max(150).optional(),
     customerPhone: zod_1.z.string().trim().regex(PHONE_PATTERN, 'Provide a valid phone number.').optional(),
     customerEmail: zod_1.z.string().trim().toLowerCase().email('Provide a valid email address.').optional().nullable(),
+    customerLocation: zod_1.z.string().trim().max(150).optional().nullable(),
     serviceId: zod_1.z.coerce.number().int().positive('A valid service is required.').optional(),
+    /** Admin-only reassignment via PATCH /appointments/:id. Never accepted from customers. */
     barberId: zod_1.z.coerce.number().int().positive('A valid barber is required.').optional(),
     appointmentDate: zod_1.z.string().date('Provide a valid date (YYYY-MM-DD).').optional(),
     appointmentTime: zod_1.z.string().regex(TIME_PATTERN, 'Provide a valid time in HH:mm format.').optional(),

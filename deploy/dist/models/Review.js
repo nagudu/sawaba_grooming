@@ -37,6 +37,13 @@ Review.init({
         type: sequelize_1.DataTypes.STRING(150),
         allowNull: true,
     },
+    barberId: {
+        type: sequelize_1.DataTypes.INTEGER.UNSIGNED,
+        allowNull: true,
+        references: { model: 'barbers', key: 'id' },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL',
+    },
     rating: {
         type: sequelize_1.DataTypes.TINYINT.UNSIGNED,
         allowNull: false,
@@ -65,6 +72,7 @@ Review.init({
     indexes: [
         { fields: ['is_approved'] },
         { fields: ['status'] },
+        { fields: ['barber_id'] },
     ],
 });
 //# sourceMappingURL=Review.js.map

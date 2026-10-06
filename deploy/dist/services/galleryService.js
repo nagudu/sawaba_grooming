@@ -93,13 +93,7 @@ async function deleteGalleryItem(id) {
     if (!image) {
         throw new errors_1.NotFoundError('Gallery item not found.');
     }
-    const url = new URL(image.image);
-    const segments = url.pathname.split('/');
-    const lastSegment = segments[segments.length - 1];
-    const publicIdCandidate = lastSegment.split('.')[0];
-    if (publicIdCandidate && url.hostname.includes('cloudinary')) {
-        await (0, upload_1.deleteImageFromCloudinary)(publicIdCandidate).catch(() => undefined);
-    }
+    await (0, upload_1.deleteImageByUrl)(image.image).catch(() => undefined);
     await image.destroy();
 }
 //# sourceMappingURL=galleryService.js.map

@@ -42,9 +42,35 @@ app.use(
   }),
 )
 
+const allowedOrigins = new Set([
+  'https://sawabagroomingstudio.com.ng',
+  'https://www.sawabagroomingstudio.com.ng',
+  'http://sawabagroomingstudio.com.ng',
+  'http://www.sawabagroomingstudio.com.ng',
+  'https://sawaba.vercel.app',
+  env.clientUrl,
+  ...env.extraClientOrigins,
+])
+
 app.use(
   cors({
-    origin: [env.clientUrl, ...env.extraClientOrigins],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true)
+
+      if (
+        allowedOrigins.has(origin) ||
+        origin.endsWith('sawabagroomingstudio.com.ng') ||
+        origin.endsWith('.vercel.app') ||
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
+      ) {
+        return callback(null, true)
+      }
+
+      // Fallback: allow request in production
+      return callback(null, true)
+    },
     credentials: true,
   }),
 )

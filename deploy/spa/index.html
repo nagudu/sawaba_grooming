@@ -15,9 +15,24 @@
     <!-- Self-hosted variable fonts (no Google Fonts request — works offline) -->
     <link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/playfair-display-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // Theme boot: apply the saved palette before first paint (no flash).
+      try {
+        var vars = JSON.parse(localStorage.getItem('sawaba-theme-vars') || 'null')
+        if (vars && typeof vars === 'object') {
+          for (var k in vars) {
+            if (Object.prototype.hasOwnProperty.call(vars, k)) {
+              document.documentElement.style.setProperty(k, vars[k])
+            }
+          }
+        }
+      } catch (e) {
+        /* default theme stays active */
+      }
+    </script>
     <title>SAWABA Grooming Studio | Premium Barbershop & Men's Grooming</title>
-    <script type="module" crossorigin src="/assets/index-DtVEiBEl.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DycAlHp2.css">
+    <script type="module" crossorigin src="/assets/index-Be9bAUAN.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CO_IHBmi.css">
   </head>
   <body>
     <div id="root"></div>

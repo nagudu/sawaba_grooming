@@ -8,8 +8,14 @@ async function run(): Promise<void> {
     await sequelize.authenticate()
     console.log('[db:sync] database connection established')
 
-    await sequelize.sync({ alter: process.env.NODE_ENV !== 'production' })
-    console.log('[db:sync] models synchronized')
+    // NEVER sync({ alter: true }) here. `alter` drops and rebuilds foreign keys
+    // and can recreate columns, which silently loses rows — it left a
+    // barber_earnings row pointing at a deleted appointment despite that FK
+    // being ON DELETE CASCADE. Schema changes go through Prisma migrations
+    // (`npx prisma migrate dev`) instead. This script only creates missing
+    // tables, matching what the server does on boot.
+    await sequelize.sync({ force: false })
+    console.log('[db:sync] models synchronized (create-only; use prisma migrate for schema changes)')
 
     const [admin, created] = await Admin.findOrCreate({
       where: { email: env.adminSeed.email.toLowerCase() },

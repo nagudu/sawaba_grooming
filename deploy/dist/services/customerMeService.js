@@ -72,6 +72,8 @@ async function getCustomerSummary(customer) {
             include: [
                 { model: (await Promise.resolve().then(() => __importStar(require('../models')))).Service, as: 'service', attributes: ['id', 'name', 'price', 'duration'] },
                 { model: (await Promise.resolve().then(() => __importStar(require('../models')))).Barber, as: 'barber', attributes: ['id', 'name', 'image'] },
+                // Customer-safe assignment info (#15): name/image only.
+                { model: (await Promise.resolve().then(() => __importStar(require('../models')))).Barber, as: 'assignedBarber', attributes: ['id', 'name', 'image'] },
                 { model: models_1.Payment, as: 'payment', attributes: ['id', 'status', 'amount', 'paymentMethod', 'accessToken'] },
             ],
             order: [
@@ -166,6 +168,7 @@ async function getCustomerAppointments(customer, query) {
         include: [
             { model: (await Promise.resolve().then(() => __importStar(require('../models')))).Service, as: 'service', attributes: ['id', 'name', 'price', 'duration'] },
             { model: (await Promise.resolve().then(() => __importStar(require('../models')))).Barber, as: 'barber', attributes: ['id', 'name', 'image'] },
+            { model: (await Promise.resolve().then(() => __importStar(require('../models')))).Barber, as: 'assignedBarber', attributes: ['id', 'name', 'image'] },
             { model: models_1.Payment, as: 'payment' },
         ],
         order: [
@@ -251,6 +254,11 @@ async function getCustomerAppointmentById(customer, appointmentId) {
             {
                 model: (await Promise.resolve().then(() => __importStar(require('../models')))).Barber,
                 as: 'barber',
+                attributes: ['id', 'name', 'image'],
+            },
+            {
+                model: (await Promise.resolve().then(() => __importStar(require('../models')))).Barber,
+                as: 'assignedBarber',
                 attributes: ['id', 'name', 'image'],
             },
             {

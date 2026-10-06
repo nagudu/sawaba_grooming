@@ -102,7 +102,7 @@ export default function ContactPage() {
 
       <section className="bg-night-950 py-16 md:py-20">
         <div className="container-app">
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {contactCards.map((card, index) => (
               <motion.a
                 key={card.title}
@@ -122,14 +122,14 @@ export default function ContactPage() {
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gold-500/30 bg-gold-500/10 text-gold-400">
                   <card.icon className="h-5 w-5" />
                 </span>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-night-500">
                     {card.title}
                   </p>
-                  <p className="mt-1.5 text-[15px] font-semibold text-night-100">
+                  <p className="mt-1.5 text-[15px] font-semibold break-words text-night-100">
                     {card.value}
                   </p>
-                  <p className="mt-1 text-xs text-night-500">{card.note}</p>
+                  <p className="mt-1 text-xs break-words text-night-500">{card.note}</p>
                 </div>
               </motion.a>
             ))}

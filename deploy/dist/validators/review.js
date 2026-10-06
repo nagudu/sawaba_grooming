@@ -16,6 +16,7 @@ exports.createReviewSchema = zod_1.z.object({
     customerImage: zod_1.z.string().trim().url('Image must be a valid URL.').max(500).optional().nullable(),
     serviceId: zod_1.z.coerce.number().int().positive().optional().nullable(),
     serviceName: zod_1.z.string().trim().max(150).optional().nullable(),
+    barberId: zod_1.z.coerce.number().int().positive().optional().nullable(),
     rating: zod_1.z.coerce.number().int().min(1, 'Rating must be between 1 and 5.').max(5),
     comment: zod_1.z.string().trim().min(5, 'Comment must be at least 5 characters.').max(2000),
 });
@@ -33,6 +34,7 @@ exports.listReviewsQuerySchema = zod_1.z.object({
     approved: zod_1.z.enum(['true', 'false', 'all']).optional().default('true'),
     status: zod_1.z.enum([...exports.REVIEW_STATUSES, 'all']).optional(),
     search: zod_1.z.string().trim().max(200).optional(),
+    barberId: zod_1.z.coerce.number().int().positive().optional(),
     page: zod_1.z.coerce.number().int().min(1).optional(),
     perPage: zod_1.z.coerce.number().int().min(1).max(100).optional(),
 });
