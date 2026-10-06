@@ -39,3 +39,13 @@ if (fs.existsSync(path.join(rootDir, 'backend/node_modules'))) {
     console.warn('[sync-prisma] Warning syncing to backend:', err.message)
   }
 }
+
+// Sync schema.prisma to backend/prisma/schema.prisma
+const backendPrismaDir = path.join(rootDir, 'backend/prisma')
+try {
+  fs.mkdirSync(backendPrismaDir, { recursive: true })
+  fs.copyFileSync(schemaPath, path.join(backendPrismaDir, 'schema.prisma'))
+} catch {
+  // ignore
+}
+

@@ -1,7 +1,8 @@
 const TOKEN_KEY = 'sawaba_admin_token'
 
 const configuredApiBase = import.meta.env.VITE_API_URL?.trim()
-const defaultApiBase = import.meta.env.MODE === 'production' ? 'https://sawaba.vercel.app' : ''
+const isProduction = Boolean(import.meta.env.PROD || import.meta.env.MODE === 'production')
+const defaultApiBase = isProduction ? 'https://sawaba.vercel.app' : ''
 
 export const API_BASE = (configuredApiBase || defaultApiBase).replace(/\/+$/, '')
 
@@ -265,7 +266,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
   let response: Response
   try {
-    response = await fetch(`${API_BASE}${path}`, { ...options, headers })
+    const cleanPath = path.startsWith('/') ? path : `/${path}`
+    const url = API_BASE ? `${API_BASE}${cleanPath}` : cleanPath
+    response = await fetch(url, { ...options, headers })
   } catch {
     throw new ApiError('Unable to reach the server. Is the backend running?', 0)
   }
