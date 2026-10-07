@@ -9,7 +9,7 @@ import {
   resetPasswordWithOtp,
 } from '../services/authService'
 import { successRes } from '../utils/response'
-import { uploadImageToCloudinary } from '../utils/upload'
+import { uploadImageToCloudinary, deleteImageByUrl } from '../utils/upload'
 import type {
   LoginInput,
   ChangePasswordInput,
@@ -42,8 +42,12 @@ export async function updateProfileHandler(req: Request, res: Response, next: Ne
   try {
     let avatarUrl = req.body.avatarUrl as string | undefined
     if (req.file) {
+      const current = await getMe(req.admin!.id)
       const uploaded = await uploadImageToCloudinary(req.file.buffer, 'sawaba-admins', req.file.mimetype)
       avatarUrl = uploaded.url
+      if (current.avatarUrl && current.avatarUrl !== avatarUrl) {
+        await deleteImageByUrl(current.avatarUrl).catch(() => undefined)
+      }
     }
 
     const input: UpdateAdminProfileInput = {

@@ -4,9 +4,20 @@ export const barberIdParamsSchema = z.object({
   id: z.coerce.number().int().positive('Barber id must be a positive integer.'),
 })
 
+const imageRef = z
+  .string()
+  .trim()
+  .max(500)
+  .refine(
+    (value) => !value || /^(https?:\/\/|\/(?:uploads|api|images)\/)/.test(value),
+    'Image must be a valid URL or a server image path.',
+  )
+  .optional()
+  .nullable()
+
 export const createBarberSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters.').max(150),
-  image: z.string().trim().url('Image must be a valid URL.').max(500).optional().nullable(),
+  image: imageRef,
   phone: z.string().trim().max(32).optional().nullable(),
   email: z.string().trim().email('Email must be a valid email address.').max(255).optional().nullable(),
   specialty: z.string().trim().max(255).optional().nullable(),
@@ -45,7 +56,7 @@ export const createBarberSchema = z.object({
 /** Same shape, all optional — built from the raw object so .partial() sees a ZodObject. */
 export const updateBarberSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters.').max(150).optional(),
-  image: z.string().trim().url('Image must be a valid URL.').max(500).optional().nullable(),
+  image: imageRef,
   phone: z.string().trim().max(32).optional().nullable(),
   email: z.string().trim().email('Email must be a valid email address.').max(255).optional().nullable(),
   specialty: z.string().trim().max(255).optional().nullable(),

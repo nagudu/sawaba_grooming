@@ -100,10 +100,15 @@ DATABASE_URL="postgresql://..." npm run db:seed
    ADMIN_SEED_PASSWORD=YourAdminPassword123!
    ADMIN_SEED_NAME=Sawaba Admin
 
-   # Optional for Image Uploads & Payments:
+   # Image Uploads (Required for persistent uploads on Vercel):
+   # Serverless functions have ephemeral, read-only disks, so Cloudinary stores
+   # all uploaded gallery photos, barber portraits, service images & transfer receipts.
    CLOUDINARY_CLOUD_NAME=your_cloud_name
    CLOUDINARY_API_KEY=your_api_key
    CLOUDINARY_API_SECRET=your_api_secret
+   # (Alternatively, you can provide CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>)
+
+   # Optional for Online Card Payments:
    PAYSTACK_SECRET_KEY=sk_test_...
    PAYSTACK_PUBLIC_KEY=pk_test_...
    ```

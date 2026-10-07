@@ -1,8 +1,7 @@
 const TOKEN_KEY = 'sawaba_admin_token'
 
 const configuredApiBase = import.meta.env.VITE_API_URL?.trim()
-const isProduction = Boolean(import.meta.env.PROD || import.meta.env.MODE === 'production')
-const defaultApiBase = isProduction ? 'https://sawaba.vercel.app' : ''
+const defaultApiBase = ''
 
 export const API_BASE = (configuredApiBase || defaultApiBase).replace(/\/+$/, '')
 

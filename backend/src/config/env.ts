@@ -8,6 +8,22 @@ function required(name: string): string {
   return value
 }
 
+function parseCloudinaryUrl(urlStr?: string): { cloudName?: string; apiKey?: string; apiSecret?: string } {
+  if (!urlStr || !urlStr.startsWith('cloudinary://')) return {}
+  try {
+    const url = new URL(urlStr)
+    return {
+      cloudName: url.hostname || undefined,
+      apiKey: decodeURIComponent(url.username) || undefined,
+      apiSecret: decodeURIComponent(url.password) || undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
+const parsedCloudinary = parseCloudinaryUrl(process.env.CLOUDINARY_URL)
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   // `Number(x) || 5001` guards against inherited junk like PORT='' or PORT=0
@@ -23,12 +39,12 @@ export const env = {
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean),
-  // Optional: only needed when UPLOAD_DRIVER=cloudinary. The default local
-  // disk driver works offline with no third-party account at all.
+  // Cloudinary credentials for cloud image uploads (required on Vercel).
+  // Supports either individual keys or a single CLOUDINARY_URL connection string.
   cloudinary: {
-    cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? '',
-    apiKey: process.env.CLOUDINARY_API_KEY ?? '',
-    apiSecret: process.env.CLOUDINARY_API_SECRET ?? '',
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? parsedCloudinary.cloudName ?? '',
+    apiKey: process.env.CLOUDINARY_API_KEY ?? parsedCloudinary.apiKey ?? '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET ?? parsedCloudinary.apiSecret ?? '',
     uploadFolder: process.env.CLOUDINARY_UPLOAD_FOLDER ?? 'sawaba-salon',
   },
   adminSeed: {
