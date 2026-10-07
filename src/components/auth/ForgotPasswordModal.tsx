@@ -1,18 +1,26 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, KeyRound, LoaderCircle, Lock, Mail, ShieldAlert, X, Eye, EyeOff, ArrowRight } from 'lucide-react'
-import { authApi } from '../../api'
+import { authApi, type PasswordResetTarget } from '../../api'
 import { useToast } from '../ui/ToastNotification'
 
 interface ForgotPasswordModalProps {
   isOpen: boolean
   onClose: () => void
   defaultEmail?: string
-  target?: 'ADMIN' | 'CUSTOMER'
+  target?: PasswordResetTarget
   onSuccess?: (email: string) => void
 }
 
 type Step = 'email' | 'code' | 'password' | 'success'
+
+const RESEND_COOLDOWN_SECONDS = 60
+
+const targetLabel: Record<PasswordResetTarget, string> = {
+  ADMIN: 'admin',
+  BARBER: 'barber',
+  CUSTOMER: 'account',
+}
 
 export default function ForgotPasswordModal({
   isOpen,
@@ -25,10 +33,11 @@ export default function ForgotPasswordModal({
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState(defaultEmail)
   const [code, setCode] = useState('')
+  const [resetToken, setResetToken] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [devCode, setDevCode] = useState<string | null>(null)
+  const [cooldownLeft, setCooldownLeft] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,24 +46,31 @@ export default function ForgotPasswordModal({
       setEmail(defaultEmail)
       setStep('email')
       setCode('')
+      setResetToken(null)
       setNewPassword('')
       setConfirmPassword('')
       setError(null)
-      setDevCode(null)
+      setCooldownLeft(0)
     }
   }, [isOpen, defaultEmail])
+
+  useEffect(() => {
+    if (cooldownLeft <= 0) return
+    const timer = setInterval(() => setCooldownLeft((s) => Math.max(0, s - 1)), 1000)
+    return () => clearInterval(timer)
+  }, [cooldownLeft])
 
   if (!isOpen) return null
 
   const handleRequestCode = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim() || loading) return
+    if (!email.trim() || loading || cooldownLeft > 0) return
     setLoading(true)
     setError(null)
     try {
-      const res = await authApi.forgotPasswordRequest(email.trim(), target)
-      setDevCode(res.devCode ?? null)
-      showToast('Verification code sent to your email.', 'success')
+      await authApi.forgotPasswordRequest(email.trim(), target)
+      showToast('Verification code sent. Check your email (and spam folder).', 'success')
+      setCooldownLeft(RESEND_COOLDOWN_SECONDS)
       setStep('code')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not request code.')
@@ -69,7 +85,8 @@ export default function ForgotPasswordModal({
     setLoading(true)
     setError(null)
     try {
-      await authApi.forgotPasswordVerify(email.trim(), code.trim(), target)
+      const res = await authApi.forgotPasswordVerify(email.trim(), code.trim(), target)
+      setResetToken(res.resetToken)
       showToast('Code verified! Please enter your new password.', 'success')
       setStep('password')
     } catch (err) {
@@ -89,10 +106,15 @@ export default function ForgotPasswordModal({
       setError('Passwords do not match.')
       return
     }
+    if (!resetToken) {
+      setError('Your verification session has expired. Please request a new code.')
+      setStep('email')
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      await authApi.forgotPasswordReset(email.trim(), code.trim(), newPassword, target)
+      await authApi.forgotPasswordReset(email.trim(), resetToken, newPassword, target)
       setStep('success')
       showToast('Password reset successfully!', 'success')
       setTimeout(() => {
@@ -164,7 +186,7 @@ export default function ForgotPasswordModal({
                   ? 'Choose a strong password with letters and numbers.'
                   : step === 'success'
                     ? 'You can now sign in with your new password.'
-                    : `Enter your ${target === 'ADMIN' ? 'admin' : 'account'} email to receive a password reset code.`}
+                    : `Enter your ${targetLabel[target]} email to receive a password reset code.`}
             </p>
           </div>
 
@@ -252,12 +274,6 @@ export default function ForgotPasswordModal({
                 />
               </label>
 
-              {devCode && (
-                <div className="rounded-lg border border-gold-500/30 bg-gold-500/10 p-2.5 text-center text-xs text-gold-300">
-                  Dev/Test Code: <span className="font-mono font-bold tracking-widest text-gold-400">{devCode}</span>
-                </div>
-              )}
-
               <button
                 type="submit"
                 disabled={loading || code.trim().length !== 6}
@@ -270,18 +286,21 @@ export default function ForgotPasswordModal({
               <div className="flex items-center justify-between text-xs text-night-400 pt-1">
                 <button
                   type="button"
-                  onClick={() => setStep('email')}
+                  onClick={() => {
+                    setCooldownLeft(0)
+                    setStep('email')
+                  }}
                   className="hover:text-night-200"
                 >
                   Change email
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => handleRequestCode(e)}
-                  disabled={loading}
+                  onClick={(e) => void handleRequestCode(e)}
+                  disabled={loading || cooldownLeft > 0}
                   className="text-gold-400 hover:text-gold-300 disabled:opacity-50"
                 >
-                  Resend code
+                  {cooldownLeft > 0 ? `Resend code (${cooldownLeft}s)` : 'Resend code'}
                 </button>
               </div>
             </form>

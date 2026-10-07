@@ -4,6 +4,7 @@ import { Scissors } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useBarberAuth } from '../../store/barberAuth'
 import { barberLogin } from '../../api/barberPortal'
+import ForgotPasswordModal from '../../components/auth/ForgotPasswordModal'
 
 export default function BarberLoginPage() {
   const { barber, loading, refresh } = useBarberAuth()
@@ -12,6 +13,7 @@ export default function BarberLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
 
   if (!loading && barber) {
     return <Navigate to="/barber" replace />
@@ -58,15 +60,27 @@ export default function BarberLoginPage() {
           </label>
           <label className="block text-xs font-semibold uppercase tracking-wider text-night-400">
             Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              className="mt-1 w-full rounded-lg border border-night-700 bg-night-900 px-4 py-3 text-sm text-night-100 focus:border-gold-500 focus:outline-none"
-            />
+            <span className="mt-1 flex w-full items-center justify-between gap-2">
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="w-full rounded-lg border border-night-700 bg-night-900 px-4 py-3 text-sm text-night-100 focus:border-gold-500 focus:outline-none"
+              />
+            </span>
           </label>
+
+          <div className="-mt-1 text-right">
+            <button
+              type="button"
+              onClick={() => setForgotOpen(true)}
+              className="text-xs font-medium text-gold-400 hover:text-gold-300"
+            >
+              Forgot password?
+            </button>
+          </div>
 
           {error && (
             <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</p>
@@ -77,6 +91,16 @@ export default function BarberLoginPage() {
           </Button>
         </form>
       </div>
+
+      <ForgotPasswordModal
+        isOpen={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        target="BARBER"
+        onSuccess={() => {
+          setPassword('')
+          setError(null)
+        }}
+      />
     </div>
   )
 }

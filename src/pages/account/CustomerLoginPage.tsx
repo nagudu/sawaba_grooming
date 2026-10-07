@@ -27,7 +27,7 @@ export default function CustomerLoginPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [otpSent, setOtpSent] = useState(false)
-  const [devCode, setDevCode] = useState<string | null>(null)
+  const [cooldownLeft, setCooldownLeft] = useState(0)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [googleBusy, setGoogleBusy] = useState(false)
@@ -49,8 +49,14 @@ export default function CustomerLoginPage() {
     if (customer && !pendingGoogle) navigate(from, { replace: true })
   }, [customer, pendingGoogle, from, navigate])
 
+  useEffect(() => {
+    if (cooldownLeft <= 0) return
+    const timer = setInterval(() => setCooldownLeft((s) => Math.max(0, s - 1)), 1000)
+    return () => clearInterval(timer)
+  }, [cooldownLeft])
+
   async function handleSendOtp() {
-    if (phone.trim().length < 10 || busy) return
+    if (phone.trim().length < 10 || busy || cooldownLeft > 0) return
     setBusy(true)
     setError(null)
     try {
@@ -61,7 +67,7 @@ export default function CustomerLoginPage() {
         return
       }
       setOtpSent(true)
-      setDevCode(result.devCode)
+      setCooldownLeft(60)
       showToast(result.message, 'success')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send the code.')
@@ -372,11 +378,6 @@ export default function CustomerLoginPage() {
                       placeholder="––––––"
                       autoFocus
                     />
-                    {devCode && (
-                      <span className="mt-2 block text-xs text-night-500">
-                        Test mode — your code: <span className="font-mono text-gold-400">{devCode}</span>
-                      </span>
-                    )}
                   </label>
                 )}
 
@@ -392,9 +393,9 @@ export default function CustomerLoginPage() {
                         size="md"
                         className="w-full"
                         onClick={() => void handleSendOtp()}
-                        disabled={busy}
+                        disabled={busy || cooldownLeft > 0}
                       >
-                        Resend code
+                        {cooldownLeft > 0 ? `Resend code (${cooldownLeft}s)` : 'Resend code'}
                       </Button>
                     </div>
                   ) : (

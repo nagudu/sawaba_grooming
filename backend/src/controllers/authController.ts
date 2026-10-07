@@ -73,7 +73,7 @@ export async function requestPasswordResetHandler(req: Request, res: Response, n
   try {
     const { email, target } = req.body as ForgotPasswordRequestInput
     const result = await requestPasswordReset(email, target)
-    successRes(res, result.message, { devCode: result.devCode }, 200)
+    successRes(res, result.message, {}, 200)
   } catch (error) {
     next(error)
   }
@@ -91,8 +91,8 @@ export async function verifyPasswordResetHandler(req: Request, res: Response, ne
 
 export async function resetPasswordHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { email, code, newPassword, target } = req.body as ForgotPasswordResetInput
-    await resetPasswordWithOtp(email, code, newPassword, target)
+    const { email, resetToken, newPassword, target } = req.body as ForgotPasswordResetInput
+    await resetPasswordWithOtp(email, resetToken, newPassword, target)
     successRes(res, 'Password has been reset successfully. You can now sign in with your new password.', {}, 200)
   } catch (error) {
     next(error)

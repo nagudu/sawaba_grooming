@@ -132,7 +132,7 @@ async function accountFetch<T>(path: string, options: RequestInit = {}): Promise
 
 export const accountApi = {
   requestOtp: (phone: string) =>
-    accountFetch<{ found: boolean; message: string; devCode: string | null }>('/api/account/otp/request', {
+    accountFetch<{ found: boolean; message: string }>('/api/account/otp/request', {
       method: 'POST',
       body: JSON.stringify({ phone }),
     }),

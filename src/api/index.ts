@@ -317,13 +317,15 @@ export const api = {
   del: <T>(path: string) => apiFetch<T>(path, { method: 'DELETE' }),
 }
 
+export type PasswordResetTarget = 'ADMIN' | 'BARBER' | 'CUSTOMER'
+
 export const authApi = {
-  forgotPasswordRequest: (email: string, target: 'ADMIN' | 'CUSTOMER' = 'ADMIN') =>
-    api.post<{ devCode?: string }>('/api/auth/forgot-password/request', { email, target }),
-  forgotPasswordVerify: (email: string, code: string, target: 'ADMIN' | 'CUSTOMER' = 'ADMIN') =>
-    api.post<{ valid: boolean }>('/api/auth/forgot-password/verify', { email, code, target }),
-  forgotPasswordReset: (email: string, code: string, newPassword: string, target: 'ADMIN' | 'CUSTOMER' = 'ADMIN') =>
-    api.post('/api/auth/forgot-password/reset', { email, code, newPassword, target }),
+  forgotPasswordRequest: (email: string, target: PasswordResetTarget = 'ADMIN') =>
+    api.post('/api/auth/forgot-password/request', { email, target }),
+  forgotPasswordVerify: (email: string, code: string, target: PasswordResetTarget = 'ADMIN') =>
+    api.post<{ resetToken: string; expiresInSeconds: number }>('/api/auth/forgot-password/verify', { email, code, target }),
+  forgotPasswordReset: (email: string, resetToken: string, newPassword: string, target: PasswordResetTarget = 'ADMIN') =>
+    api.post('/api/auth/forgot-password/reset', { email, resetToken, newPassword, target }),
   updateProfile: (data: FormData | { name?: string; email?: string; avatarUrl?: string | null }) => {
     if (data instanceof FormData) {
       return api.patch<{ admin: AdminProfile }>('/api/auth/profile', data, true)

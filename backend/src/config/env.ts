@@ -42,6 +42,13 @@ export const env = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
   },
+  // SMS delivery for OTPs (Termii-compatible). Deliberately OPTIONAL: when the
+  // key or sender id is missing, OTPs fall back to email delivery.
+  sms: {
+    apiKey: process.env.SMS_API_KEY ?? '',
+    senderId: process.env.SMS_SENDER_ID ?? '',
+    baseUrl: process.env.SMS_BASE_URL ?? '',
+  },
 } as const
 
 /** True when Google sign-in is usable end to end. */
