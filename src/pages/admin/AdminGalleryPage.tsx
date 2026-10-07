@@ -87,7 +87,7 @@ export default function AdminGalleryPage() {
   const save = async () => {
     setSaving(true)
     try {
-      if (!imageFile && !form.imageUrl.trim()) {
+      if (!editing && !imageFile && !form.imageUrl.trim()) {
         showToast('Please choose an image file or provide an image URL.', 'error')
         setSaving(false)
         return
@@ -102,6 +102,8 @@ export default function AdminGalleryPage() {
       if (imageFile) {
         payload.image = imageFile
       } else if (form.imageUrl.trim()) {
+        // Only send a new URL. On edit the current image is pre-filled, so an
+        // unchanged (often relative) path is not echoed back and re-validated.
         payload.image = form.imageUrl.trim()
       }
 

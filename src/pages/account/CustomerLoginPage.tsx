@@ -202,12 +202,12 @@ export default function CustomerLoginPage() {
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <circle cx="24" cy="30" r="9" />
-              <path d="M30 24 L44 12" />
-              <path d="M34 24 L50 12" />
-              <path d="M24 39 L24 52" />
+              <circle cx="18" cy="16" r="8" />
+              <circle cx="18" cy="48" r="8" />
+              <path d="M24.8 22.8 L52 50" />
+              <path d="M24.8 41.2 L52 14" />
             </g>
-            <circle cx="44" cy="20" r="1.6" fill="#c9a24b" />
+            <circle cx="34" cy="32" r="2.2" fill="#c9a24b" />
           </svg>
           <span className="mt-3 font-display text-2xl leading-none font-semibold tracking-[0.12em] text-night-50">
             {site.name}
