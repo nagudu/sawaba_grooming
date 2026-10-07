@@ -21,6 +21,10 @@ const options: swaggerJsdoc.Options = {
         description: 'Current host (Production / Vercel / Local)',
       },
       {
+        url: 'https://sawaba.vercel.app',
+        description: 'Production server (Vercel)',
+      },
+      {
         url: `http://localhost:${env.port}`,
         description: 'Local development server',
       },
