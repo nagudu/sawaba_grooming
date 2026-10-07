@@ -184,7 +184,7 @@ export function submitPaymentWithProgress(
 
   return new Promise<PublicPaymentBundle>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', `/api/payments/${encodeURIComponent(token)}/submit`)
+    xhr.open('POST', `${API_BASE}/api/payments/${encodeURIComponent(token)}/submit`)
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) {
         onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
