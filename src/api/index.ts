@@ -1,9 +1,9 @@
 const TOKEN_KEY = 'sawaba_admin_token'
 
-const configuredApiBase = import.meta.env.VITE_API_URL?.trim()
-const defaultApiBase = import.meta.env.PROD ? 'https://sawaba.vercel.app' : ''
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+const isProduction = import.meta.env.PROD || !isLocal
 
-export const API_BASE = (configuredApiBase || defaultApiBase).replace(/\/+$/, '')
+export const API_BASE = import.meta.env.VITE_API_URL?.trim() || (isProduction && !isLocal ? 'https://sawaba.vercel.app' : '')
 
 interface ApiEnvelope<T> {
   success: boolean
