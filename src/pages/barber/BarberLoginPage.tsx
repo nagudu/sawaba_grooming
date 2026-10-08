@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { Scissors } from 'lucide-react'
+import { Eye, EyeOff, Scissors } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useBarberAuth } from '../../store/barberAuth'
 import { barberLogin } from '../../api/barberPortal'
@@ -14,6 +14,7 @@ export default function BarberLoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   if (!loading && barber) {
     return <Navigate to="/barber" replace />
@@ -61,14 +62,23 @@ export default function BarberLoginPage() {
           <label className="block text-xs font-semibold uppercase tracking-wider text-night-400">
             Password
             <span className="mt-1 flex w-full items-center justify-between gap-2">
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="w-full rounded-lg border border-night-700 bg-night-900 px-4 py-3 text-sm text-night-100 focus:border-gold-500 focus:outline-none"
-              />
+              <div className="relative w-full">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="w-full rounded-lg border border-night-700 bg-night-900 px-4 py-3 pr-10 text-sm text-night-100 focus:border-gold-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-night-400 hover:text-night-200"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </span>
           </label>
 

@@ -146,10 +146,10 @@ export const accountApi = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
-  loginPassword: (phone: string, password: string) =>
+  loginPassword: (identifier: string, password: string) =>
     accountFetch<{ token: string; customer: CustomerProfile }>('/api/account/login', {
       method: 'POST',
-      body: JSON.stringify({ phone, password }),
+      body: JSON.stringify({ identifier, password }),
     }),
   me: () => accountFetch<{ customer: CustomerProfile }>('/api/account/me'),
   /**

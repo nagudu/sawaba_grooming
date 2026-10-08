@@ -240,17 +240,46 @@ export async function registerCustomer(input: {
 }
 
 export async function loginWithPassword(
-  rawPhone: string,
+  rawIdentifier: string,
   password: string,
 ): Promise<{ token: string; customer: Customer }> {
-  const phone = normalizeNigerianPhone(rawPhone)
-  const customer = await prisma.customer.findFirst({ where: { phone, isActive: true } })
+  const identifier = rawIdentifier.trim()
+  const looksLikeEmail = identifier.includes('@')
+
+  let customer: Customer | null = null
+  if (looksLikeEmail) {
+    customer = await prisma.customer.findFirst({
+      where: {
+        email: identifier.toLowerCase(),
+        isActive: true,
+      },
+    })
+  } else {
+    try {
+      const phone = normalizeNigerianPhone(identifier)
+      customer = await prisma.customer.findFirst({
+        where: {
+          phone,
+          isActive: true,
+        },
+      })
+    } catch {
+      // If phone normalization fails, try direct match
+      customer = await prisma.customer.findFirst({
+        where: {
+          phone: identifier,
+          isActive: true,
+        },
+      })
+    }
+  }
+
   if (!customer?.passwordHash) {
-    throw new UnauthorizedError('No password login for this number. Use phone code instead.')
+    throw new UnauthorizedError('No password login for this account. Use phone code instead.')
   }
   const ok = await bcrypt.compare(password, customer.passwordHash)
   if (!ok) {
-    throw new UnauthorizedError('Incorrect phone number or password.')
+    throw new UnauthorizedError('Incorrect email/phone or password.')
   }
   await ensureCustomerCode(customer)
   const updated = await prisma.customer.update({

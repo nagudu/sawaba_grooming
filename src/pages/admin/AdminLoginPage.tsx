@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, LoaderCircle, Lock, Mail, Scissors } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, LoaderCircle, Lock, Mail, Scissors } from 'lucide-react'
 import { useAdminAuth } from '../../store/adminAuth'
 import { useToast } from '../../components/ui/ToastNotification'
 import ForgotPasswordModal from '../../components/auth/ForgotPasswordModal'
@@ -15,6 +15,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -86,14 +87,21 @@ export default function AdminLoginPage() {
               <div className="relative">
                 <Lock className="field-icon h-4 w-4" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   autoComplete="current-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"
-                  className="field pl-11"
+                  className="field pl-11 pr-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-night-400 hover:text-night-200"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 

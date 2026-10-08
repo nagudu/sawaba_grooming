@@ -37,8 +37,8 @@ export const createBarberSchema = z.object({
   isActive: z.coerce.boolean().default(true),
   /** Barber Portal access: flipping this on (with a password) lets the barber sign in. */
   portalEnabled: z.coerce.boolean().optional(),
-  /** Admin-issued portal password. Min 8 chars; hashed server-side, never stored raw. */
-  portalPassword: z.string().min(8, 'Portal password must be at least 8 characters.').max(128).optional().nullable(),
+  /** Admin-issued portal password. Min 6 chars (the portal login accepts the same); hashed server-side, never stored raw. */
+  portalPassword: z.string().min(6, 'Portal password must be at least 6 characters.').max(128).optional().nullable(),
   serviceIds: z.preprocess(
     (value) => (typeof value === 'string' ? value.split(',').map((id) => id.trim()).filter(Boolean) : value),
     z.array(z.coerce.number().int().positive()).max(40).optional(),
@@ -49,6 +49,22 @@ export const createBarberSchema = z.object({
       code: 'custom',
       path: ['commissionValue'],
       message: 'Percentage commission cannot exceed 100.',
+    })
+  }
+  // A portal account without a password or a login identity can never sign in,
+  // so reject the combination up front instead of creating a dead account.
+  if (data.portalEnabled && !data.portalPassword) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['portalPassword'],
+      message: 'Set a portal password so this barber can sign in.',
+    })
+  }
+  if (data.portalEnabled && !data.email && !data.phone) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['email'],
+      message: 'Add an email or phone number so this barber can sign in.',
     })
   }
 })
@@ -72,7 +88,7 @@ export const updateBarberSchema = z.object({
   commissionValue: z.coerce.number().min(0).max(1000000).optional(),
   isActive: z.coerce.boolean().optional(),
   portalEnabled: z.coerce.boolean().optional(),
-  portalPassword: z.string().min(8, 'Portal password must be at least 8 characters.').max(128).optional().nullable(),
+  portalPassword: z.string().min(6, 'Portal password must be at least 6 characters.').max(128).optional().nullable(),
   serviceIds: z.preprocess(
     (value) => (typeof value === 'string' ? value.split(',').map((id) => id.trim()).filter(Boolean) : value),
     z.array(z.coerce.number().int().positive()).max(40).optional(),

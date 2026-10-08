@@ -50,8 +50,8 @@ const EMPTY_FORM: BarberForm = {
   location: '',
   commissionType: 'PERCENTAGE',
   commissionValue: '',
-  portalEnabled: false,
-  portalPassword: '',
+  portalEnabled: true,
+  portalPassword: '123456',
   confirmPortalPassword: '',
 }
 
@@ -160,6 +160,15 @@ export default function AdminBarbersPage() {
         : `${base} ${credentialNotice}`
 
   const save = async () => {
+    // Portal login needs an identifier: the barber signs in with their email
+    // or phone number. Block the save rather than creating an unusable account.
+    if (form.portalEnabled && !form.email.trim() && !form.phone.trim()) {
+      showToast(
+        'Add an email or phone number so this barber can sign in to the portal.',
+        'error',
+      )
+      return
+    }
     setSaving(true)
     try {
       const payload: Record<string, unknown> = {
@@ -611,17 +620,18 @@ export default function AdminBarbersPage() {
                   label={editing?.hasPortalPassword ? 'Set / reset portal password' : 'Portal password'}
                   hint={
                     editing?.hasPortalPassword
-                      ? 'Leave blank to keep the current password. Minimum 8 characters.'
-                      : 'Minimum 8 characters. Share it with the barber — they can change it after signing in.'
+                      ? 'Leave blank to keep the current password. Minimum 6 characters.'
+                      : 'Default is 123456 — change it if you prefer (min 6 chars). Share it with the barber; they can change it after signing in.'
                   }
                 >
                   <input
                     type="text"
-                    minLength={8}
+                    minLength={6}
+                    required={!editing?.hasPortalPassword}
                     value={form.portalPassword}
                     onChange={(event) => setForm({ ...form, portalPassword: event.target.value })}
                     className="field font-mono"
-                    placeholder={editing?.hasPortalPassword ? '•••••••• (unchanged)' : 'e.g. sawaba-2026'}
+                    placeholder={editing?.hasPortalPassword ? '•••••••• (unchanged)' : 'e.g. 123456'}
                     autoComplete="off"
                   />
                 </Field>

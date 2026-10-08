@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { KeyRound, LoaderCircle, LogIn, ShieldCheck, UserPlus } from 'lucide-react'
+import { Eye, EyeOff, LoaderCircle, LogIn, ShieldCheck, UserPlus } from 'lucide-react'
 import PageTransition from '../../components/ui/PageTransition'
 import { Button } from '../../components/ui/Button'
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton'
@@ -8,11 +8,10 @@ import { isGoogleSignInAvailable } from '../../lib/googleIdentity'
 import { useToast } from '../../components/ui/ToastNotification'
 import { accountApi, type CustomerProfile } from '../../api/account'
 import { useCustomerAuth } from '../../store/customerAuth'
-import { cn } from '../../utils/cn'
 import { site } from '../../data/services'
 import ForgotPasswordModal from '../../components/auth/ForgotPasswordModal'
 
-type Mode = 'otp' | 'password' | 'register'
+type Mode = 'password' | 'register'
 
 /** A Google sign-in that succeeded but still needs a real phone number. */
 interface PendingGoogleProfile {
@@ -20,20 +19,19 @@ interface PendingGoogleProfile {
 }
 
 export default function CustomerLoginPage() {
-  const [mode, setMode] = useState<Mode>('otp')
-  const [phone, setPhone] = useState('')
-  const [code, setCode] = useState('')
+  const [mode, setMode] = useState<Mode>('password')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
-  const [otpSent, setOtpSent] = useState(false)
-  const [cooldownLeft, setCooldownLeft] = useState(0)
+  const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [pendingGoogle, setPendingGoogle] = useState<PendingGoogleProfile | null>(null)
   const [googlePhone, setGooglePhone] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { showToast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -49,60 +47,19 @@ export default function CustomerLoginPage() {
     if (customer && !pendingGoogle) navigate(from, { replace: true })
   }, [customer, pendingGoogle, from, navigate])
 
-  useEffect(() => {
-    if (cooldownLeft <= 0) return
-    const timer = setInterval(() => setCooldownLeft((s) => Math.max(0, s - 1)), 1000)
-    return () => clearInterval(timer)
-  }, [cooldownLeft])
-
-  async function handleSendOtp() {
-    if (phone.trim().length < 10 || busy || cooldownLeft > 0) return
-    setBusy(true)
-    setError(null)
-    try {
-      const result = await accountApi.requestOtp(phone.trim())
-      if (!result.found) {
-        setError(result.message)
-        setMode('register')
-        return
-      }
-      setOtpSent(true)
-      setCooldownLeft(60)
-      showToast(result.message, 'success')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send the code.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleVerifyOtp() {
-    if (code.trim().length !== 6 || busy) return
-    setBusy(true)
-    setError(null)
-    try {
-      const { token, customer: profile } = await accountApi.verifyOtp(phone.trim(), code.trim())
-      login(profile, token)
-      showToast(`Welcome back, ${profile.fullName.split(' ')[0]}!`, 'success')
-      navigate(from, { replace: true })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed.')
-    } finally {
-      setBusy(false)
-    }
-  }
+  // No OTP cooldown needed for simplified customer login
 
   async function handlePasswordLogin() {
-    if (!password || busy) return
+    if (!identifier.trim() || !password || busy) return
     setBusy(true)
     setError(null)
     try {
-      const { token, customer: profile } = await accountApi.loginPassword(phone.trim(), password)
+      const { token, customer: profile } = await accountApi.loginPassword(identifier.trim(), password)
       login(profile, token)
       showToast(`Welcome back, ${profile.fullName.split(' ')[0]}!`, 'success')
       navigate(from, { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed.')
+      setError(err instanceof Error ? err.message : 'Incorrect email/phone or password.')
     } finally {
       setBusy(false)
     }
@@ -289,152 +246,89 @@ export default function CustomerLoginPage() {
                 </p>
               </div>
             ) : (
-              <>
-            {/* ── Google Identity Services ───────────────────────────── */}
-            {isGoogleSignInAvailable() && (
-              <div className="mb-6">
-                <GoogleSignInButton
-                  onCredential={(credential) => void handleGoogleCredential(credential)}
-                  onCancel={handleGoogleCancel}
-                  onError={handleGoogleLoadError}
-                  disabled={googleBusy || busy}
-                  context={mode === 'register' ? 'signup' : 'signin'}
-                />
-                <p className="mt-3 text-center text-[11px] leading-relaxed text-night-500">
-                  We never see your Google password.
-                </p>
+              <div>
+                {/* ── Google Identity Services ───────────────────────────── */}
+                {isGoogleSignInAvailable() && (
+                  <div className="mb-6">
+                    <GoogleSignInButton
+                      onCredential={(credential) => void handleGoogleCredential(credential)}
+                      onCancel={handleGoogleCancel}
+                      onError={handleGoogleLoadError}
+                      disabled={googleBusy || busy}
+                      context={mode === 'register' ? 'signup' : 'signin'}
+                    />
+                    <p className="mt-3 text-center text-[11px] leading-relaxed text-night-500">
+                      We never see your Google password.
+                    </p>
 
-                <div className="my-5 flex items-center gap-3">
-                  <span className="h-px flex-1 bg-night-800" />
-                  <span className="text-[10px] font-semibold tracking-[0.2em] text-night-500 uppercase">
-                    or use your phone
-                  </span>
-                  <span className="h-px flex-1 bg-night-800" />
-                </div>
-              </div>
-            )}
+                    <div className="my-5 flex items-center gap-3">
+                      <span className="h-px flex-1 bg-night-800" />
+                      <span className="text-[10px] font-semibold tracking-[0.2em] text-night-500 uppercase">
+                        or use your phone
+                      </span>
+                      <span className="h-px flex-1 bg-night-800" />
+                    </div>
+                  </div>
+                )}
 
-            {/* Mode tabs */}
-            <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl border border-night-800 bg-night-950/60 p-1">
-              {(
-                [
-                  { id: 'otp', label: 'Phone Code' },
-                  { id: 'password', label: 'Password' },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    setMode(tab.id)
-                    setError(null)
-                  }}
-                  className={cn(
-                    'rounded-lg px-3 py-2 text-sm font-semibold transition-colors',
-                    (mode === tab.id || (tab.id === 'otp' && mode === 'register'))
-                      ? 'bg-gold-500/15 text-gold-400'
-                      : 'text-night-400 hover:text-night-200',
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {error && (
-              <p className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-                {error}
-              </p>
-            )}
+                {error && (
+                  <p className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                    {error}
+                  </p>
+                )}
 
             {mode !== 'register' ? (
               <div className="space-y-4">
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
-                    Phone number
+                    Email or phone
                   </span>
                   <input
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    type="text"
+                    value={identifier}
+                    onChange={(event) => setIdentifier(event.target.value)}
                     className="field"
-                    placeholder="e.g. 08012345678"
-                    autoComplete="tel"
+                    placeholder="you@example.com or 08012345678"
+                    autoComplete="username"
                   />
                 </label>
 
-                {mode === 'otp' && otpSent && (
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
-                      6-digit code
+                <label className="block">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
+                      Password
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => setForgotOpen(true)}
+                      className="text-xs font-medium text-gold-400 hover:text-gold-300"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
                     <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={code}
-                      onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
-                      className="field text-center font-mono text-xl tracking-[0.5em]"
-                      placeholder="––––––"
-                      autoFocus
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="field pr-10"
+                      autoComplete="current-password"
+                      onKeyDown={(event) => event.key === 'Enter' && void handlePasswordLogin()}
                     />
-                  </label>
-                )}
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-night-400 hover:text-night-200"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </label>
 
-                {mode === 'otp' ? (
-                  otpSent ? (
-                    <div className="space-y-3">
-                      <Button variant="gold" size="lg" loading={busy} className="w-full" onClick={() => void handleVerifyOtp()}>
-                        <LogIn className="h-4 w-4" />
-                        Verify &amp; Login
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="md"
-                        className="w-full"
-                        onClick={() => void handleSendOtp()}
-                        disabled={busy || cooldownLeft > 0}
-                      >
-                        {cooldownLeft > 0 ? `Resend code (${cooldownLeft}s)` : 'Resend code'}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button variant="gold" size="lg" loading={busy} className="w-full" onClick={() => void handleSendOtp()}>
-                      <KeyRound className="h-4 w-4" />
-                      Send OTP
-                    </Button>
-                  )
-                ) : (
-                  <>
-                    <label className="block">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
-                          Password
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setForgotOpen(true)}
-                          className="text-xs font-medium text-gold-400 hover:text-gold-300"
-                        >
-                          Forgot password?
-                        </button>
-                      </div>
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        className="field"
-                        autoComplete="current-password"
-                        onKeyDown={(event) => event.key === 'Enter' && void handlePasswordLogin()}
-                      />
-                    </label>
-                    <Button variant="gold" size="lg" loading={busy} className="w-full" onClick={() => void handlePasswordLogin()}>
-                      <LogIn className="h-4 w-4" />
-                      Login
-                    </Button>
-                  </>
-                )}
-
+                <Button variant="gold" size="lg" loading={busy} className="w-full" onClick={() => void handlePasswordLogin()}>
+                  <LogIn className="h-4 w-4" />
+                  Login
+                </Button>
                 <button
                   type="button"
                   className="w-full text-center text-sm text-gold-400 hover:text-gold-300"
@@ -462,7 +356,7 @@ export default function CustomerLoginPage() {
                 </label>
                 <label className="block">
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
-                    Email <span className="font-normal text-night-500">(optional — for codes &amp; receipts)</span>
+                    Email <span className="font-normal text-night-500">(optional — for receipts)</span>
                   </span>
                   <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="field" placeholder="you@example.com" />
                 </label>
@@ -470,7 +364,23 @@ export default function CustomerLoginPage() {
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
                     Password <span className="font-normal text-night-500">(optional)</span>
                   </span>
-                  <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="field" placeholder="8+ characters with a number" />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="field pr-10"
+                      placeholder="8+ characters with a number"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-night-400 hover:text-night-200"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </label>
                 <Button variant="gold" size="lg" loading={busy} className="w-full" onClick={() => void handleRegister()}>
                   <UserPlus className="h-4 w-4" />
@@ -480,7 +390,7 @@ export default function CustomerLoginPage() {
                   type="button"
                   className="w-full text-center text-sm text-gold-400 hover:text-gold-300"
                   onClick={() => {
-                    setMode('otp')
+                    setMode('password')
                     setError(null)
                   }}
                 >
@@ -488,26 +398,24 @@ export default function CustomerLoginPage() {
                 </button>
               </div>
             )}
-              </>
+              </div>
             )}
+            <p className="mt-4 text-center text-xs text-night-500">
+              {busy ? (
+                <span className="inline-flex items-center gap-2">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Working…
+                </span>
+              ) : (
+                'One account per phone number — your booking history stays with you.'
+              )}
+            </p>
+            <ForgotPasswordModal
+              isOpen={forgotOpen}
+              onClose={() => setForgotOpen(false)}
+              target="CUSTOMER"
+            />
           </div>
-
-          <p className="mt-4 text-center text-xs text-night-500">
-            {busy ? (
-              <span className="inline-flex items-center gap-2">
-                <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Working…
-              </span>
-            ) : (
-              'One account per phone number — your booking history stays with you.'
-            )}
-          </p>
         </div>
-
-        <ForgotPasswordModal
-          isOpen={forgotOpen}
-          onClose={() => setForgotOpen(false)}
-          target="CUSTOMER"
-        />
       </section>
     </PageTransition>
   )
