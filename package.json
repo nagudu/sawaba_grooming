@@ -31,6 +31,7 @@
     "framer-motion": "^13.2.0",
     "google-auth-library": "^11.1.0",
     "helmet": "^8.0.0",
+    "html5-qrcode": "^2.3.8",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.45.0",

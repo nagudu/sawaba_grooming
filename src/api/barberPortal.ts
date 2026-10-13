@@ -200,6 +200,64 @@ export async function markPortalNotificationsRead(notificationId?: number): Prom
   })
 }
 
+// ─── QR check-in scanner ──────────────────────────────────────────────────────
+
+export type QrOutcome =
+  | 'VALID'
+  | 'PAYMENT_NOT_VERIFIED'
+  | 'PAYMENT_MISMATCH'
+  | 'NOT_FOUND'
+  | 'REVOKED'
+  | 'CANCELLED'
+  | 'UNAUTHORIZED'
+  | 'INVALID_TOKEN'
+  | 'CHECKED_IN'
+  | 'ALREADY_CHECKED_IN'
+
+export type QrPaymentStatus = 'UNPAID' | 'PENDING_VERIFICATION' | 'PAID' | 'REJECTED' | 'REFUNDED' | 'CANCELLED' | 'NONE'
+
+export interface QrScanAppointment {
+  id: number
+  referenceCode: string | null
+  appointmentDate: string
+  appointmentTime: string
+  totalAmount: number
+  status: string
+  service: { id: number; name: string; duration: number } | null
+  barberName: string | null
+  checkedInAt: string | null
+  customerName?: string
+  customerPhone?: string
+  customerEmail?: string | null
+}
+
+export interface QrScanResult {
+  outcome: QrOutcome
+  valid: boolean
+  canCheckIn: boolean
+  checkedIn: boolean
+  paymentStatus: QrPaymentStatus
+  message: string
+  appointment: QrScanAppointment | null
+  scannedAt: string
+}
+
+export async function validateQrCode(input: { token?: string; reference?: string }): Promise<QrScanResult> {
+  const data = await barberFetch<{ result: QrScanResult }>('/api/barber/portal/qr/validate', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return data.result
+}
+
+export async function checkInCustomer(appointmentId: number, token?: string): Promise<QrScanResult> {
+  const data = await barberFetch<{ result: QrScanResult }>('/api/barber/portal/qr/checkin', {
+    method: 'POST',
+    body: JSON.stringify({ appointmentId, token }),
+  })
+  return data.result
+}
+
 export async function fetchPortalAvailability(): Promise<PortalAvailability[]> {
   const data = await barberFetch<{ availability: PortalAvailability[] }>('/api/barber/portal/availability')
   return data.availability

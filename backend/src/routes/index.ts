@@ -21,6 +21,7 @@ import { commissionRatesRouter } from './commissionRates'
 import { barberAuthRouter } from './barberAuth'
 import { barberPortalRouter } from './barberPortal'
 import { adminRemindersRouter, cronRouter } from './reminders'
+import { adminQrRouter, barberQrRouter } from './qr'
 
 export const apiRouter = Router()
 
@@ -51,6 +52,7 @@ apiRouter.use('/account', customerMeRouter)
 apiRouter.use('/payments/paystack', paystackRouter)
 apiRouter.use('/payments', paymentsRouter)
 apiRouter.use('/checkout', checkoutRouter)
+apiRouter.use('/admin/qr', adminQrRouter)
 apiRouter.use('/admin/dashboard', dashboardRouter)
 apiRouter.use('/admin/customers', customersRouter)
 apiRouter.use('/admin/payments', adminPaymentsRouter)
@@ -59,6 +61,8 @@ apiRouter.use('/admin/barber-earnings', barberEarningsRouter)
 apiRouter.use('/admin/commission-rates', commissionRatesRouter)
 // Barber Portal — separate namespace so barber tokens never touch admin APIs.
 apiRouter.use('/barber/auth', barberAuthRouter)
+// QR scanner sub-router mounted before the portal so its /qr paths are matched.
+apiRouter.use('/barber/portal/qr', barberQrRouter)
 apiRouter.use('/barber/portal', barberPortalRouter)
 // Automatic appointment reminders — scheduler endpoint (CRON_SECRET) plus an
 // admin-only manual trigger. Mounted before /admin/appointments so the manual

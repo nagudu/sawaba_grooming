@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import {
   AlertCircle,
   ArrowLeft,
   BadgeCheck,
   Banknote,
   CalendarDays,
+  CheckCircle2,
   Clock,
   CreditCard,
   FileText,
   Hash,
   LoaderCircle,
+  QrCode,
   Scissors,
   User,
   Wallet,
@@ -18,7 +21,7 @@ import {
 } from 'lucide-react'
 import { Button, ButtonLink } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/ToastNotification'
-import { accountApi } from '../../api/account'
+import { accountApi, type AppointmentQr } from '../../api/account'
 import type { AppointmentItem, AppointmentStatus, PaymentStatus } from '../../api'
 import { formatDate, formatPrice, formatTime } from '../../utils/format'
 import {
@@ -110,6 +113,9 @@ export default function CustomerBookingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [qr, setQr] = useState<AppointmentQr | null>(null)
+  const [qrLoading, setQrLoading] = useState(false)
+  const [qrError, setQrError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(Number(id))) {
@@ -132,6 +138,35 @@ export default function CustomerBookingDetailPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // The check-in QR only matters once payment is verified and the booking is live.
+  const qrEligible =
+    appointment?.payment?.status === 'PAID' && appointment?.status !== 'CANCELLED'
+
+  useEffect(() => {
+    if (!appointment || !qrEligible) {
+      setQr(null)
+      setQrError(null)
+      return
+    }
+    let active = true
+    setQrLoading(true)
+    setQrError(null)
+    accountApi
+      .getAppointmentQr(appointment.id)
+      .then((data) => {
+        if (active) setQr(data)
+      })
+      .catch((err) => {
+        if (active) setQrError(err instanceof Error ? err.message : 'Could not load your check-in code.')
+      })
+      .finally(() => {
+        if (active) setQrLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [appointment, qrEligible])
 
   async function handleCancel() {
     if (!appointment || cancelling) return
@@ -425,6 +460,62 @@ export default function CustomerBookingDetailPage() {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* ── Check-in QR ── */}
+      {appointment.status !== 'CANCELLED' && (
+        <section>
+          <SectionHeader title="Check-in Code" />
+          {isPaid ? (
+            <div className="rounded-2xl border border-night-800 bg-night-900/50 p-5">
+              {qrLoading && (
+                <div className="flex items-center gap-3 text-sm text-night-400">
+                  <LoaderCircle className="h-5 w-5 animate-spin text-gold-500" />
+                  Generating your check-in code…
+                </div>
+              )}
+
+              {qrError && !qrLoading && (
+                <p className="flex items-center gap-2 text-sm text-red-300">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> {qrError}
+                </p>
+              )}
+
+              {qr && !qrLoading && (
+                <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
+                  <div className="rounded-2xl bg-white p-3 shadow-lg">
+                    <QRCodeSVG value={qr.qrPayload} size={168} level="M" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="flex items-center justify-center gap-2 font-semibold text-night-50 sm:justify-start">
+                      <QrCode className="h-4 w-4 text-gold-400" />
+                      Show this code at check-in
+                    </p>
+                    <p className="text-sm text-night-400">
+                      Present this QR to your barber when you arrive. It confirms your
+                      verified payment and checks you in instantly.
+                    </p>
+                    <p className="text-xs text-night-500">
+                      Reference{' '}
+                      <span className="font-mono text-night-300">{qr.referenceCode ?? ref}</span>
+                    </p>
+                    {qr.checkedInAt && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Checked in
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-2xl border border-night-800 bg-night-900/40 px-4 py-4 text-sm text-night-400">
+              <QrCode className="h-5 w-5 shrink-0 text-night-500" />
+              Your check-in QR becomes available once your payment is verified.
+            </div>
+          )}
         </section>
       )}
 

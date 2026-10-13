@@ -69,7 +69,8 @@ export async function applyProviderVerification(
     throw new NotFoundError('Payment record not found for this appointment.')
   }
 
-  if (payment.status !== 'PAID') {
+  const justPaid = payment.status !== 'PAID'
+  if (justPaid) {
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
@@ -111,7 +112,44 @@ export async function applyProviderVerification(
   // Money is now confirmed — re-evaluate the commission ledger (#19).
   await syncEarningForAppointment(appointmentId)
 
+  if (justPaid) {
+    await notifyBarberPaymentVerified(appointmentId)
+  }
+
   return getPublicPaymentByAppointmentId(appointmentId)
+}
+
+/**
+ * Tells the assigned barber (falling back to the originally booked barber) that
+ * the money for an appointment is confirmed. Best-effort: a notification failure
+ * must never roll back a verified payment.
+ */
+async function notifyBarberPaymentVerified(appointmentId: number): Promise<void> {
+  try {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: {
+        referenceCode: true,
+        appointmentDate: true,
+        appointmentTime: true,
+        assignedBarberId: true,
+        barberId: true,
+      },
+    })
+    if (!appointment) return
+    const barberId = appointment.assignedBarberId ?? appointment.barberId
+    if (!barberId) return
+    await prisma.barberNotification.create({
+      data: {
+        barberId,
+        type: 'APPOINTMENT',
+        title: 'Payment confirmed',
+        message: `Payment for ${appointment.referenceCode ?? 'a booking'} on ${appointment.appointmentDate} at ${appointment.appointmentTime} has been verified. The customer is cleared for check-in.`,
+      },
+    })
+  } catch {
+    // best-effort only
+  }
 }
 
 async function getPublicPaymentByAppointmentId(appointmentId: number): Promise<PublicPaymentBundle> {
@@ -460,6 +498,7 @@ export async function verifyPayment(id: number, adminId: number): Promise<Paymen
     providerRef: null,
     adminId,
   })
+  await notifyBarberPaymentVerified(payment.appointmentId)
   return getPaymentById(id)
 }
 
@@ -508,6 +547,7 @@ export async function confirmCashPayment(
     providerRef: null,
     adminId,
   })
+  await notifyBarberPaymentVerified(payment.appointmentId)
   return getPaymentById(id)
 }
 

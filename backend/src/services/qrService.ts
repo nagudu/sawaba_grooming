@@ -1,0 +1,582 @@
+import crypto from 'node:crypto'
+import { prisma } from '../config/database'
+import type { AppointmentStatus, PaymentStatus } from '@prisma/client'
+import { NotFoundError, UnprocessableError } from '../utils/errors'
+import { getPagination } from '../utils/response'
+
+/**
+ * In-person check-in QR verification.
+ *
+ * Security model
+ * --------------
+ * • The QR payload is a 256-bit random token, unique per appointment. It is the
+ *   only secret a customer needs to present; nothing about the booking can be
+ *   derived from it.
+ * • Tokens are generated lazily, never reused, and can be revoked (regenerated)
+ *   without touching the appointment itself.
+ * • A scan is only ever a *lookup*. The scanner must be an authenticated barber
+ *   and the booking must belong to that barber; the payment must be PAID for the
+ *   full amount and not cancelled/refunded. Anything else returns a restricted
+ *   result with no customer personally identifiable information.
+ * • Every attempt is written to an append-only audit log. The raw token is never
+ *   stored — only a short, non-reversible SHA-256 fingerprint.
+ */
+
+export const QR_PREFIX = 'sawaba:'
+
+export type QrOutcome =
+  | 'VALID'
+  | 'PAYMENT_NOT_VERIFIED'
+  | 'PAYMENT_MISMATCH'
+  | 'NOT_FOUND'
+  | 'REVOKED'
+  | 'CANCELLED'
+  | 'UNAUTHORIZED'
+  | 'INVALID_TOKEN'
+  | 'CHECKED_IN'
+  | 'ALREADY_CHECKED_IN'
+
+export interface QrScanAppointment {
+  id: number
+  referenceCode: string | null
+  appointmentDate: string
+  appointmentTime: string
+  totalAmount: number
+  status: AppointmentStatus
+  service: { id: number; name: string; duration: number } | null
+  barberName: string | null
+  checkedInAt: Date | null
+  /** Customer PII — present only for a fully valid, authorised scan. */
+  customerName?: string
+  customerPhone?: string
+  customerEmail?: string | null
+}
+
+export interface QrScanResult {
+  outcome: QrOutcome
+  valid: boolean
+  canCheckIn: boolean
+  checkedIn: boolean
+  paymentStatus: PaymentStatus | 'NONE'
+  message: string
+  appointment: QrScanAppointment | null
+  scannedAt: Date
+}
+
+const OUTCOME_MESSAGES: Record<QrOutcome, string> = {
+  VALID: 'Payment verified. This booking is valid.',
+  PAYMENT_NOT_VERIFIED: 'This booking is not yet paid. Payment must be verified before check-in.',
+  PAYMENT_MISMATCH: 'The verified payment does not cover the full service amount.',
+  NOT_FOUND: 'No booking matches this code.',
+  REVOKED: 'This QR code has been revoked. Ask the customer to refresh it in their account.',
+  CANCELLED: 'This booking has been cancelled.',
+  UNAUTHORIZED: 'This booking is not assigned to you.',
+  INVALID_TOKEN: 'That QR code or reference could not be recognised.',
+  CHECKED_IN: 'Customer checked in successfully.',
+  ALREADY_CHECKED_IN: 'This customer has already been checked in.',
+}
+
+function generateQrToken(): string {
+  return crypto.randomBytes(32).toString('hex')
+}
+
+/** Non-reversible short fingerprint; safe to persist for audit/forensics. */
+export function qrFingerprint(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('hex').slice(0, 16)
+}
+
+export function parseQrPayload(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  let value = String(raw).trim()
+  const marker = value.toLowerCase().lastIndexOf(QR_PREFIX)
+  if (marker >= 0) value = value.slice(marker + QR_PREFIX.length)
+  value = value.trim().toLowerCase()
+  return /^[a-f0-9]{64}$/.test(value) ? value : null
+}
+
+export function buildQrPayload(token: string): string {
+  return `${QR_PREFIX}${token}`
+}
+
+export function paymentBadge(status: PaymentStatus | null | undefined): PaymentStatus | 'NONE' {
+  return status ?? 'NONE'
+}
+
+function limitedAppointment(apt: {
+  id: number
+  referenceCode: string | null
+  appointmentDate: string
+  appointmentTime: string
+  totalAmount: unknown
+  status: AppointmentStatus
+  checkedInAt: Date | null
+  service: { id: number; name: string; duration: number } | null
+  barber: { name: string } | null
+}): QrScanAppointment {
+  return {
+    id: apt.id,
+    referenceCode: apt.referenceCode,
+    appointmentDate: apt.appointmentDate,
+    appointmentTime: apt.appointmentTime,
+    totalAmount: Number(apt.totalAmount),
+    status: apt.status,
+    service: apt.service,
+    barberName: apt.barber?.name ?? null,
+    checkedInAt: apt.checkedInAt,
+  }
+}
+
+const scanInclude = {
+  service: { select: { id: true, name: true, duration: true } },
+  barber: { select: { id: true, name: true } },
+  assignedBarber: { select: { id: true, name: true } },
+  payment: { select: { status: true, amount: true, paymentDate: true } },
+} as const
+
+async function findAppointmentForScan(where: { id?: number; qrToken?: string; referenceCode?: string }) {
+  return prisma.appointment.findFirst({ where, include: scanInclude })
+}
+
+export interface ScanContext {
+  ip?: string | null
+  userAgent?: string | null
+  source?: 'QR' | 'MANUAL' | 'ADMIN'
+}
+
+async function recordScan(
+  actor: { barberId?: number | null; adminId?: number | null; role: string },
+  outcome: QrOutcome,
+  meta: ScanContext,
+  appointment?: { id: number; referenceCode: string | null } | null,
+  fingerprint?: string | null,
+  detail?: string | null,
+): Promise<void> {
+  try {
+    await prisma.qrScanLog.create({
+      data: {
+        appointmentId: appointment?.id ?? null,
+        barberId: actor.barberId ?? null,
+        adminId: actor.adminId ?? null,
+        actorRole: actor.role,
+        outcome,
+        source: meta.source ?? 'QR',
+        tokenFingerprint: fingerprint ?? null,
+        referenceCode: appointment?.referenceCode ?? null,
+        ip: meta.ip ?? null,
+        userAgent: meta.userAgent ? meta.userAgent.slice(0, 300) : null,
+        detail: detail ? detail.slice(0, 300) : null,
+      },
+    })
+  } catch {
+    // Auditing must never break the scan response.
+  }
+}
+
+/**
+ * Lazily mints a fresh token for an appointment. Returns the existing token when
+ * one is present and not revoked; never returns a revoked/expired token.
+ */
+export async function ensureAppointmentQrToken(appointmentId: number): Promise<string> {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    select: { id: true, qrToken: true, qrRevokedAt: true, status: true },
+  })
+  if (!appointment) {
+    throw new NotFoundError('Appointment not found.')
+  }
+  if (appointment.status === 'CANCELLED') {
+    throw new UnprocessableError('This appointment has been cancelled, so it has no check-in QR code.')
+  }
+  if (appointment.qrToken && !appointment.qrRevokedAt) {
+    return appointment.qrToken
+  }
+  return mintToken(appointmentId)
+}
+
+async function mintToken(appointmentId: number): Promise<string> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const token = generateQrToken()
+    try {
+      await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: { qrToken: token, qrTokenGeneratedAt: new Date(), qrRevokedAt: null },
+      })
+      return token
+    } catch {
+      // Extremely unlikely unique collision — retry with a new token.
+    }
+  }
+  throw new UnprocessableError('Could not generate a QR code. Please try again.')
+}
+
+/** Invalidates the current token; a new one is minted on next access. */
+export async function revokeAppointmentQr(appointmentId: number): Promise<void> {
+  await prisma.appointment.updateMany({
+    where: { id: appointmentId, qrToken: { not: null }, qrRevokedAt: null },
+    data: { qrRevokedAt: new Date() },
+  })
+}
+
+export interface CustomerQr {
+  appointmentId: number
+  referenceCode: string | null
+  qrPayload: string
+  qrToken: string
+  paymentStatus: PaymentStatus | 'NONE'
+  checkedInAt: Date | null
+  revokedAt: Date | null
+}
+
+/** Customer-facing fetch — scoped to the authenticated customer's own booking. */
+export async function getCustomerAppointmentQr(
+  customerId: number,
+  appointmentId: number,
+): Promise<CustomerQr> {
+  const appointment = await prisma.appointment.findFirst({
+    where: { id: appointmentId, customerId },
+    select: {
+      id: true,
+      referenceCode: true,
+      status: true,
+      checkedInAt: true,
+      qrRevokedAt: true,
+      payment: { select: { status: true } },
+    },
+  })
+  if (!appointment) {
+    throw new NotFoundError('Booking not found.')
+  }
+  if (appointment.status === 'CANCELLED') {
+    throw new UnprocessableError('This booking was cancelled, so it has no check-in QR code.')
+  }
+
+  const token = await ensureAppointmentQrToken(appointmentId)
+
+  return {
+    appointmentId,
+    referenceCode: appointment.referenceCode,
+    qrPayload: buildQrPayload(token),
+    qrToken: token,
+    paymentStatus: paymentBadge(appointment.payment?.status),
+    checkedInAt: appointment.checkedInAt,
+    revokedAt: appointment.qrRevokedAt,
+  }
+}
+
+async function evaluateScan(barberId: number, input: { token?: string | null; reference?: string | null }): Promise<QrScanResult> {
+  const rawToken = input.token ?? null
+  const rawReference = input.reference?.trim() || null
+
+  let token: string | null = null
+  if (rawToken) {
+    token = parseQrPayload(rawToken)
+    if (!token) {
+      return notFoundResult('INVALID_TOKEN')
+    }
+  }
+
+  if (!token && !rawReference) {
+    return notFoundResult('INVALID_TOKEN')
+  }
+
+  const appointment = token
+    ? await findAppointmentForScan({ qrToken: token })
+    : await findAppointmentForScan({ referenceCode: rawReference! })
+
+  if (!appointment) {
+    return notFoundResult('NOT_FOUND')
+  }
+
+  const base = limitedAppointment(appointment)
+  const paymentStatus = paymentBadge(appointment.payment?.status)
+
+  // A valid appointment can be found by reference while its token is revoked:
+  // treat that as revoked rather than exposing or trusting the stale code.
+  if (appointment.qrRevokedAt) {
+    return {
+      outcome: 'REVOKED',
+      valid: false,
+      canCheckIn: false,
+      checkedIn: Boolean(appointment.checkedInAt),
+      paymentStatus,
+      message: OUTCOME_MESSAGES.REVOKED,
+      appointment: base,
+      scannedAt: new Date(),
+    }
+  }
+
+  if (appointment.status === 'CANCELLED') {
+    return {
+      outcome: 'CANCELLED',
+      valid: false,
+      canCheckIn: false,
+      checkedIn: Boolean(appointment.checkedInAt),
+      paymentStatus,
+      message: OUTCOME_MESSAGES.CANCELLED,
+      appointment: { ...base, checkedInAt: appointment.checkedInAt },
+      scannedAt: new Date(),
+    }
+  }
+
+  const authorized =
+    appointment.barberId === barberId || appointment.assignedBarberId === barberId
+  if (!authorized) {
+    const result = notFoundResult('UNAUTHORIZED')
+    return result
+  }
+
+  if (!appointment.payment || appointment.payment.status !== 'PAID') {
+    return {
+      outcome: 'PAYMENT_NOT_VERIFIED',
+      valid: false,
+      canCheckIn: false,
+      checkedIn: Boolean(appointment.checkedInAt),
+      paymentStatus,
+      message: OUTCOME_MESSAGES.PAYMENT_NOT_VERIFIED,
+      appointment: base,
+      scannedAt: new Date(),
+    }
+  }
+
+  if (Number(appointment.payment.amount) !== Number(appointment.totalAmount)) {
+    return {
+      outcome: 'PAYMENT_MISMATCH',
+      valid: false,
+      canCheckIn: false,
+      checkedIn: Boolean(appointment.checkedInAt),
+      paymentStatus,
+      message: OUTCOME_MESSAGES.PAYMENT_MISMATCH,
+      appointment: base,
+      scannedAt: new Date(),
+    }
+  }
+
+  const full: QrScanAppointment = {
+    ...base,
+    customerName: appointment.customerName,
+    customerPhone: appointment.customerPhone,
+    customerEmail: appointment.customerEmail,
+  }
+
+  return {
+    outcome: appointment.checkedInAt ? 'ALREADY_CHECKED_IN' : 'VALID',
+    valid: true,
+    canCheckIn: !appointment.checkedInAt,
+    checkedIn: Boolean(appointment.checkedInAt),
+    paymentStatus,
+    message: appointment.checkedInAt ? OUTCOME_MESSAGES.ALREADY_CHECKED_IN : OUTCOME_MESSAGES.VALID,
+    appointment: full,
+    scannedAt: new Date(),
+  }
+}
+
+function notFoundResult(outcome: QrOutcome): QrScanResult {
+  return {
+    outcome,
+    valid: false,
+    canCheckIn: false,
+    checkedIn: false,
+    paymentStatus: 'NONE',
+    message: OUTCOME_MESSAGES[outcome],
+    appointment: null,
+    scannedAt: new Date(),
+  }
+}
+
+/** Barber scanner: validate a scanned/entered code without mutating anything. */
+export async function validateQrScan(
+  barberId: number,
+  input: { token?: string | null; reference?: string | null },
+  meta: ScanContext,
+): Promise<QrScanResult> {
+  const result = await evaluateScan(barberId, input)
+
+  await recordScan(
+    { barberId, role: 'BARBER' },
+    result.outcome,
+    { ...meta, source: input.token ? 'QR' : 'MANUAL' },
+    result.appointment ? { id: result.appointment.id, referenceCode: result.appointment.referenceCode } : null,
+    input.token ? qrFingerprint(parseQrPayload(input.token) ?? input.token) : null,
+    result.outcome === 'VALID' ? 'Check-in authorised' : result.message,
+  )
+
+  return result
+}
+
+/**
+ * Barber scanner: marks the customer as checked in. Idempotent — a second scan
+ * never creates a second check-in and is logged as ALREADY_CHECKED_IN.
+ */
+export async function checkInAppointment(
+  barberId: number,
+  appointmentId: number,
+  input: { token?: string | null },
+  meta: ScanContext,
+): Promise<QrScanResult> {
+  const target = await prisma.appointment.findFirst({
+    where: { id: appointmentId },
+    include: scanInclude,
+  })
+
+  if (!target) {
+    await recordScan({ barberId, role: 'BARBER' }, 'NOT_FOUND', { ...meta, source: 'MANUAL' }, null, null, 'Check-in: appointment not found')
+    return notFoundResult('NOT_FOUND')
+  }
+
+  if (target.barberId !== barberId && target.assignedBarberId !== barberId) {
+    await recordScan({ barberId, role: 'BARBER' }, 'UNAUTHORIZED', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Check-in blocked: not assigned')
+    return notFoundResult('UNAUTHORIZED')
+  }
+
+  const eligible = await evaluateScan(barberId, {
+    token: (input.token ? parseQrPayload(input.token) : null) ?? target.qrToken ?? undefined,
+    reference: target.referenceCode,
+  })
+  if (!eligible.valid && eligible.outcome !== 'ALREADY_CHECKED_IN') {
+    await recordScan({ barberId, role: 'BARBER' }, eligible.outcome, { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, `Check-in blocked: ${eligible.message}`)
+    return eligible
+  }
+
+  if (target.checkedInAt) {
+    await recordScan({ barberId, role: 'BARBER' }, 'ALREADY_CHECKED_IN', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Duplicate check-in attempt')
+    return {
+      ...eligible,
+      outcome: 'ALREADY_CHECKED_IN',
+      valid: true,
+      canCheckIn: false,
+      checkedIn: true,
+      message: OUTCOME_MESSAGES.ALREADY_CHECKED_IN,
+    }
+  }
+
+  await prisma.appointment.update({
+    where: { id: target.id },
+    data: { checkedInAt: new Date() },
+  })
+
+  await recordScan({ barberId, role: 'BARBER' }, 'CHECKED_IN', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Customer checked in')
+
+  return {
+    ...eligible,
+    outcome: 'CHECKED_IN',
+    valid: true,
+    canCheckIn: false,
+    checkedIn: true,
+    message: OUTCOME_MESSAGES.CHECKED_IN,
+    appointment: eligible.appointment
+      ? { ...eligible.appointment, checkedInAt: new Date() }
+      : null,
+  }
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+interface QrActivityQuery {
+  outcome?: string
+  source?: string
+  barberId?: number
+  appointmentId?: number
+  from?: string
+  to?: string
+  page?: number
+  perPage?: number
+}
+
+export async function listQrActivity(query: QrActivityQuery) {
+  const { offset, limit, page, perPage } = getPagination(query as Record<string, unknown>)
+
+  const where: {
+    outcome?: string
+    source?: string
+    barberId?: number
+    appointmentId?: number
+    createdAt?: { gte?: Date; lte?: Date }
+  } = {}
+  if (query.outcome) where.outcome = query.outcome
+  if (query.source) where.source = query.source
+  if (query.barberId) where.barberId = query.barberId
+  if (query.appointmentId) where.appointmentId = query.appointmentId
+  if (query.from || query.to) {
+    where.createdAt = {}
+    if (query.from) where.createdAt.gte = new Date(`${query.from}T00:00:00.000Z`)
+    if (query.to) where.createdAt.lte = new Date(`${query.to}T23:59:59.999Z`)
+  }
+
+  const [rows, total] = await Promise.all([
+    prisma.qrScanLog.findMany({
+      where,
+      include: {
+        barber: { select: { id: true, name: true } },
+        appointment: { select: { id: true, referenceCode: true, customerName: true, checkedInAt: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limit,
+    }),
+    prisma.qrScanLog.count({ where }),
+  ])
+
+  return {
+    items: rows.map((row) => ({
+      id: row.id,
+      appointmentId: row.appointmentId,
+      referenceCode: row.referenceCode ?? row.appointment?.referenceCode ?? null,
+      customerName: row.appointment?.customerName ?? null,
+      barberId: row.barberId,
+      barberName: row.barber?.name ?? null,
+      adminId: row.adminId,
+      actorRole: row.actorRole,
+      outcome: row.outcome,
+      source: row.source,
+      ip: row.ip,
+      detail: row.detail,
+      createdAt: row.createdAt,
+    })),
+    total,
+    page,
+    perPage,
+  }
+}
+
+export async function getQrActivityStats() {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const [total, valid, rejected, checkIns] = await Promise.all([
+    prisma.qrScanLog.count(),
+    prisma.qrScanLog.count({ where: { outcome: { in: ['VALID', 'CHECKED_IN', 'ALREADY_CHECKED_IN'] } } }),
+    prisma.qrScanLog.count({ where: { outcome: { in: ['PAYMENT_NOT_VERIFIED', 'PAYMENT_MISMATCH', 'REVOKED', 'UNAUTHORIZED', 'CANCELLED'] } } }),
+    prisma.qrScanLog.count({ where: { outcome: 'CHECKED_IN' } }),
+  ])
+  const recent = await prisma.qrScanLog.count({ where: { createdAt: { gte: since } } })
+  return { total, valid, rejected, checkIns, last7Days: recent }
+}
+
+export async function adminRegenerateQr(appointmentId: number, adminId: number, meta: ScanContext) {
+  const token = await mintToken(appointmentId)
+  await recordScan({ adminId, role: 'ADMIN' }, 'VALID', { ...meta, source: 'ADMIN' }, { id: appointmentId, referenceCode: null }, qrFingerprint(token), 'Admin regenerated QR code')
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    select: { id: true, referenceCode: true, qrToken: true },
+  })
+  return {
+    appointmentId,
+    referenceCode: appointment?.referenceCode ?? null,
+    qrToken: appointment?.qrToken ?? token,
+    qrPayload: buildQrPayload(appointment?.qrToken ?? token),
+  }
+}
+
+export async function revokeQrByAdmin(
+  appointmentId: number,
+  adminId: number,
+  meta: ScanContext,
+): Promise<void> {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    select: { id: true, referenceCode: true },
+  })
+  if (!appointment) {
+    throw new NotFoundError('Appointment not found.')
+  }
+  await revokeAppointmentQr(appointmentId)
+  await recordScan({ adminId, role: 'ADMIN' }, 'REVOKED', { ...meta, source: 'ADMIN' }, appointment, null, 'QR revoked by admin')
+}

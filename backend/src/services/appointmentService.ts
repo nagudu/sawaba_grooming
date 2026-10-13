@@ -6,6 +6,7 @@ import { getPagination } from '../utils/response'
 import { hhmmToMinutes } from './availabilityService'
 import { findOrCreateCustomer } from './customerService'
 import { markPaymentCancelled } from './paymentService'
+import { revokeAppointmentQr } from './qrService'
 import { createEarningSnapshot, syncEarningForAppointment } from './commissionService'
 import { uploadImageToCloudinary } from '../utils/upload'
 import { getPaymentSettingsRecord } from './paymentSettingsService'
@@ -635,6 +636,7 @@ export async function updateAppointmentStatus(
 
   if (status === AppointmentStatusValue.CANCELLED) {
     await markPaymentCancelled(id)
+    await revokeAppointmentQr(id)
     await syncEarningForAppointment(id)
   } else {
     await syncPaymentForStatus(id, status, options.updatedByAdminId)

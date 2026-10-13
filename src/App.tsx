@@ -41,6 +41,7 @@ import AdminLayout from './pages/admin/AdminLayout'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminAppointmentsPage from './pages/admin/AdminAppointmentsPage'
+import AdminQrPage from './pages/admin/AdminQrPage'
 import AdminServicesPage from './pages/admin/AdminServicesPage'
 import AdminBarbersPage from './pages/admin/AdminBarbersPage'
 import AdminBarberEarningsPage from './pages/admin/AdminBarberEarningsPage'
@@ -62,6 +63,7 @@ import BarberDayViewPage from './pages/barber/BarberDayViewPage'
 import BarberEarningsPage from './pages/barber/BarberEarningsPage'
 import BarberNotificationsPage from './pages/barber/BarberNotificationsPage'
 import BarberAvailabilityPage from './pages/barber/BarberAvailabilityPage'
+import BarberScanPage from './pages/barber/BarberScanPage'
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
@@ -109,6 +111,7 @@ function BarberRoutes() {
         }
       >
         <Route index element={<BarberDashboardPage />} />
+        <Route path="scan" element={<BarberScanPage />} />
         <Route path="appointments" element={<BarberAppointmentsPage />} />
         <Route path="day-view" element={<BarberDayViewPage />} />
         <Route path="earnings" element={<BarberEarningsPage />} />
@@ -201,6 +204,7 @@ function AdminRoutes() {
       >
         <Route index element={<AdminDashboardPage />} />
         <Route path="appointments" element={<AdminAppointmentsPage />} />
+        <Route path="qr" element={<AdminQrPage />} />
         <Route path="payments" element={<AdminPaymentsPage />} />
         <Route path="payment-settings" element={<AdminPaymentSettingsPage />} />
         <Route path="appearance" element={<AdminAppearancePage />} />

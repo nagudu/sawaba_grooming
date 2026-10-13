@@ -74,6 +74,16 @@ export interface CustomerPaymentItem {
   createdAt: string
 }
 
+export interface AppointmentQr {
+  appointmentId: number
+  referenceCode: string | null
+  qrPayload: string
+  qrToken: string
+  paymentStatus: CustomerPaymentItem['status'] | 'NONE'
+  checkedInAt: string | null
+  revokedAt: string | null
+}
+
 export interface BookingPrefill {
   fullName: string
   phone: string
@@ -205,4 +215,6 @@ export const accountApi = {
     accountFetch<import('./index').AppointmentItem>(
       `/api/account/appointments/${id}`,
     ),
+  getAppointmentQr: (id: number) =>
+    accountFetch<AppointmentQr>(`/api/account/appointments/${id}/qr`),
 }

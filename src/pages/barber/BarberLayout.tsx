@@ -9,12 +9,14 @@ import {
   Wallet,
   Bell,
   Clock,
+  QrCode,
 } from 'lucide-react'
 import { useBarberAuth } from '../../store/barberAuth'
 import { cn } from '../../utils/cn'
 
 const NAV = [
   { to: '/barber', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/barber/scan', label: 'Scan', icon: QrCode },
   { to: '/barber/day-view', label: 'Day View', icon: CalendarRange },
   { to: '/barber/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/barber/earnings', label: 'Earnings', icon: Wallet },
@@ -104,7 +106,7 @@ export default function BarberLayout() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-night-800 bg-night-900/95 backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t border-night-800 bg-night-900/95 backdrop-blur md:hidden">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
