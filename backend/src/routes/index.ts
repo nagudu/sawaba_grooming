@@ -20,6 +20,7 @@ import { barberEarningsRouter, assignmentRouter } from './barberEarnings'
 import { commissionRatesRouter } from './commissionRates'
 import { barberAuthRouter } from './barberAuth'
 import { barberPortalRouter } from './barberPortal'
+import { adminRemindersRouter, cronRouter } from './reminders'
 
 export const apiRouter = Router()
 
@@ -59,4 +60,9 @@ apiRouter.use('/admin/commission-rates', commissionRatesRouter)
 // Barber Portal — separate namespace so barber tokens never touch admin APIs.
 apiRouter.use('/barber/auth', barberAuthRouter)
 apiRouter.use('/barber/portal', barberPortalRouter)
+// Automatic appointment reminders — scheduler endpoint (CRON_SECRET) plus an
+// admin-only manual trigger. Mounted before /admin/appointments so the manual
+// route is never shadowed by its /:id patterns.
+apiRouter.use('/cron', cronRouter)
+apiRouter.use('/admin/appointments/reminders', adminRemindersRouter)
 apiRouter.use('/admin/appointments', assignmentRouter)
