@@ -4,6 +4,9 @@ import { requireBarber } from '../middleware/barberAuth'
 import { validate } from '../middleware/validate'
 import { qrScanLimiter } from '../middleware/rateLimiter'
 import {
+  adminCheckInQrHandler,
+  adminValidateQrHandler,
+  appointmentQrHistoryHandler,
   checkInQrHandler,
   listQrActivityHandler,
   regenerateQrHandler,
@@ -13,6 +16,7 @@ import {
 import {
   qrActivityQuerySchema,
   qrAppointmentBodySchema,
+  qrAppointmentIdParamsSchema,
   qrCheckinBodySchema,
   qrValidateBodySchema,
 } from '../validators/qr'
@@ -31,13 +35,22 @@ barberQrRouter.post('/validate', validate(qrValidateBodySchema), validateQrHandl
 barberQrRouter.post('/checkin', validate(qrCheckinBodySchema), checkInQrHandler)
 
 /**
- * Admin QR oversight — mounted at /api/admin/qr. Read-only activity feed plus
- * token lifecycle controls (regenerate/revoke) for support staff.
+ * Admin QR tools — mounted at /api/admin/qr. The scanner can validate/inspect
+ * any booking and check a customer in, but never mutates payment status: that
+ * stays on the dedicated /api/admin/payments/:id/verify workflow.
  */
 export const adminQrRouter = Router()
 
 adminQrRouter.use(requireAdmin)
+adminQrRouter.use(qrScanLimiter)
 
+adminQrRouter.post('/validate', validate(qrValidateBodySchema), adminValidateQrHandler)
+adminQrRouter.post('/checkin', validate(qrCheckinBodySchema), adminCheckInQrHandler)
+adminQrRouter.get(
+  '/appointments/:id/history',
+  validate(qrAppointmentIdParamsSchema, 'params'),
+  appointmentQrHistoryHandler,
+)
 adminQrRouter.get('/activity', validate(qrActivityQuerySchema, 'query'), listQrActivityHandler)
 adminQrRouter.post('/regenerate', validate(qrAppointmentBodySchema), regenerateQrHandler)
 adminQrRouter.post('/revoke', validate(qrAppointmentBodySchema), revokeQrHandler)

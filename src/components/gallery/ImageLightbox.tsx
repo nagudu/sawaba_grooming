@@ -8,6 +8,8 @@ interface GalleryImageLike {
   src: string
   title: string
   category: string
+  mediaType?: 'IMAGE' | 'VIDEO'
+  video?: string | null
 }
 
 interface ImageLightboxProps {
@@ -116,17 +118,31 @@ export default function ImageLightbox({
                   <span className="h-8 w-8 animate-spin rounded-full border-2 border-gold-500 border-t-transparent" />
                 </div>
               )}
-              {/* Full original image — object-contain + natural aspect ratio.
-                  Never crops: apron/SAWABA branding, full-body poses and the
-                  bottom edge of portrait shots all stay visible. */}
-              <SmartImage
-                src={current.src}
-                alt={current.title}
-                fit="contain"
-                className="max-h-[72vh] w-auto max-w-full object-contain"
-                loading="eager"
-                onLoad={() => setLoaded(true)}
-              />
+              {current.mediaType === 'VIDEO' && current.video ? (
+                <video
+                  key={current.id}
+                  src={current.video}
+                  poster={current.src || undefined}
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  onLoadedData={() => setLoaded(true)}
+                  className="max-h-[72vh] w-auto max-w-full bg-black object-contain"
+                />
+              ) : (
+                /* Full original image — object-contain + natural aspect ratio.
+                   Never crops: apron/SAWABA branding, full-body poses and the
+                   bottom edge of portrait shots all stay visible. */
+                <SmartImage
+                  src={current.src}
+                  alt={current.title}
+                  fit="contain"
+                  className="max-h-[72vh] w-auto max-w-full object-contain"
+                  loading="eager"
+                  onLoad={() => setLoaded(true)}
+                />
+              )}
             </div>
             <figcaption className="mt-4 flex items-center justify-between">
               <div>

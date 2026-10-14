@@ -11,7 +11,7 @@
  *    the service worker.
  */
 
-const VERSION = 'v1'
+const VERSION = 'v2'
 const SHELL_CACHE = `sawaba-shell-${VERSION}`
 const ASSET_CACHE = `sawaba-assets-${VERSION}`
 const UPLOAD_CACHE = `sawaba-uploads-${VERSION}`

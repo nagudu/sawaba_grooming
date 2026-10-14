@@ -119,7 +119,7 @@ export default function BarberProfilePage() {
     .slice(0, 6)
     .map((image) => ({
       id: `gallery-${image.id}`,
-      src: image.image,
+      src: image.image ?? '',
       title: image.title ?? `${barber.name} — at work`,
       category: 'haircuts' as const,
     }))

@@ -17,6 +17,18 @@ export function formatDate(date: string): string {
   })
 }
 
+/** Human-readable date for timestamps, e.g. `5 October 2026`. */
+export function formatLongDate(date: string): string {
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T00:00:00` : date
+  const value = new Date(normalized)
+  if (Number.isNaN(value.getTime())) return date
+  return value.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 /** Convert HH:mm (24h) → h:mm AM/PM */
 export function formatTime(time: string): string {
   const match = /^(\d{1,2}):(\d{2})/.exec(time)

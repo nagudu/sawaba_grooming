@@ -28,7 +28,7 @@ import ScrollToTop from '../../components/layout/ScrollToTop'
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/appointments', label: 'Appointments', icon: CalendarDays },
-  { to: '/admin/qr', label: 'QR Check-in', icon: QrCode },
+  { to: '/admin/qr', label: 'QR Code Scanner', icon: QrCode },
   { to: '/admin/payments', label: 'Payments', icon: CreditCard },
   { to: '/admin/services', label: 'Services', icon: Scissors },
   { to: '/admin/barbers', label: 'Barbers', icon: Users },

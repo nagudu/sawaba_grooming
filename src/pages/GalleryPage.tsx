@@ -134,7 +134,7 @@ export default function GalleryPage() {
                 <>
                   <p className="mt-8 text-center text-[11px] tracking-[0.18em] text-night-500 uppercase">
                     Showing {filtered.length} of {images.length}{' '}
-                    {filtered.length === 1 ? 'photo' : 'photos'}
+                    {images.length === 1 ? 'item' : 'items'}
                   </p>
 
                   <motion.div

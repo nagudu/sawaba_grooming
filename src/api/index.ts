@@ -129,10 +129,15 @@ export interface AppointmentItem {
   }
 }
 
+export type GalleryMediaType = 'IMAGE' | 'VIDEO'
+
 export interface GalleryItem {
   id: number
   title: string
-  image: string
+  image: string | null
+  video: string | null
+  mediaType: GalleryMediaType
+  duration: number | null
   category: string
   barberId: number | null
   createdAt: string

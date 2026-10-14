@@ -2,11 +2,14 @@ import type { NextFunction, Request, Response } from 'express'
 import {
   adminRegenerateQr,
   checkInAppointment,
+  checkInAppointmentAsAdmin,
   getCustomerAppointmentQr,
   getQrActivityStats,
+  listAppointmentQrHistory,
   listQrActivity,
   revokeQrByAdmin,
   validateQrScan,
+  validateQrScanAsAdmin,
   type ScanContext,
 } from '../services/qrService'
 import { successRes } from '../utils/response'
@@ -63,6 +66,32 @@ export const getCustomerAppointmentQrHandler: Handler = handle(async (req) => ({
 }))
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
+
+export const adminValidateQrHandler: Handler = handle(async (req) => {
+  const { token, reference } = req.body as { token?: string; reference?: string }
+  const result = await validateQrScanAsAdmin(
+    req.admin!.id,
+    { token: token ?? null, reference: reference ?? null },
+    scanMeta(req, token ? 'QR' : 'MANUAL'),
+  )
+  return { message: result.message, data: { result } }
+})
+
+export const adminCheckInQrHandler: Handler = handle(async (req) => {
+  const { appointmentId, token } = req.body as { appointmentId: number; token?: string }
+  const result = await checkInAppointmentAsAdmin(
+    req.admin!.id,
+    appointmentId,
+    { token: token ?? null },
+    scanMeta(req, 'MANUAL'),
+  )
+  return { message: result.message, data: { result } }
+})
+
+export const appointmentQrHistoryHandler: Handler = handle(async (req) => ({
+  message: 'Check-in history fetched.',
+  data: await listAppointmentQrHistory(Number(req.params.id)),
+}))
 
 export const listQrActivityHandler: Handler = handle(async (req) => {
   const [activity, stats] = await Promise.all([

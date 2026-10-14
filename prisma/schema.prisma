@@ -94,6 +94,11 @@ enum GalleryCategory {
   SALON
 }
 
+enum GalleryMediaType {
+  IMAGE
+  VIDEO
+}
+
 enum ReviewStatus {
   PENDING
   APPROVED
@@ -542,18 +547,23 @@ model BarberNotification {
 }
 
 model Gallery {
-  id        Int             @id @default(autoincrement())
-  title     String          @db.VarChar(200)
-  image     String          @db.VarChar(500)
-  category  GalleryCategory @default(HAIRCUT)
-  barberId  Int?            @map("barber_id")
-  createdAt DateTime        @default(now()) @map("created_at")
-  updatedAt DateTime        @updatedAt @map("updated_at")
+  id            Int               @id @default(autoincrement())
+  title         String            @db.VarChar(200)
+  image         String?           @db.VarChar(500)
+  video         String?           @db.VarChar(500)
+  videoPublicId String?           @map("video_public_id") @db.VarChar(300)
+  mediaType     GalleryMediaType  @default(IMAGE) @map("media_type")
+  duration      Int?
+  category      GalleryCategory   @default(HAIRCUT)
+  barberId      Int?              @map("barber_id")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
-  barber    Barber?         @relation(fields: [barberId], references: [id], onDelete: SetNull)
+  barber        Barber?           @relation(fields: [barberId], references: [id], onDelete: SetNull)
 
   @@index([category])
   @@index([barberId])
+  @@index([mediaType])
   @@map("gallery")
 }
 

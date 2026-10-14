@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { Camera, FileImage, ImageUp, Trash2 } from 'lucide-react'
+import { Camera, FileImage, ImageUp, LoaderCircle, Trash2 } from 'lucide-react'
 import { cn } from '../../utils/cn'
+import CameraCapture from './CameraCapture'
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_SIZE_MB = 5
+const IMAGE_EXTENSIONS = /\.(jpe?g|png|webp|heic|heif)$/i
+const MAX_SIZE_MB = 4
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
+const MAX_DIMENSION = 1600
 
 export interface ReceiptUploadCardProps {
   file: File | null
@@ -19,17 +22,60 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('decode-failed'))
+    image.src = url
+  })
+}
+
+/** Re-encodes any decodable image to a downsized JPEG (handles HEIC and large photos). */
+async function convertToJpeg(file: File): Promise<File> {
+  const url = URL.createObjectURL(file)
+  try {
+    const image = await loadImage(url)
+    const maxSide = Math.max(image.width, image.height) || MAX_DIMENSION
+    const scale = Math.min(1, MAX_DIMENSION / maxSide)
+    const width = Math.max(1, Math.round(image.width * scale))
+    const height = Math.max(1, Math.round(image.height * scale))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('no-canvas')
+    ctx.drawImage(image, 0, 0, width, height)
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.85),
+    )
+    if (!blob) throw new Error('no-blob')
+
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'receipt'
+    return new File([blob], `${baseName}.jpg`, {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    })
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 /**
  * Obvious, mobile-friendly receipt uploader:
- * drag & drop / tap-to-pick, a dedicated camera button on phones, instant
- * preview with filename + size, and Remove / Change Photo actions.
- * Client-side validation mirrors the backend rules (JPG/PNG/WEBP, max 5MB).
+ * live in-app camera capture, drag & drop / tap-to-pick, instant preview with
+ * filename + size, and Remove / Change Photo actions. Handles HEIC captures and
+ * oversized photos by downsizing to JPEG, mirroring the backend rules (max 4MB).
  */
 export default function ReceiptUploadCard({ file, onChange, onError, disabled }: ReceiptUploadCardProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [processing, setProcessing] = useState(false)
   const inputId = useId()
 
   useEffect(() => {
@@ -43,63 +89,122 @@ export default function ReceiptUploadCard({ file, onChange, onError, disabled }:
   }, [file])
 
   const accept = useCallback(
-    (candidate: File | undefined | null) => {
+    async (candidate: File | undefined | null) => {
       if (!candidate) return
-      if (!ACCEPTED_TYPES.includes(candidate.type)) {
-        onError?.('That file type is not supported. Please upload a JPG, PNG or WEBP image.')
+      const isImage = candidate.type.startsWith('image/') || IMAGE_EXTENSIONS.test(candidate.name)
+      if (!isImage) {
+        onError?.('Please choose an image file (JPG, PNG or WEBP).')
         return
       }
-      if (candidate.size > MAX_SIZE_BYTES) {
-        onError?.(`That image is too large (${formatSize(candidate.size)}). Maximum is ${MAX_SIZE_MB}MB.`)
+
+      const alreadySupported = ACCEPTED_TYPES.includes(candidate.type)
+      if (alreadySupported && candidate.size <= MAX_SIZE_BYTES) {
+        onError?.('')
+        onChange(candidate)
         return
       }
-      onChange(candidate)
+
+      setProcessing(true)
+      try {
+        const prepared = await convertToJpeg(candidate)
+        if (prepared.size > MAX_SIZE_BYTES) {
+          onError?.(`That image is too large (${formatSize(prepared.size)}). Maximum is ${MAX_SIZE_MB}MB.`)
+          return
+        }
+        onError?.('')
+        onChange(prepared)
+      } catch {
+        onError?.(
+          'We could not read that photo. On iPhone, set Camera format to "Most Compatible", or use Take Photo.',
+        )
+      } finally {
+        setProcessing(false)
+      }
     },
     [onChange, onError],
   )
 
-  const openPicker = () => inputRef.current?.click()
-  const openCamera = () => cameraRef.current?.click()
-
-  const handleDrop = (event: React.DragEvent) => {
-    event.preventDefault()
-    setDragging(false)
+  const openPicker = useCallback(() => {
     if (disabled) return
-    accept(event.dataTransfer.files?.[0])
-  }
+    inputRef.current?.click()
+  }, [disabled])
+
+  const openNativeCamera = useCallback(() => {
+    if (disabled) return
+    setCameraOpen(false)
+    window.setTimeout(() => cameraRef.current?.click(), 0)
+  }, [disabled])
 
   return (
     <div>
       <input
-        ref={inputRef}
         id={inputId}
+        ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
+        accept="image/*"
+        className="sr-only"
         onChange={(event) => {
-          accept(event.target.files?.[0])
+          void accept(event.target.files?.[0])
           event.target.value = ''
         }}
       />
-      {/* Camera input: on phones this opens the camera directly; on desktop it behaves like the picker */}
       <input
         ref={cameraRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         capture="environment"
-        className="hidden"
+        className="sr-only"
         onChange={(event) => {
-          accept(event.target.files?.[0])
+          void accept(event.target.files?.[0])
           event.target.value = ''
         }}
       />
+
+      <CameraCapture
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(captured) => void accept(captured)}
+        onPickFile={openPicker}
+        onNativeCamera={openNativeCamera}
+      />
+
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={openPicker}
+          disabled={disabled || processing}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-gold-500/50 px-5 py-3 text-sm font-bold uppercase tracking-widest text-gold-300 transition-colors hover:bg-gold-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <ImageUp className="h-4 w-4" />
+          Upload Receipt
+        </button>
+        <button
+          type="button"
+          data-testid="take-photo"
+          onClick={() => {
+            if (!disabled) setCameraOpen(true)
+          }}
+          disabled={disabled || processing}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold-500 px-5 py-3 text-sm font-bold uppercase tracking-widest text-night-950 transition-colors hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Camera className="h-4 w-4" />
+          Take Photo
+        </button>
+      </div>
+
+      {processing && (
+        <p className="mb-3 flex items-center gap-2 text-sm text-gold-300">
+          <LoaderCircle className="h-4 w-4 animate-spin" />
+          Preparing your image…
+        </p>
+      )}
 
       {!file ? (
         <div
           role="button"
           tabIndex={0}
           aria-labelledby={inputId}
-          onClick={() => !disabled && openPicker()}
+          onClick={openPicker}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault()
@@ -111,7 +216,11 @@ export default function ReceiptUploadCard({ file, onChange, onError, disabled }:
             if (!disabled) setDragging(true)
           }}
           onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
+          onDrop={(event) => {
+            event.preventDefault()
+            setDragging(false)
+            if (!disabled) void accept(event.dataTransfer.files?.[0])
+          }}
           className={cn(
             'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-10 text-center transition-colors',
             dragging
@@ -129,24 +238,9 @@ export default function ReceiptUploadCard({ file, onChange, onError, disabled }:
               Take a photo or choose a screenshot of your payment receipt
             </p>
           </div>
-          <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-            <span className="inline-flex items-center justify-center gap-2 rounded-lg bg-gold-500 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-night-950">
-              <ImageUp className="h-4 w-4" />
-              Choose Photo
-            </span>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation()
-                if (!disabled) openCamera()
-              }}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gold-500/50 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-gold-300 transition-colors hover:bg-gold-500/10"
-            >
-              <Camera className="h-4 w-4" />
-              Take Photo
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-night-500">JPG, PNG, WEBP · Max {MAX_SIZE_MB}MB</p>
+          <p className="text-xs text-night-500">
+            Drag &amp; drop here, or use the buttons above · JPG, PNG, WEBP · Max {MAX_SIZE_MB}MB
+          </p>
         </div>
       ) : (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.04] p-5">
@@ -172,9 +266,21 @@ export default function ReceiptUploadCard({ file, onChange, onError, disabled }:
                   type="button"
                   disabled={disabled}
                   onClick={openPicker}
-                  className="rounded-lg border border-gold-500/50 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gold-300 transition-colors hover:bg-gold-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gold-500/50 px-4 py-2 text-xs font-bold uppercase tracking-widest text-gold-300 transition-colors hover:bg-gold-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Change Photo
+                  <ImageUp className="h-3.5 w-3.5" />
+                  Upload Different
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    if (!disabled) setCameraOpen(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-gold-500 px-4 py-2 text-xs font-bold uppercase tracking-widest text-night-950 transition-colors hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Take New Photo
                 </button>
                 <button
                   type="button"

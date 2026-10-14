@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { prisma } from '../config/database'
-import type { AppointmentStatus, PaymentStatus } from '@prisma/client'
+import type { AppointmentStatus, PaymentMethod, PaymentStatus } from '@prisma/client'
 import { NotFoundError, UnprocessableError } from '../utils/errors'
 import { getPagination } from '../utils/response'
 
@@ -36,6 +36,20 @@ export type QrOutcome =
   | 'CHECKED_IN'
   | 'ALREADY_CHECKED_IN'
 
+export interface QrScanPayment {
+  id: number
+  status: PaymentStatus | 'NONE'
+  amount: number
+  method: PaymentMethod | null
+  transactionReference: string | null
+  paymentDate: string | null
+  note: string | null
+  rejectionReason: string | null
+  verifiedAt: Date | null
+  /** Only exposed to admins — barbers see status/amount but never the receipt. */
+  receiptUrl: string | null
+}
+
 export interface QrScanAppointment {
   id: number
   referenceCode: string | null
@@ -45,11 +59,29 @@ export interface QrScanAppointment {
   status: AppointmentStatus
   service: { id: number; name: string; duration: number } | null
   barberName: string | null
+  barberId: number | null
+  assignedBarberId: number | null
   checkedInAt: Date | null
   /** Customer PII — present only for a fully valid, authorised scan. */
+  customerId?: number | null
   customerName?: string
   customerPhone?: string
   customerEmail?: string | null
+  /** Free-text customer instructions for the appointment. */
+  notes?: string | null
+  /** Payment breakdown — populated for valid/authorised scans. */
+  payment?: QrScanPayment | null
+}
+
+export interface QrScanHistoryEntry {
+  id: number
+  outcome: QrOutcome
+  source: string
+  actorRole: string
+  barberName: string | null
+  adminId: number | null
+  detail: string | null
+  createdAt: Date
 }
 
 export interface QrScanResult {
@@ -110,6 +142,8 @@ function limitedAppointment(apt: {
   totalAmount: unknown
   status: AppointmentStatus
   checkedInAt: Date | null
+  barberId: number | null
+  assignedBarberId: number | null
   service: { id: number; name: string; duration: number } | null
   barber: { name: string } | null
 }): QrScanAppointment {
@@ -122,6 +156,8 @@ function limitedAppointment(apt: {
     status: apt.status,
     service: apt.service,
     barberName: apt.barber?.name ?? null,
+    barberId: apt.barberId,
+    assignedBarberId: apt.assignedBarberId,
     checkedInAt: apt.checkedInAt,
   }
 }
@@ -130,8 +166,51 @@ const scanInclude = {
   service: { select: { id: true, name: true, duration: true } },
   barber: { select: { id: true, name: true } },
   assignedBarber: { select: { id: true, name: true } },
-  payment: { select: { status: true, amount: true, paymentDate: true } },
+  payment: {
+    select: {
+      id: true,
+      status: true,
+      amount: true,
+      paymentMethod: true,
+      transactionReference: true,
+      receiptUrl: true,
+      note: true,
+      rejectionReason: true,
+      paymentDate: true,
+      verifiedAt: true,
+    },
+  },
 } as const
+
+/** Payment block for a scan result. Receipts are admin-only. */
+function serializeScanPayment(
+  payment: {
+    id: number
+    status: PaymentStatus
+    amount: unknown
+    paymentMethod: PaymentMethod | null
+    transactionReference: string | null
+    receiptUrl: string | null
+    note: string | null
+    rejectionReason: string | null
+    paymentDate: string | null
+    verifiedAt: Date | null
+  },
+  includeReceipt: boolean,
+): QrScanPayment {
+  return {
+    id: payment.id,
+    status: payment.status,
+    amount: Number(payment.amount),
+    method: payment.paymentMethod,
+    transactionReference: payment.transactionReference,
+    receiptUrl: includeReceipt ? payment.receiptUrl : null,
+    note: payment.note,
+    rejectionReason: payment.rejectionReason,
+    paymentDate: payment.paymentDate,
+    verifiedAt: payment.verifiedAt,
+  }
+}
 
 async function findAppointmentForScan(where: { id?: number; qrToken?: string; referenceCode?: string }) {
   return prisma.appointment.findFirst({ where, include: scanInclude })
@@ -142,6 +221,14 @@ export interface ScanContext {
   userAgent?: string | null
   source?: 'QR' | 'MANUAL' | 'ADMIN'
 }
+
+/**
+ * Who is performing the scan. Barbers are restricted to their own bookings;
+ * admins may inspect any booking but still cannot mutate payment by scanning.
+ */
+type ScanActor =
+  | { role: 'BARBER'; barberId: number }
+  | { role: 'ADMIN'; adminId: number }
 
 async function recordScan(
   actor: { barberId?: number | null; adminId?: number | null; role: string },
@@ -263,7 +350,11 @@ export async function getCustomerAppointmentQr(
   }
 }
 
-async function evaluateScan(barberId: number, input: { token?: string | null; reference?: string | null }): Promise<QrScanResult> {
+async function evaluateScan(
+  actor: ScanActor,
+  input: { token?: string | null; reference?: string | null },
+): Promise<QrScanResult> {
+  const includeReceipt = actor.role === 'ADMIN'
   const rawToken = input.token ?? null
   const rawReference = input.reference?.trim() || null
 
@@ -318,11 +409,14 @@ async function evaluateScan(barberId: number, input: { token?: string | null; re
     }
   }
 
-  const authorized =
-    appointment.barberId === barberId || appointment.assignedBarberId === barberId
-  if (!authorized) {
-    const result = notFoundResult('UNAUTHORIZED')
-    return result
+  // Barbers may only ever act on their own bookings. Admins are not scoped.
+  if (actor.role === 'BARBER') {
+    const authorized =
+      appointment.barberId === actor.barberId ||
+      appointment.assignedBarberId === actor.barberId
+    if (!authorized) {
+      return notFoundResult('UNAUTHORIZED')
+    }
   }
 
   if (!appointment.payment || appointment.payment.status !== 'PAID') {
@@ -333,7 +427,17 @@ async function evaluateScan(barberId: number, input: { token?: string | null; re
       checkedIn: Boolean(appointment.checkedInAt),
       paymentStatus,
       message: OUTCOME_MESSAGES.PAYMENT_NOT_VERIFIED,
-      appointment: base,
+      appointment: {
+        ...base,
+        customerId: appointment.customerId,
+        customerName: appointment.customerName,
+        customerPhone: appointment.customerPhone,
+        customerEmail: appointment.customerEmail,
+        notes: appointment.notes,
+        payment: appointment.payment
+          ? serializeScanPayment(appointment.payment, includeReceipt)
+          : null,
+      },
       scannedAt: new Date(),
     }
   }
@@ -346,16 +450,27 @@ async function evaluateScan(barberId: number, input: { token?: string | null; re
       checkedIn: Boolean(appointment.checkedInAt),
       paymentStatus,
       message: OUTCOME_MESSAGES.PAYMENT_MISMATCH,
-      appointment: base,
+      appointment: {
+        ...base,
+        customerId: appointment.customerId,
+        customerName: appointment.customerName,
+        customerPhone: appointment.customerPhone,
+        customerEmail: appointment.customerEmail,
+        notes: appointment.notes,
+        payment: serializeScanPayment(appointment.payment, includeReceipt),
+      },
       scannedAt: new Date(),
     }
   }
 
   const full: QrScanAppointment = {
     ...base,
+    customerId: appointment.customerId,
     customerName: appointment.customerName,
     customerPhone: appointment.customerPhone,
     customerEmail: appointment.customerEmail,
+    notes: appointment.notes,
+    payment: serializeScanPayment(appointment.payment, includeReceipt),
   }
 
   return {
@@ -383,16 +498,22 @@ function notFoundResult(outcome: QrOutcome): QrScanResult {
   }
 }
 
-/** Barber scanner: validate a scanned/entered code without mutating anything. */
-export async function validateQrScan(
-  barberId: number,
+function actorRef(actor: ScanActor): { barberId?: number | null; adminId?: number | null; role: string } {
+  return actor.role === 'BARBER'
+    ? { barberId: actor.barberId, role: 'BARBER' }
+    : { adminId: actor.adminId, role: 'ADMIN' }
+}
+
+/** Validate a scanned/entered code without mutating anything. */
+async function runScanValidation(
+  actor: ScanActor,
   input: { token?: string | null; reference?: string | null },
   meta: ScanContext,
 ): Promise<QrScanResult> {
-  const result = await evaluateScan(barberId, input)
+  const result = await evaluateScan(actor, input)
 
   await recordScan(
-    { barberId, role: 'BARBER' },
+    actorRef(actor),
     result.outcome,
     { ...meta, source: input.token ? 'QR' : 'MANUAL' },
     result.appointment ? { id: result.appointment.id, referenceCode: result.appointment.referenceCode } : null,
@@ -403,42 +524,64 @@ export async function validateQrScan(
   return result
 }
 
-/**
- * Barber scanner: marks the customer as checked in. Idempotent — a second scan
- * never creates a second check-in and is logged as ALREADY_CHECKED_IN.
- */
-export async function checkInAppointment(
+/** Barber scanner: validate a scanned/entered code without mutating anything. */
+export async function validateQrScan(
   barberId: number,
+  input: { token?: string | null; reference?: string | null },
+  meta: ScanContext,
+): Promise<QrScanResult> {
+  return runScanValidation({ role: 'BARBER', barberId }, input, meta)
+}
+
+/** Admin scanner: validate any booking, with the fuller admin detail block. */
+export async function validateQrScanAsAdmin(
+  adminId: number,
+  input: { token?: string | null; reference?: string | null },
+  meta: ScanContext,
+): Promise<QrScanResult> {
+  return runScanValidation({ role: 'ADMIN', adminId }, input, meta)
+}
+
+/**
+ * Marks the customer as checked in. Idempotent — a second scan never creates a
+ * second check-in and is logged as ALREADY_CHECKED_IN.
+ */
+async function runCheckIn(
+  actor: ScanActor,
   appointmentId: number,
   input: { token?: string | null },
   meta: ScanContext,
 ): Promise<QrScanResult> {
+  const actorRefArg = actor.role === 'BARBER'
+    ? { barberId: actor.barberId, role: 'BARBER' }
+    : { adminId: actor.adminId, role: 'ADMIN' }
+
   const target = await prisma.appointment.findFirst({
     where: { id: appointmentId },
     include: scanInclude,
   })
 
   if (!target) {
-    await recordScan({ barberId, role: 'BARBER' }, 'NOT_FOUND', { ...meta, source: 'MANUAL' }, null, null, 'Check-in: appointment not found')
+    await recordScan(actorRefArg, 'NOT_FOUND', { ...meta, source: 'MANUAL' }, null, null, 'Check-in: appointment not found')
     return notFoundResult('NOT_FOUND')
   }
 
-  if (target.barberId !== barberId && target.assignedBarberId !== barberId) {
-    await recordScan({ barberId, role: 'BARBER' }, 'UNAUTHORIZED', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Check-in blocked: not assigned')
+  if (actor.role === 'BARBER' && target.barberId !== actor.barberId && target.assignedBarberId !== actor.barberId) {
+    await recordScan(actorRefArg, 'UNAUTHORIZED', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Check-in blocked: not assigned')
     return notFoundResult('UNAUTHORIZED')
   }
 
-  const eligible = await evaluateScan(barberId, {
+  const eligible = await evaluateScan(actor, {
     token: (input.token ? parseQrPayload(input.token) : null) ?? target.qrToken ?? undefined,
     reference: target.referenceCode,
   })
   if (!eligible.valid && eligible.outcome !== 'ALREADY_CHECKED_IN') {
-    await recordScan({ barberId, role: 'BARBER' }, eligible.outcome, { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, `Check-in blocked: ${eligible.message}`)
+    await recordScan(actorRefArg, eligible.outcome, { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, `Check-in blocked: ${eligible.message}`)
     return eligible
   }
 
   if (target.checkedInAt) {
-    await recordScan({ barberId, role: 'BARBER' }, 'ALREADY_CHECKED_IN', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Duplicate check-in attempt')
+    await recordScan(actorRefArg, 'ALREADY_CHECKED_IN', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Duplicate check-in attempt')
     return {
       ...eligible,
       outcome: 'ALREADY_CHECKED_IN',
@@ -454,7 +597,7 @@ export async function checkInAppointment(
     data: { checkedInAt: new Date() },
   })
 
-  await recordScan({ barberId, role: 'BARBER' }, 'CHECKED_IN', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Customer checked in')
+  await recordScan(actorRefArg, 'CHECKED_IN', { ...meta, source: 'MANUAL' }, { id: target.id, referenceCode: target.referenceCode }, null, 'Customer checked in')
 
   return {
     ...eligible,
@@ -467,6 +610,47 @@ export async function checkInAppointment(
       ? { ...eligible.appointment, checkedInAt: new Date() }
       : null,
   }
+}
+
+export async function checkInAppointment(
+  barberId: number,
+  appointmentId: number,
+  input: { token?: string | null },
+  meta: ScanContext,
+): Promise<QrScanResult> {
+  return runCheckIn({ role: 'BARBER', barberId }, appointmentId, input, meta)
+}
+
+export async function checkInAppointmentAsAdmin(
+  adminId: number,
+  appointmentId: number,
+  input: { token?: string | null },
+  meta: ScanContext,
+): Promise<QrScanResult> {
+  return runCheckIn({ role: 'ADMIN', adminId }, appointmentId, input, meta)
+}
+
+/** Recent check-in / scan history for a single appointment (admin view). */
+export async function listAppointmentQrHistory(
+  appointmentId: number,
+  limit = 20,
+): Promise<QrScanHistoryEntry[]> {
+  const rows = await prisma.qrScanLog.findMany({
+    where: { appointmentId },
+    include: { barber: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  })
+  return rows.map((row) => ({
+    id: row.id,
+    outcome: row.outcome as QrOutcome,
+    source: row.source,
+    actorRole: row.actorRole,
+    barberName: row.barber?.name ?? null,
+    adminId: row.adminId,
+    detail: row.detail,
+    createdAt: row.createdAt,
+  }))
 }
 
 // ─── Admin ────────────────────────────────────────────────────────────────────

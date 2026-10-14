@@ -42,6 +42,10 @@ export const qrAppointmentBodySchema = z.object({
   appointmentId: z.coerce.number().int().positive(),
 })
 
+export const qrAppointmentIdParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+})
+
 export type QrValidateInput = z.infer<typeof qrValidateBodySchema>
 export type QrCheckinInput = z.infer<typeof qrCheckinBodySchema>
 export type QrActivityQuery = z.infer<typeof qrActivityQuerySchema>

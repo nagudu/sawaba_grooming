@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { QRCodeSVG } from 'qrcode.react'
 import { KeyRound, Save } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/ToastNotification'
@@ -7,7 +6,15 @@ import { accountApi } from '../../api/account'
 import { useCustomerAuth } from '../../store/customerAuth'
 import { api } from '../../api'
 import type { BarberItem, ServiceItem } from '../../api'
-import { formatDate } from '../../utils/format'
+import { formatLongDate } from '../../utils/format'
+
+function customerInitials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  const first = parts[0][0] ?? ''
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
+  return `${first}${last}`.toUpperCase()
+}
 
 export default function CustomerProfilePage() {
   const { customer, refresh } = useCustomerAuth()
@@ -111,24 +118,36 @@ export default function CustomerProfilePage() {
       </div>
       <div className="space-y-6">
         <div className="grid gap-6">
-          {/* Identity card with QR */}
-          <div className="card-lux flex flex-wrap items-center justify-between gap-6 p-6">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-night-500">Customer ID</p>
-              <p className="mt-1 font-mono text-3xl font-bold tracking-wide text-gold-400">
-                {customer.customerCode}
-              </p>
-              <p className="mt-2 text-sm text-night-400">
-                {customer.fullName} · {customer.phone}
-              </p>
-              <p className="mt-1 text-xs text-night-500">Member since {formatDate(customer.createdAt)}</p>
-            </div>
-            <div className="rounded-2xl border border-night-700 bg-white p-3">
-              <QRCodeSVG
-                value={JSON.stringify({ code: customer.customerCode, phone: customer.phone })}
-                size={112}
-                level="M"
-              />
+          {/* Identity card */}
+          <div className="card-lux p-6">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-gold-500/30 bg-gold-500/10 font-display text-xl font-bold text-gold-400">
+                  {customerInitials(customer.fullName)}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-display text-xl text-night-50">{customer.fullName}</p>
+                  <p className="mt-0.5 text-sm text-night-400">{customer.phone}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3 border-t border-night-800 pt-4 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0 sm:text-right">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-night-500">
+                    Customer ID
+                  </p>
+                  <p className="mt-1 font-mono text-lg font-bold tracking-wide text-gold-400">
+                    {customer.customerCode}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-night-500">
+                    Member since
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-night-100">
+                    {formatLongDate(customer.createdAt)}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

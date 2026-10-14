@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { QRCodeSVG } from 'qrcode.react'
+import { QRCodeCanvas } from 'qrcode.react'
 import {
   AlertCircle,
   ArrowLeft,
@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  Download,
   FileText,
   Hash,
   LoaderCircle,
@@ -92,6 +93,21 @@ function DetailRow({
   )
 }
 
+// ─── QR meta cell ─────────────────────────────────────────────────────────────
+
+function QrMeta({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="rounded-lg border border-night-800 bg-night-950/40 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-night-500">
+        {label}
+      </p>
+      <p className={cn('mt-0.5 text-sm font-semibold text-night-100', mono && 'font-mono')}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
 // ─── Section header ───────────────────────────────────────────────────────────
 
 function SectionHeader({ title }: { title: string }) {
@@ -116,6 +132,7 @@ export default function CustomerBookingDetailPage() {
   const [qr, setQr] = useState<AppointmentQr | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
   const [qrError, setQrError] = useState<string | null>(null)
+  const qrCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const load = useCallback(async () => {
     if (!id || Number.isNaN(Number(id))) {
@@ -167,6 +184,14 @@ export default function CustomerBookingDetailPage() {
       active = false
     }
   }, [appointment, qrEligible])
+
+  // Deep link from "View QR Code" — scroll to the QR once it has rendered.
+  useEffect(() => {
+    if (!qr) return
+    if (window.location.hash === '#check-in-code') {
+      document.getElementById('check-in-code')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [qr])
 
   async function handleCancel() {
     if (!appointment || cancelling) return
@@ -235,6 +260,24 @@ export default function CustomerBookingDetailPage() {
   const ref =
     appointment.referenceCode ??
     `APT-${String(appointment.id).padStart(4, '0')}`
+
+  const downloadQr = () => {
+    const canvas = qrCanvasRef.current
+    if (!canvas) return
+    const url = canvas.toDataURL('image/png')
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `sawaba-checkin-${ref}.png`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    showToast('QR code downloaded.', 'success')
+  }
+
+  const barberLabel =
+    (appointment as unknown as { assignedBarber?: { name?: string } }).assignedBarber?.name ??
+    (appointment as unknown as { barber?: { name?: string } }).barber?.name ??
+    null
 
   return (
     <div className="space-y-8">
@@ -465,8 +508,8 @@ export default function CustomerBookingDetailPage() {
 
       {/* ── Check-in QR ── */}
       {appointment.status !== 'CANCELLED' && (
-        <section>
-          <SectionHeader title="Check-in Code" />
+        <section id="check-in-code" className="scroll-mt-24">
+          <SectionHeader title="Check-in QR Code" />
           {isPaid ? (
             <div className="rounded-2xl border border-night-800 bg-night-900/50 p-5">
               {qrLoading && (
@@ -483,11 +526,25 @@ export default function CustomerBookingDetailPage() {
               )}
 
               {qr && !qrLoading && (
-                <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left">
-                  <div className="rounded-2xl bg-white p-3 shadow-lg">
-                    <QRCodeSVG value={qr.qrPayload} size={168} level="M" />
+                <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-start sm:text-left">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="rounded-2xl bg-white p-3 shadow-lg">
+                      <QRCodeCanvas
+                        ref={qrCanvasRef}
+                        value={qr.qrPayload}
+                        size={512}
+                        level="M"
+                        style={{ width: 172, height: 172 }}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <Button variant="outline" size="sm" onClick={downloadQr}>
+                      <Download className="h-3.5 w-3.5" />
+                      Download QR Code
+                    </Button>
                   </div>
-                  <div className="space-y-2">
+
+                  <div className="min-w-0 space-y-3">
                     <p className="flex items-center justify-center gap-2 font-semibold text-night-50 sm:justify-start">
                       <QrCode className="h-4 w-4 text-gold-400" />
                       Show this code at check-in
@@ -496,24 +553,57 @@ export default function CustomerBookingDetailPage() {
                       Present this QR to your barber when you arrive. It confirms your
                       verified payment and checks you in instantly.
                     </p>
-                    <p className="text-xs text-night-500">
-                      Reference{' '}
-                      <span className="font-mono text-night-300">{qr.referenceCode ?? ref}</span>
-                    </p>
-                    {qr.checkedInAt && (
+
+                    <div className="grid gap-2 text-sm sm:grid-cols-2">
+                      <QrMeta label="Reference" value={qr.referenceCode ?? ref} mono />
+                      <QrMeta
+                        label="Service"
+                        value={appointment.service?.name ?? '—'}
+                      />
+                      <QrMeta
+                        label="Date"
+                        value={formatDate(appointment.appointmentDate)}
+                      />
+                      <QrMeta
+                        label="Time"
+                        value={formatTime(appointment.appointmentTime)}
+                      />
+                      {barberLabel && <QrMeta label="Barber" value={barberLabel} />}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Checked in
+                        <BadgeCheck className="h-3 w-3" />
+                        Payment verified
                       </span>
-                    )}
+                      {qr.checkedInAt && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-300">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Checked in
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={downloadQr}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold-400 hover:text-gold-300"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Save QR to your phone
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-3 rounded-2xl border border-night-800 bg-night-900/40 px-4 py-4 text-sm text-night-400">
-              <QrCode className="h-5 w-5 shrink-0 text-night-500" />
-              Your check-in QR becomes available once your payment is verified.
+            <div className="flex items-start gap-3 rounded-2xl border border-gold-500/30 bg-gold-500/[0.06] px-4 py-4 text-sm text-gold-200">
+              <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-gold-400" />
+              <span>
+                Your check-in QR becomes available once your payment is verified. This is
+                not proof of payment yet
+                {payStatus ? ` — current status: ${PAYMENT_STATUS_LABELS[payStatus]}.` : '.'}
+              </span>
             </div>
           )}
         </section>

@@ -1,22 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Html5Qrcode } from 'html5-qrcode'
+import { useCallback, useState } from 'react'
 import {
   AlertTriangle,
   BadgeCheck,
   CalendarDays,
-  Camera,
-  CameraOff,
   CheckCircle2,
   Clock,
+  FileText,
   Phone,
   QrCode,
   RefreshCw,
-  Search,
   Scissors,
   UserRound,
   Wallet,
   XCircle,
 } from 'lucide-react'
+import QrCameraScanner from '../../components/qr/QrCameraScanner'
 import {
   checkInCustomer,
   updatePortalAppointmentStatus,
@@ -26,8 +24,6 @@ import {
 } from '../../api/barberPortal'
 import { formatPrice } from '../../utils/format'
 import { cn } from '../../utils/cn'
-
-const READER_REGION_ID = 'sawaba-qr-reader-region'
 
 const OUTCOME_STYLE: Record<QrOutcome, { ring: string; badge: string; label: string }> = {
   VALID: { ring: 'border-emerald-500/50 bg-emerald-500/[0.07]', badge: 'bg-emerald-500/15 text-emerald-300', label: 'Valid booking' },
@@ -52,125 +48,50 @@ const PAYMENT_LABEL: Record<string, string> = {
   NONE: 'No payment',
 }
 
+const PAYMENT_METHOD: Record<string, string> = {
+  CASH: 'Cash',
+  OPAY: 'OPay',
+  BANK_TRANSFER: 'Bank transfer',
+  ONLINE: 'Online',
+  OTHER: 'Other',
+}
+
 const TERMINAL_OUTCOMES: QrOutcome[] = ['NOT_FOUND', 'INVALID_TOKEN', 'UNAUTHORIZED', 'REVOKED']
 
 export default function BarberScanPage() {
-  const [cameraOn, setCameraOn] = useState(false)
-  const [cameraError, setCameraError] = useState<string | null>(null)
   const [result, setResult] = useState<QrScanResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [manualRef, setManualRef] = useState('')
 
-  const scannerRef = useRef<Html5Qrcode | null>(null)
-  const decodedRef = useRef<(text: string) => void>(() => {})
-
-  const stopScanner = useCallback(async () => {
-    const instance = scannerRef.current
-    if (!instance) {
-      setCameraOn(false)
-      return
-    }
-    scannerRef.current = null
+  const lookupToken = useCallback(async (token: string) => {
+    setBusy(true)
     try {
-      await instance.stop()
-      instance.clear()
-    } catch {
-      // already stopped
+      setResult(await validateQrCode({ token }))
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not verify that code.')
+    } finally {
+      setBusy(false)
     }
-    setCameraOn(false)
   }, [])
 
-  const applyResult = useCallback((next: QrScanResult) => {
-    setResult(next)
-    setError(null)
-  }, [])
-
-  const lookupToken = useCallback(
-    async (token: string) => {
-      setBusy(true)
-      try {
-        applyResult(await validateQrCode({ token }))
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not verify that code.')
-      } finally {
-        setBusy(false)
-      }
-    },
-    [applyResult],
-  )
-
-  const lookupReference = useCallback(
-    async (reference: string) => {
-      const value = reference.trim()
-      if (!value) return
-      setBusy(true)
-      try {
-        applyResult(await validateQrCode({ reference: value }))
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not find that booking.')
-      } finally {
-        setBusy(false)
-      }
-    },
-    [applyResult],
-  )
-
-  const handleDecoded = useCallback(
-    (text: string) => {
-      void stopScanner().then(() => lookupToken(text))
-    },
-    [stopScanner, lookupToken],
-  )
-
-  useEffect(() => {
-    decodedRef.current = handleDecoded
-  }, [handleDecoded])
-
-  const startScanner = useCallback(async () => {
-    if (scannerRef.current) return
-    setCameraError(null)
-    const region = document.getElementById(READER_REGION_ID)
-    if (!region) return
-    const instance = new Html5Qrcode(READER_REGION_ID, { verbose: false })
-    scannerRef.current = instance
+  const lookupReference = useCallback(async (reference: string) => {
+    setBusy(true)
     try {
-      await instance.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 240, height: 240 } },
-        (decoded) => decodedRef.current(decoded),
-        () => {},
-      )
-      setCameraOn(true)
-    } catch {
-      scannerRef.current = null
-      setCameraError(
-        'Camera is unavailable on this device/browser. Grant camera permission, or enter the booking reference below.',
-      )
+      setResult(await validateQrCode({ reference }))
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not find that booking.')
+    } finally {
+      setBusy(false)
     }
   }, [])
-
-  useEffect(() => {
-    return () => {
-      void stopScanner()
-    }
-  }, [stopScanner])
-
-  // Auto-start the camera once the reader region is mounted (first load and
-  // after "Scan another"). Never fights a manual stop because it only runs when
-  // there is no result on screen and no scanner already active.
-  useEffect(() => {
-    if (!result && !cameraOn && !scannerRef.current) {
-      void startScanner()
-    }
-  }, [result, cameraOn, startScanner])
 
   const handleCheckIn = async () => {
     if (!result?.appointment || busy) return
     setBusy(true)
     try {
-      const next = await checkInCustomer(result.appointment.id)
-      applyResult(next)
+      setResult(await checkInCustomer(result.appointment.id))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Check-in failed.')
     } finally {
@@ -184,9 +105,9 @@ export default function BarberScanPage() {
     try {
       await updatePortalAppointmentStatus(result.appointment.id, to)
       if (result.appointment.referenceCode) {
-        applyResult(await validateQrCode({ reference: result.appointment.referenceCode }))
+        setResult(await validateQrCode({ reference: result.appointment.referenceCode }))
       } else {
-        await handleCheckIn()
+        setResult(await checkInCustomer(result.appointment.id))
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Update failed.')
@@ -197,7 +118,6 @@ export default function BarberScanPage() {
 
   const reset = () => {
     setResult(null)
-    setManualRef('')
     setError(null)
   }
 
@@ -212,8 +132,8 @@ export default function BarberScanPage() {
           <QrCode className="h-5 w-5" />
         </span>
         <div>
-          <h1 className="font-display text-2xl font-semibold text-night-50">Check-in Scanner</h1>
-          <p className="text-sm text-night-400">Scan a customer's booking QR to verify payment and check them in.</p>
+          <h1 className="font-display text-2xl font-semibold text-night-50">Scan Customer QR</h1>
+          <p className="text-sm text-night-400">Verify a customer's booking QR, then check them in and run the service.</p>
         </div>
       </div>
 
@@ -224,66 +144,7 @@ export default function BarberScanPage() {
       )}
 
       {!result && (
-        <div className="space-y-4 rounded-2xl border border-night-800 bg-night-900/50 p-4 sm:p-5">
-          <div className="relative overflow-hidden rounded-xl border border-night-800 bg-black">
-            <div id={READER_REGION_ID} className="min-h-[220px] w-full [&_video]:w-full" />
-            {!cameraOn && (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 text-night-500">
-                {cameraError ? <CameraOff className="h-8 w-8" /> : <Camera className="h-8 w-8" />}
-                <p className="max-w-xs px-6 text-center text-xs">{cameraError ?? 'Camera is off.'}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {!cameraOn ? (
-              <button
-                type="button"
-                onClick={() => void startScanner()}
-                className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-night-950 hover:bg-gold-400"
-              >
-                <Camera className="h-4 w-4" />
-                Start camera
-              </button>
-            ) : (
-              <button
-                onClick={() => void stopScanner()}
-                className="inline-flex items-center gap-2 rounded-lg border border-night-700 px-4 py-2 text-sm font-semibold text-night-300 hover:text-night-100"
-              >
-                <CameraOff className="h-4 w-4" />
-                Stop camera
-              </button>
-            )}
-          </div>
-
-      <div className="rounded-xl border border-night-800 bg-night-900/60 p-4">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-night-500">
-              Manual lookup
-            </p>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                void lookupReference(manualRef)
-              }}
-              className="flex gap-2"
-            >
-              <input
-                value={manualRef}
-                onChange={(e) => setManualRef(e.target.value)}
-                placeholder="Booking reference e.g. APT-20260101-001"
-                className="min-w-0 flex-1 rounded-lg border border-night-700 bg-night-950 px-3 py-2 text-sm text-night-100 placeholder:text-night-600 focus:border-gold-500/60 focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={busy || !manualRef.trim()}
-                className="inline-flex items-center gap-2 rounded-lg border border-gold-500/40 bg-gold-500/10 px-4 py-2 text-sm font-semibold text-gold-300 hover:bg-gold-500/20 disabled:opacity-50"
-              >
-                <Search className="h-4 w-4" />
-                Verify
-              </button>
-            </form>
-          </div>
-        </div>
+        <QrCameraScanner onDecode={lookupToken} onManual={lookupReference} />
       )}
 
       {busy && (
@@ -332,6 +193,14 @@ export default function BarberScanPage() {
               <Info icon={<CalendarDays className="h-4 w-4" />} label="Date" value={appointment.appointmentDate} />
               <Info icon={<Clock className="h-4 w-4" />} label="Time" value={appointment.appointmentTime} />
               <Info icon={<Wallet className="h-4 w-4" />} label="Amount" value={formatPrice(appointment.totalAmount)} />
+              {appointment.payment?.method && (
+                <Info icon={<Wallet className="h-4 w-4" />} label="Paid via" value={PAYMENT_METHOD[appointment.payment.method] ?? appointment.payment.method} />
+              )}
+              {appointment.notes && (
+                <div className="sm:col-span-2">
+                  <Info icon={<FileText className="h-4 w-4" />} label="Customer instructions" value={appointment.notes} />
+                </div>
+              )}
             </div>
           )}
 

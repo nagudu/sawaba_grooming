@@ -6,6 +6,9 @@ export interface PublicGalleryImage {
   src: string
   title: string
   category: string
+  mediaType: 'IMAGE' | 'VIDEO'
+  video: string | null
+  duration: number | null
 }
 
 export const PUBLIC_GALLERY_CATEGORIES: Array<{ value: string; label: string }> = [
@@ -19,13 +22,16 @@ export const PUBLIC_GALLERY_CATEGORIES: Array<{ value: string; label: string }> 
 ]
 
 export async function fetchGalleryImages(): Promise<PublicGalleryImage[]> {
-  return cachedJson('gallery', async () => {
+  return cachedJson('gallery-v2', async () => {
     const data = await api.get<Paged<GalleryItem>>('/api/gallery?page=1&perPage=100')
     return data.items.map((item) => ({
       id: String(item.id),
-      src: item.image,
+      src: item.image ?? '',
       title: item.title,
       category: item.category,
+      mediaType: item.mediaType ?? 'IMAGE',
+      video: item.video ?? null,
+      duration: item.duration ?? null,
     }))
   })
 }

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   LoaderCircle,
+  QrCode,
   Scissors,
   Star,
   User,
@@ -199,7 +200,21 @@ function BookingCard({
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>
 
-          {/* Pay Now (if unpaid/rejected and we have a token) */}
+          {/* View QR code (available once paid; deep-links to the QR section) */}
+          {appointment.status !== 'CANCELLED' && (
+            <Link
+              to={`/account/bookings/${appointment.id}#check-in-code`}
+              className={cn(
+                'flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors',
+                payStatus === 'PAID'
+                  ? 'border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10'
+                  : 'border-night-700 text-night-300 hover:border-night-500 hover:text-night-100',
+              )}
+            >
+              <QrCode className="h-3.5 w-3.5" />
+              View QR Code
+            </Link>
+          )}
           {requiresPayment && payToken && (
             <ButtonLink to={`/pay/${payToken}`} variant="gold" size="sm">
               <Wallet className="h-3.5 w-3.5" />
