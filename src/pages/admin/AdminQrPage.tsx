@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   BadgeCheck,
@@ -43,6 +44,7 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import { useToast } from '../../components/ui/ToastNotification'
 import { useAuthErrorToast } from '../../hooks/useAuthErrorToast'
 import { formatDate, formatPrice, formatTime } from '../../utils/format'
+import { qrBookingStatusLabel, qrPaymentStatusLabel } from '../../utils/scanStatus'
 import { cn } from '../../utils/cn'
 
 const OUTCOME_STYLE: Record<QrOutcome, { ring: string; badge: string; label: string }> = {
@@ -56,16 +58,6 @@ const OUTCOME_STYLE: Record<QrOutcome, { ring: string; badge: string; label: str
   UNAUTHORIZED: { ring: 'border-red-500/50 bg-red-500/[0.07]', badge: 'bg-red-500/15 text-red-300', label: 'Unauthorized' },
   NOT_FOUND: { ring: 'border-night-700 bg-night-900/60', badge: 'bg-night-800 text-night-300', label: 'Not found' },
   INVALID_TOKEN: { ring: 'border-night-700 bg-night-900/60', badge: 'bg-night-800 text-night-300', label: 'Unrecognised code' },
-}
-
-const PAYMENT_LABEL: Record<string, string> = {
-  PAID: 'Paid',
-  PENDING_VERIFICATION: 'Pending verification',
-  UNPAID: 'Unpaid',
-  REJECTED: 'Rejected',
-  REFUNDED: 'Refunded',
-  CANCELLED: 'Cancelled',
-  NONE: 'No payment',
 }
 
 const PAYMENT_METHOD: Record<string, string> = {
@@ -115,6 +107,22 @@ function QrScannerPanel() {
   const refresh = useCallback(async () => {
     if (lastQuery) await applyQuery(lastQuery)
   }, [applyQuery, lastQuery])
+
+  // Auto-verify a booking when opened from a scanned QR link
+  // (/admin/qr?token=<token>) so a native-camera scan lands straight on details.
+  const [searchParams] = useSearchParams()
+  const prefill = useMemo<{ token?: string; reference?: string } | null>(() => {
+    const token = searchParams.get('token')?.trim()
+    if (token) return { token }
+    const reference = (searchParams.get('ref') ?? searchParams.get('reference'))?.trim()
+    return reference ? { reference } : null
+  }, [searchParams])
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (prefilled.current || !prefill) return
+    prefilled.current = true
+    void applyQuery(prefill)
+  }, [applyQuery, prefill])
 
   // Load the check-in / scan history whenever a booking surfaces.
   const appointmentId = result?.appointment?.id ?? null
@@ -309,7 +317,7 @@ function QrScannerPanel() {
               <Info
                 icon={<BadgeCheck className="h-4 w-4" />}
                 label="Payment status"
-                value={PAYMENT_LABEL[result.paymentStatus] ?? result.paymentStatus}
+                value={qrPaymentStatusLabel(result.paymentStatus)}
               />
               {payment?.method && (
                 <Info icon={<Wallet className="h-4 w-4" />} label="Method" value={PAYMENT_METHOD[payment.method] ?? payment.method} />
@@ -332,7 +340,7 @@ function QrScannerPanel() {
 
           <div className="flex flex-wrap items-center gap-2 border-t border-night-800 pt-4">
             <span className="rounded-full border border-night-700 bg-night-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-night-300">
-              Booking: {apt?.status ?? '—'}
+              Booking: {qrBookingStatusLabel(result)}
             </span>
             {result.checkedIn && (
               <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-300">

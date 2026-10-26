@@ -46,7 +46,14 @@ export const qrAppointmentIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
 })
 
+/** Public (guest) QR retrieval — needs both the booking reference/id and phone. */
+export const publicBookingQrSchema = z.object({
+  reference: z.string().trim().min(3).max(40),
+  phone: z.string().trim().min(7).max(30),
+})
+
 export type QrValidateInput = z.infer<typeof qrValidateBodySchema>
 export type QrCheckinInput = z.infer<typeof qrCheckinBodySchema>
 export type QrActivityQuery = z.infer<typeof qrActivityQuerySchema>
 export type QrAppointmentInput = z.infer<typeof qrAppointmentBodySchema>
+export type PublicBookingQrInput = z.infer<typeof publicBookingQrSchema>

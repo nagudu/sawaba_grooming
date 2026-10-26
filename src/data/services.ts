@@ -14,6 +14,7 @@ export const site = {
   instagram: 'https://instagram.com/sawabasalon',
   facebook: 'https://facebook.com/sawabasalon',
   twitter: 'https://x.com/sawabasalon',
+  tiktok: 'https://www.tiktok.com/@sawabagrooming?_r=1&_t=ZS-9ArLx8ARA4C',
   hours: [
     { day: 'Monday', time: '9:00 AM – 8:00 PM' },
     { day: 'Tuesday', time: '9:00 AM – 8:00 PM' },

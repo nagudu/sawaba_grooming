@@ -121,13 +121,34 @@ export function parseQrPayload(raw: string | null | undefined): string | null {
   if (!raw) return null
   let value = String(raw).trim()
   const marker = value.toLowerCase().lastIndexOf(QR_PREFIX)
-  if (marker >= 0) value = value.slice(marker + QR_PREFIX.length)
+  if (marker >= 0) {
+    // Legacy / in-app payload: "sawaba:<token>"
+    value = value.slice(marker + QR_PREFIX.length)
+  } else if (value.includes('/')) {
+    // Link payload: "<origin>/qr/<token>" (ignore any query string or hash).
+    const path = value.split(/[?#]/)[0]
+    const segments = path.split('/').filter(Boolean)
+    value = segments[segments.length - 1] ?? ''
+  }
   value = value.trim().toLowerCase()
   return /^[a-f0-9]{64}$/.test(value) ? value : null
 }
 
+/**
+ * The value encoded into a booking QR image: the opaque 256-bit token itself —
+ * a unique, secure identifier that maps to exactly one booking in the database.
+ *
+ * It is deliberately NOT a URL. A URL would make a phone's native camera open a
+ * browser (Chrome) instead of using the in-app scanner. The token carries no
+ * customer data; the in-app scanner (admin/barber dashboard) resolves it via the
+ * backend and renders the booking details only for authorised staff.
+ *
+ * `parseQrPayload` also still understands the legacy "sawaba:<token>" form and
+ * any previously-issued "<origin>/qr/<token>" link form, so already-generated
+ * codes keep working and can be regenerated safely.
+ */
 export function buildQrPayload(token: string): string {
-  return `${QR_PREFIX}${token}`
+  return token
 }
 
 export function paymentBadge(status: PaymentStatus | null | undefined): PaymentStatus | 'NONE' {
@@ -347,6 +368,87 @@ export async function getCustomerAppointmentQr(
     paymentStatus: paymentBadge(appointment.payment?.status),
     checkedInAt: appointment.checkedInAt,
     revokedAt: appointment.qrRevokedAt,
+  }
+}
+
+export interface PublicBookingQr {
+  appointmentId: number
+  referenceCode: string | null
+  qrPayload: string
+  qrToken: string
+  paymentStatus: PaymentStatus | 'NONE'
+  appointmentStatus: AppointmentStatus
+  checkedInAt: Date | null
+  revokedAt: Date | null
+  customerName: string
+  serviceName: string | null
+  barberName: string | null
+  appointmentDate: string
+  appointmentTime: string
+  totalAmount: number
+}
+
+/** Same normalisation the payment tracker uses: compare the last 10 digits. */
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, '').slice(-10)
+}
+
+/**
+ * Guest-facing retrieval. A customer who booked without an account can reopen
+ * their QR with the two things they were given: the booking reference (or the
+ * numeric id) and the phone number they booked with. The phone acts as the
+ * second factor, so a bare reference is never enough.
+ */
+export async function getPublicBookingQr(input: {
+  reference: string
+  phone: string
+}): Promise<PublicBookingQr> {
+  const identifier = input.reference.trim().toUpperCase()
+  const include = {
+    service: { select: { name: true } },
+    barber: { select: { name: true } },
+    assignedBarber: { select: { name: true } },
+    payment: { select: { status: true } },
+  } as const
+
+  let appointment = null
+  if (/^\d+$/.test(identifier)) {
+    appointment = await prisma.appointment.findUnique({
+      where: { id: Number(identifier) },
+      include,
+    })
+  }
+  if (!appointment) {
+    appointment = await prisma.appointment.findUnique({
+      where: { referenceCode: identifier },
+      include,
+    })
+  }
+
+  if (!appointment || normalizePhone(appointment.customerPhone) !== normalizePhone(input.phone)) {
+    throw new NotFoundError('No booking matches those details. Please check and try again.')
+  }
+  if (appointment.status === 'CANCELLED') {
+    throw new UnprocessableError('This booking was cancelled, so it has no check-in QR code.')
+  }
+
+  const token = await ensureAppointmentQrToken(appointment.id)
+
+  return {
+    appointmentId: appointment.id,
+    referenceCode: appointment.referenceCode,
+    qrPayload: buildQrPayload(token),
+    qrToken: token,
+    paymentStatus: paymentBadge(appointment.payment?.status),
+    appointmentStatus: appointment.status,
+    checkedInAt: appointment.checkedInAt,
+    revokedAt: appointment.qrRevokedAt,
+    customerName: appointment.customerName,
+    serviceName: appointment.service?.name ?? null,
+    barberName: appointment.assignedBarber?.name ?? appointment.barber?.name ?? null,
+    appointmentDate: appointment.appointmentDate,
+    appointmentTime: appointment.appointmentTime,
+    totalAmount: Number(appointment.totalAmount),
   }
 }
 

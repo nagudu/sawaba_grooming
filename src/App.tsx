@@ -23,6 +23,8 @@ import BookingPage from './pages/BookingPage'
 import PaymentPage from './pages/PaymentPage'
 import ReceiptPage from './pages/ReceiptPage'
 import PaymentHistoryPage from './pages/PaymentHistoryPage'
+import MyBookingPage from './pages/MyBookingPage'
+import QrScanLandingPage from './pages/QrScanLandingPage'
 import PaystackCallbackPage from './pages/PaystackCallbackPage'
 import ContactPage from './pages/ContactPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -144,6 +146,7 @@ function AnimatedRoutes() {
         <Route path="/pay/:token" element={<PaymentPage />} />
         <Route path="/receipt/:token" element={<ReceiptPage />} />
         <Route path="/payments" element={<PaymentHistoryPage />} />
+        <Route path="/my-booking" element={<MyBookingPage />} />
         <Route path="/payments/callback" element={<PaystackCallbackPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/404" element={<NotFoundPage />} />
@@ -222,6 +225,18 @@ function AdminRoutes() {
   )
 }
 
+// ─── QR check-in landing (opened by scanning a booking QR with any camera) ────
+
+function QrScanRoutes() {
+  return (
+    <Routes>
+      <Route path="/qr/:token" element={<QrScanLandingPage />} />
+      <Route path="/qr" element={<QrScanLandingPage />} />
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  )
+}
+
 // ─── Top-level router — dispatch by path prefix ───────────────────────────────
 
 function AppRoutes() {
@@ -229,6 +244,10 @@ function AppRoutes() {
 
   if (location.pathname.startsWith('/admin')) {
     return <AdminRoutes />
+  }
+
+  if (location.pathname === '/qr' || location.pathname.startsWith('/qr/')) {
+    return <QrScanRoutes />
   }
 
   // Catch the /baber typo (and other /bar* slips) BEFORE the /barber dispatch —

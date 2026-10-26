@@ -35,6 +35,7 @@ import {
   to24Hour,
 } from '../../api/booking'
 import ReceiptUploadCard from '../payment/ReceiptUploadCard'
+import BookingQrPanel from '../qr/BookingQrPanel'
 import {
   fetchAvailability,
   type AvailabilitySlot,
@@ -444,6 +445,8 @@ export default function BookingForm({
   const [confirmedDate, setConfirmedDate] = useState<string | null>(null)
   const [confirmedTime, setConfirmedTime] = useState<string | null>(null)
   const [confirmedPaymentMethod, setConfirmedPaymentMethod] = useState<PaymentMethod | null>(null)
+  const [confirmedPaymentStatus, setConfirmedPaymentStatus] = useState<string | null>(null)
+  const [qrPayload, setQrPayload] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false)
 
@@ -667,6 +670,8 @@ export default function BookingForm({
       setConfirmedDate(date)
       setConfirmedTime(time)
       setConfirmedPaymentMethod(booking.paymentMethod)
+      setConfirmedPaymentStatus(result.payment.status ?? null)
+      setQrPayload(result.qrPayload ?? null)
       setSuccess(true)
       return 'success'
     } catch (error) {
@@ -773,6 +778,8 @@ export default function BookingForm({
     setReceiptError(null)
     setSessionToken(null)
     setBookingRef(null)
+    setQrPayload(null)
+    setConfirmedPaymentStatus(null)
     setSuccess(false)
   }
 
@@ -1486,6 +1493,26 @@ export default function BookingForm({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {qrPayload && (
+            <div className="mt-5 w-full text-left">
+              <BookingQrPanel
+                qrPayload={qrPayload}
+                reference={bookingRef}
+                paymentStatus={
+                  confirmedPaymentStatus ??
+                  (confirmedPaymentMethod === 'CASH' ? 'UNPAID' : 'PENDING_VERIFICATION')
+                }
+                serviceName={confirmedService?.name ?? null}
+                barberName={confirmedBarber?.name ?? null}
+                appointmentDate={confirmedDate}
+                appointmentTime={confirmedTime}
+              />
+              <p className="mt-3 text-center text-xs text-night-500">
+                Save this code — you can reopen it anytime from “Find My Booking”.
+              </p>
             </div>
           )}
 

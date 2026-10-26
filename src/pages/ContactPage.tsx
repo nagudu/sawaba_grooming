@@ -9,6 +9,7 @@ import { site } from '../data/services'
 import {
   FacebookIcon,
   InstagramIcon,
+  TikTokIcon,
   TwitterIcon,
   WhatsAppIcon,
 } from '../components/icons/SocialIcons'
@@ -173,6 +174,7 @@ export default function ContactPage() {
                         { href: site.instagram, label: 'Instagram', Icon: InstagramIcon },
                         { href: site.facebook, label: 'Facebook', Icon: FacebookIcon },
                         { href: site.twitter, label: 'Twitter / X', Icon: TwitterIcon },
+                        { href: site.tiktok, label: 'TikTok', Icon: TikTokIcon },
                         { href: `https://wa.me/${site.whatsapp}`, label: 'WhatsApp', Icon: WhatsAppIcon },
                       ].map(({ href, label, Icon }) => (
                         <a

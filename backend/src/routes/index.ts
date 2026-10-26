@@ -14,6 +14,7 @@ import { customerMeRouter } from './customerMe'
 import { paymentsRouter } from './payments'
 import { paystackRouter } from './paystack'
 import { checkoutRouter } from './checkout'
+import { bookingsRouter } from './bookings'
 import { adminPaymentsRouter } from './adminPayments'
 import { adminPaymentSettingsRouter } from './adminPaymentSettings'
 import { barberEarningsRouter, assignmentRouter } from './barberEarnings'
@@ -52,6 +53,7 @@ apiRouter.use('/account', customerMeRouter)
 apiRouter.use('/payments/paystack', paystackRouter)
 apiRouter.use('/payments', paymentsRouter)
 apiRouter.use('/checkout', checkoutRouter)
+apiRouter.use('/bookings', bookingsRouter)
 apiRouter.use('/admin/qr', adminQrRouter)
 apiRouter.use('/admin/dashboard', dashboardRouter)
 apiRouter.use('/admin/customers', customersRouter)

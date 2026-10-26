@@ -1,15 +1,22 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Eye, EyeOff, LoaderCircle, Lock, Mail, Scissors } from 'lucide-react'
 import { useAdminAuth } from '../../store/adminAuth'
 import { useToast } from '../../components/ui/ToastNotification'
 import ForgotPasswordModal from '../../components/auth/ForgotPasswordModal'
 
+/** Only allow same-origin relative redirects (never an open redirect). */
+function safeRedirect(raw: string | null, fallback: string): string {
+  return raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : fallback
+}
+
 export default function AdminLoginPage() {
   const { login } = useAdminAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTo = safeRedirect(searchParams.get('redirect'), '/admin')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,7 +30,7 @@ export default function AdminLoginPage() {
     try {
       await login(email.trim(), password)
       showToast('Welcome back, admin.')
-      navigate('/admin', { replace: true })
+      navigate(redirectTo, { replace: true })
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Login failed.', 'error')
     } finally {

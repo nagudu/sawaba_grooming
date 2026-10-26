@@ -4,6 +4,7 @@ import {
   checkInAppointment,
   checkInAppointmentAsAdmin,
   getCustomerAppointmentQr,
+  getPublicBookingQr,
   getQrActivityStats,
   listAppointmentQrHistory,
   listQrActivity,
@@ -64,6 +65,16 @@ export const getCustomerAppointmentQrHandler: Handler = handle(async (req) => ({
   message: 'Booking QR code fetched.',
   data: await getCustomerAppointmentQr(req.customer!.id, Number(req.params.id)),
 }))
+
+// ─── Public (guest) ───────────────────────────────────────────────────────────
+
+export const getPublicBookingQrHandler: Handler = handle(async (req) => {
+  const { reference, phone } = req.body as { reference: string; phone: string }
+  return {
+    message: 'Booking QR code fetched.',
+    data: await getPublicBookingQr({ reference, phone }),
+  }
+})
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 

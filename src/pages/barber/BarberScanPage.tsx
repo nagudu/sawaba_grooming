@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   BadgeCheck,
@@ -23,6 +24,7 @@ import {
   type QrScanResult,
 } from '../../api/barberPortal'
 import { formatPrice } from '../../utils/format'
+import { qrBookingStatusLabel, qrPaymentStatusLabel } from '../../utils/scanStatus'
 import { cn } from '../../utils/cn'
 
 const OUTCOME_STYLE: Record<QrOutcome, { ring: string; badge: string; label: string }> = {
@@ -36,16 +38,6 @@ const OUTCOME_STYLE: Record<QrOutcome, { ring: string; badge: string; label: str
   UNAUTHORIZED: { ring: 'border-red-500/50 bg-red-500/[0.07]', badge: 'bg-red-500/15 text-red-300', label: 'Not your booking' },
   NOT_FOUND: { ring: 'border-night-700 bg-night-900/60', badge: 'bg-night-800 text-night-300', label: 'Not found' },
   INVALID_TOKEN: { ring: 'border-night-700 bg-night-900/60', badge: 'bg-night-800 text-night-300', label: 'Unrecognised code' },
-}
-
-const PAYMENT_LABEL: Record<string, string> = {
-  PAID: 'Paid',
-  PENDING_VERIFICATION: 'Pending verification',
-  UNPAID: 'Unpaid',
-  REJECTED: 'Failed',
-  REFUNDED: 'Refunded',
-  CANCELLED: 'Cancelled',
-  NONE: 'No payment',
 }
 
 const PAYMENT_METHOD: Record<string, string> = {
@@ -86,6 +78,23 @@ export default function BarberScanPage() {
       setBusy(false)
     }
   }, [])
+
+  // Auto-verify when this page is opened from a scanned QR link
+  // (/barber/scan?token=…), so native-camera scans land straight on the result.
+  const [searchParams] = useSearchParams()
+  const prefill = useMemo<{ token?: string; reference?: string } | null>(() => {
+    const token = searchParams.get('token')?.trim()
+    if (token) return { token }
+    const reference = (searchParams.get('ref') ?? searchParams.get('reference'))?.trim()
+    return reference ? { reference } : null
+  }, [searchParams])
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (prefilled.current || !prefill) return
+    prefilled.current = true
+    if (prefill.token) void lookupToken(prefill.token)
+    else if (prefill.reference) void lookupReference(prefill.reference)
+  }, [lookupReference, lookupToken, prefill])
 
   const handleCheckIn = async () => {
     if (!result?.appointment || busy) return
@@ -224,7 +233,10 @@ export default function BarberScanPage() {
               )}
             >
               {result.paymentStatus === 'PAID' && <BadgeCheck className="h-3 w-3" />}
-              {PAYMENT_LABEL[result.paymentStatus] ?? result.paymentStatus}
+              {qrPaymentStatusLabel(result.paymentStatus)}
+            </span>
+            <span className="rounded-full border border-night-700 bg-night-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-night-300">
+              {qrBookingStatusLabel(result)}
             </span>
             {result.checkedIn && (
               <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-sky-300">

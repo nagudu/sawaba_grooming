@@ -1,14 +1,21 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, Scissors } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useBarberAuth } from '../../store/barberAuth'
 import { barberLogin } from '../../api/barberPortal'
 import ForgotPasswordModal from '../../components/auth/ForgotPasswordModal'
 
+/** Only allow same-origin relative redirects (never an open redirect). */
+function safeRedirect(raw: string | null, fallback: string): string {
+  return raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : fallback
+}
+
 export default function BarberLoginPage() {
   const { barber, loading, refresh } = useBarberAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTo = safeRedirect(searchParams.get('redirect'), '/barber')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +24,7 @@ export default function BarberLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
 
   if (!loading && barber) {
-    return <Navigate to="/barber" replace />
+    return <Navigate to={redirectTo} replace />
   }
 
   const submit = async (event: React.FormEvent) => {
@@ -28,7 +35,7 @@ export default function BarberLoginPage() {
     try {
       await barberLogin(identifier.trim(), password)
       await refresh()
-      navigate('/barber', { replace: true })
+      navigate(redirectTo, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed.')
     } finally {

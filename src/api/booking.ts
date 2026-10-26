@@ -1,4 +1,4 @@
-import { API_BASE, type AppointmentItem, type BarberItem, type PaymentMethod, type Paged, type ServiceItem } from './index'
+import { API_BASE, type AppointmentItem, type BarberItem, type PaymentMethod, type PaymentStatus, type Paged, type ServiceItem } from './index'
 import { cachedJson } from './offlineCache'
 
 interface ApiEnvelope<T> {
@@ -114,6 +114,27 @@ export interface CheckoutFinalized {
   }
   payment: { id: number; accessToken: string; amount: number; status: string }
   sessionToken: string
+  /** Check-in QR minted at booking time so guests see it immediately. */
+  qrPayload?: string
+  qrToken?: string
+}
+
+/** A booking's public check-in QR plus the status needed to interpret it. */
+export interface PublicBookingQr {
+  appointmentId: number
+  referenceCode: string | null
+  qrPayload: string
+  qrToken: string
+  paymentStatus: PaymentStatus | 'NONE'
+  appointmentStatus: string
+  checkedInAt: string | null
+  revokedAt: string | null
+  customerName: string
+  serviceName: string | null
+  barberName: string | null
+  appointmentDate: string
+  appointmentTime: string
+  totalAmount: number
 }
 
 export interface CreateCheckoutPayload {
@@ -188,6 +209,17 @@ export function submitBookingRequest({ receiptFile, ...payload }: BookingPayload
   return bookingRequest<BookingResult>('/api/appointments', {
     method: 'POST',
     body: form,
+  })
+}
+
+/**
+ * Retrieves a booking's check-in QR with the booking reference (or id) and the
+ * phone number it was booked with — no account required.
+ */
+export function fetchBookingQr(input: { reference: string; phone: string }): Promise<PublicBookingQr> {
+  return bookingRequest<PublicBookingQr>('/api/bookings/qr', {
+    method: 'POST',
+    body: JSON.stringify(input),
   })
 }
 

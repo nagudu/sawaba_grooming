@@ -7,12 +7,14 @@ import {
   Clock,
   FileText,
   LoaderCircle,
+  QrCode,
   Scissors,
   User,
   XCircle,
 } from 'lucide-react'
 import PageTransition from '../components/ui/PageTransition'
 import PageHero from '../components/layout/PageHero'
+import BookingQrPanel from '../components/qr/BookingQrPanel'
 import { Button, ButtonLink } from '../components/ui/Button'
 import { useToast } from '../components/ui/ToastNotification'
 import type { PaymentAppointment } from '../api/payments'
@@ -228,6 +230,25 @@ export default function PaystackCallbackPage() {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {checkout?.qrPayload && (
+                <div className="card-lux p-6">
+                  <h3 className="mb-4 flex items-center gap-2 font-display text-lg text-night-50">
+                    <QrCode className="h-5 w-5 text-gold-500" />
+                    Your Check-in QR Code
+                  </h3>
+                  <BookingQrPanel
+                    qrPayload={checkout.qrPayload}
+                    reference={checkout.appointment.referenceCode ?? String(checkout.appointment.id)}
+                    paymentStatus="PAID"
+                    serviceName={appointment?.service?.name ?? null}
+                    barberName={appointment?.barber?.name ?? null}
+                    appointmentDate={checkout.appointment.appointmentDate}
+                    appointmentTime={checkout.appointment.appointmentTime}
+                    bordered={false}
+                  />
                 </div>
               )}
 

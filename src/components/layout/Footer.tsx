@@ -13,6 +13,7 @@ import { ButtonLink } from '../ui/Button'
 import {
   FacebookIcon,
   InstagramIcon,
+  TikTokIcon,
   TwitterIcon,
   WhatsAppIcon,
 } from '../icons/SocialIcons'
@@ -25,6 +26,7 @@ const exploreLinks = [
   { to: '/gallery', label: 'Gallery' },
   { to: '/reviews', label: 'Reviews' },
   { to: '/pricing', label: 'Pricing' },
+  { to: '/my-booking', label: 'Find My Booking' },
   { to: '/contact', label: 'Contact' },
 ]
 
@@ -43,6 +45,7 @@ const socials = [
     Icon: InstagramIcon,
   },
   { href: 'https://x.com/sawabagrooming?s=11', label: 'X', Icon: TwitterIcon },
+  { href: site.tiktok, label: 'TikTok', Icon: TikTokIcon },
 ]
 
 function Logo() {

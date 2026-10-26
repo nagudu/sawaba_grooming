@@ -1,4 +1,12 @@
-import { API_BASE, type AppointmentStatus, type PaymentMethod, type PaymentStatus } from './index'
+import {
+  API_BASE,
+  api,
+  buildQuery,
+  getAdminToken,
+  type AppointmentStatus,
+  type PaymentMethod,
+  type PaymentStatus,
+} from './index'
 import { cachedJson } from './offlineCache'
 
 interface ApiEnvelope<T> {
@@ -33,10 +41,39 @@ export interface PaymentItem {
   status: PaymentStatus
   rejectionReason: string | null
   verifiedAt: string | null
+  verifiedBy: number | null
+  /** Resolved on single-payment reads — the admin who verified it. */
+  verifiedByName?: string | null
+  /** Paystack's own transaction id when the payment went through the gateway. */
+  providerRef: string | null
   createdAt: string
   updatedAt: string
   accessToken: string
   appointment?: PaymentAppointment
+}
+
+/** Aggregated revenue figures — revenue counts verified PAID payments only. */
+export interface PaymentSummary {
+  totalTransactions: number
+  successfulCount: number
+  successfulTotal: number
+  pendingCount: number
+  pendingTotal: number
+  todayCount: number
+  todayTotal: number
+  failedCount: number
+  failedTotal: number
+  refundedCount: number
+  refundedTotal: number
+  unpaidCount: number
+}
+
+export interface TransactionQuery {
+  status?: PaymentStatus | ''
+  method?: PaymentMethod | ''
+  from?: string
+  to?: string
+  search?: string
 }
 
 export interface PaymentSettings {
@@ -115,6 +152,50 @@ export function fetchPaymentSettings(): Promise<PaymentSettings> {
 
 export function fetchPayment(token: string): Promise<PublicPaymentBundle> {
   return paymentsRequest<PublicPaymentBundle>(`/api/payments/${encodeURIComponent(token)}`)
+}
+
+/** Shared filter → query-string mapping for the list, summary and export. */
+export function transactionQuery(query: TransactionQuery): string {
+  return buildQuery({
+    status: query.status || undefined,
+    method: query.method || undefined,
+    from: query.from || undefined,
+    to: query.to || undefined,
+    search: query.search || undefined,
+  })
+}
+
+/** Aggregated totals for the dashboard cards (admin). */
+export function fetchPaymentSummary(query: TransactionQuery): Promise<PaymentSummary> {
+  return api.get<PaymentSummary>(`/api/admin/payments/summary${transactionQuery(query)}`)
+}
+
+/**
+ * Downloads the filtered transactions as a CSV file. Uses a raw fetch (not
+ * the JSON helper) because the endpoint returns a CSV attachment, and the
+ * admin bearer token must accompany it.
+ */
+export async function downloadTransactionsCsv(query: TransactionQuery): Promise<string> {
+  const token = getAdminToken()
+  const url = `${API_BASE}/api/admin/payments/export${transactionQuery(query)}`
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+  if (!response.ok) {
+    throw new Error('Could not export transactions. Please try again.')
+  }
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const match = disposition.match(/filename="?([^";]+)"?/)
+  link.download = match?.[1] ?? `sawaba-transactions-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(objectUrl)
+  return link.download
 }
 
 export function trackPayment(payload: TrackPaymentPayload): Promise<PublicPaymentBundle> {
