@@ -144,6 +144,19 @@ function BookingCard({
               )}
             </div>
 
+            {/* Who the booking is for — each booking keeps its own customer
+                snapshot even when people share a phone number. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-xs text-night-500">
+              <span className="flex items-center gap-1">
+                <User className="h-3.5 w-3.5 shrink-0 text-night-600" />
+                {appointment.customerName}
+                {appointment.customerPhone && <> · {appointment.customerPhone}</>}
+              </span>
+              {appointment.customerEmail && (
+                <span className="break-all">{appointment.customerEmail}</span>
+              )}
+            </div>
+
             {/* Cancellation reason */}
             {appointment.cancellationReason && (
               <p className="mt-1 rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300">

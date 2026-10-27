@@ -308,6 +308,9 @@ export default function AdminAppointmentsPage() {
                         <p className="text-xs text-night-500">
                           #{appointment.referenceCode ?? appointment.id} · {appointment.customerPhone}
                         </p>
+                        {appointment.customerEmail && (
+                          <p className="break-all text-xs text-night-600">{appointment.customerEmail}</p>
+                        )}
                       </Td>
                       <Td>
                         {appointment.service?.name ?? '—'}
