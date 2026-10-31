@@ -29,10 +29,27 @@ import PaystackCallbackPage from './pages/PaystackCallbackPage'
 import ContactPage from './pages/ContactPage'
 import NotFoundPage from './pages/NotFoundPage'
 
+// ── Public shop (multi-vendor marketplace) ───────────────────────────────────
+import ShopPage from './pages/shop/ShopPage'
+import ProductDetailPage from './pages/shop/ProductDetailPage'
+import CartPage from './pages/shop/CartPage'
+import CheckoutPage from './pages/shop/CheckoutPage'
+import OrderStatusPage from './pages/shop/OrderStatusPage'
+
+// ── Vendor portal ───────────────────────────────────────────────────────────
+import VendorLayout from './pages/vendor/VendorLayout'
+import VendorAuthPage from './pages/vendor/VendorAuthPage'
+import VendorDashboardPage from './pages/vendor/VendorDashboardPage'
+import VendorProductsPage from './pages/vendor/VendorProductsPage'
+import VendorOrdersPage from './pages/vendor/VendorOrdersPage'
+import VendorEarningsPage from './pages/vendor/VendorEarningsPage'
+import VendorSettingsPage from './pages/vendor/VendorSettingsPage'
+
 // ── Customer account ───────────────────────────────────────────────────────────
 import AccountLayout from './components/account/AccountLayout'
 import CustomerLoginPage from './pages/account/CustomerLoginPage'
 import CustomerDashboardPage from './pages/account/CustomerDashboardPage'
+import CustomerOrdersPage from './pages/account/CustomerOrdersPage'
 import CustomerAppointmentsPage from './pages/account/CustomerAppointmentsPage'
 import CustomerBookingDetailPage from './pages/account/CustomerBookingDetailPage'
 import CustomerPaymentsPage from './pages/account/CustomerPaymentsPage'
@@ -55,6 +72,7 @@ import AdminPaymentsPage from './pages/admin/AdminPaymentsPage'
 import AdminPaymentSettingsPage from './pages/admin/AdminPaymentSettingsPage'
 import AdminAppearancePage from './pages/admin/AdminAppearancePage'
 import AdminProfilePage from './pages/admin/AdminProfilePage'
+import AdminMarketplacePage from './pages/admin/AdminMarketplacePage'
 
 // ── Barber Portal ────────────────────────────────────────────────────────────
 import BarberLayout from './pages/barber/BarberLayout'
@@ -149,6 +167,11 @@ function AnimatedRoutes() {
         <Route path="/my-booking" element={<MyBookingPage />} />
         <Route path="/payments/callback" element={<PaystackCallbackPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/shop" element={<ShopPage />} />
+        <Route path="/shop/cart" element={<CartPage />} />
+        <Route path="/shop/checkout" element={<CheckoutPage />} />
+        <Route path="/shop/orders/:reference" element={<OrderStatusPage />} />
+        <Route path="/shop/:slug" element={<ProductDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
@@ -174,6 +197,7 @@ function CustomerAccountRoutes() {
         }
       >
         <Route index element={<CustomerDashboardPage />} />
+        <Route path="orders" element={<CustomerOrdersPage />} />
         <Route path="bookings" element={<CustomerAppointmentsPage />} />
         <Route path="bookings/:id" element={<CustomerBookingDetailPage />} />
         <Route path="payments" element={<CustomerPaymentsPage />} />
@@ -218,7 +242,27 @@ function AdminRoutes() {
         <Route path="reviews" element={<AdminReviewsPage />} />
         <Route path="contacts" element={<AdminContactsPage />} />
         <Route path="customers" element={<AdminCustomersPage />} />
+        <Route path="marketplace" element={<AdminMarketplacePage />} />
         <Route path="profile" element={<AdminProfilePage />} />
+      </Route>
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  )
+}
+
+// ─── Vendor portal routes (own chrome — auth + dashboard pages) ──────────────
+
+function VendorRoutes() {
+  return (
+    <Routes>
+      <Route path="/vendor/login" element={<VendorAuthPage mode="login" />} />
+      <Route path="/vendor/register" element={<VendorAuthPage mode="register" />} />
+      <Route path="/vendor" element={<VendorLayout />}>
+        <Route index element={<VendorDashboardPage />} />
+        <Route path="products" element={<VendorProductsPage />} />
+        <Route path="orders" element={<VendorOrdersPage />} />
+        <Route path="earnings" element={<VendorEarningsPage />} />
+        <Route path="settings" element={<VendorSettingsPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
@@ -248,6 +292,10 @@ function AppRoutes() {
 
   if (location.pathname === '/qr' || location.pathname.startsWith('/qr/')) {
     return <QrScanRoutes />
+  }
+
+  if (location.pathname === '/vendor' || location.pathname.startsWith('/vendor/')) {
+    return <VendorRoutes />
   }
 
   // Catch the /baber typo (and other /bar* slips) BEFORE the /barber dispatch —

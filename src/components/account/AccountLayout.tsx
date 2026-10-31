@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  ShoppingBag,
   Scissors,
   UserRound,
   Wallet,
@@ -26,6 +27,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/account', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { to: '/account/orders', label: 'My Orders', icon: ShoppingBag },
   { to: '/account/bookings', label: 'My Bookings', icon: CalendarDays },
   { to: '/account/payments', label: 'Payments', icon: CreditCard },
   { to: '/account/profile', label: 'Profile', icon: UserRound },

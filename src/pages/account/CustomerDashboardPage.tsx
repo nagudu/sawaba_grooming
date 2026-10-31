@@ -13,6 +13,7 @@ import {
   LoaderCircle,
   RotateCcw,
   Scissors,
+  ShoppingBag,
   Sparkles,
   User,
   UserRound,
@@ -271,6 +272,7 @@ export default function CustomerDashboardPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { to: '/book', label: 'Book Appointment', icon: CalendarPlus },
+                { to: '/account/orders', label: 'My Orders', icon: ShoppingBag },
                 { to: '/account/bookings', label: 'My Bookings', icon: Scissors },
                 { to: '/account/payments', label: 'Payments', icon: CreditCard },
                 { to: '/account/profile', label: 'My Profile', icon: UserRound },

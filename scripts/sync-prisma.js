@@ -12,40 +12,33 @@ const rootClientDir = path.join(rootDir, 'node_modules/.prisma/client')
 const backendClientDir = path.join(rootDir, 'backend/node_modules/.prisma/client')
 const schemaPath = path.join(rootDir, 'prisma/schema.prisma')
 
-// Ensure root has a generated client
-const rootHasClient = fs.existsSync(path.join(rootClientDir, 'schema.prisma'))
-
-if (!rootHasClient) {
-  try {
-    console.log('[sync-prisma] Generating Prisma Client...')
-    execSync(`npx prisma generate --schema="${schemaPath}"`, {
-      cwd: rootDir,
-      stdio: 'inherit',
-    })
-  } catch (err) {
-    console.error('[sync-prisma] Failed to generate Prisma Client:', err.message)
-  }
-}
+// Always regenerate: a previously generated client can be stale after schema edits.
+console.log('[sync-prisma] Generating Prisma Client...')
+execSync(`npx prisma generate --schema="${schemaPath}"`, {
+  cwd: rootDir,
+  stdio: 'inherit',
+})
 
 // If backend has its own node_modules, sync .prisma/client into it
 if (fs.existsSync(path.join(rootDir, 'backend/node_modules'))) {
   try {
     fs.mkdirSync(backendClientDir, { recursive: true })
     if (fs.existsSync(rootClientDir)) {
-      fs.cpSync(rootClientDir, backendClientDir, { recursive: true })
+      fs.cpSync(rootClientDir, backendClientDir, {
+        recursive: true,
+        // The Prisma engine DLL may be locked by a running backend process;
+        // the binary is versioned independently from the generated schema API.
+        filter: (source) => !/query_engine.*\.dll\.node$/i.test(path.basename(source)),
+      })
       console.log('[sync-prisma] Synced Prisma Client to backend/node_modules/.prisma/client')
     }
   } catch (err) {
-    console.warn('[sync-prisma] Warning syncing to backend:', err.message)
+    console.error('[sync-prisma] Failed syncing generated Prisma Client to backend:', err.message)
+    throw err
   }
 }
 
 // Sync schema.prisma to backend/prisma/schema.prisma
 const backendPrismaDir = path.join(rootDir, 'backend/prisma')
-try {
-  fs.mkdirSync(backendPrismaDir, { recursive: true })
-  fs.copyFileSync(schemaPath, path.join(backendPrismaDir, 'schema.prisma'))
-} catch {
-  // ignore
-}
-
+fs.mkdirSync(backendPrismaDir, { recursive: true })
+fs.copyFileSync(schemaPath, path.join(backendPrismaDir, 'schema.prisma'))

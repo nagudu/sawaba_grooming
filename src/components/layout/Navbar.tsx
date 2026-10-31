@@ -18,6 +18,7 @@ const links = [
   { to: '/barbers', label: 'Barbers' },
   { to: '/gallery', label: 'Gallery' },
   { to: '/pricing', label: 'Pricing' },
+  { to: '/shop', label: 'Shop' },
   { to: '/reviews', label: 'Reviews' },
   { to: '/contact', label: 'Contact' },
 ]

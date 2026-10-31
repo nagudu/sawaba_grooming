@@ -19,6 +19,7 @@ const links = [
   { to: '/gallery', label: 'Gallery' },
   { to: '/reviews', label: 'Reviews' },
   { to: '/pricing', label: 'Pricing' },
+  { to: '/shop', label: 'Shop' },
   { to: '/contact', label: 'Contact' },
 ]
 
