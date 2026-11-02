@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
+  Bell,
   CalendarDays,
   Contact2,
   CreditCard,
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { to: '/admin/appointments', label: 'Appointments', icon: CalendarDays },
   { to: '/admin/qr', label: 'QR Code Scanner', icon: QrCode },
   { to: '/admin/payments', label: 'Payments', icon: CreditCard },
+  { to: '/admin/shop-payments', label: 'Shop Payments', icon: ShoppingBag },
   { to: '/admin/services', label: 'Services', icon: Scissors },
   { to: '/admin/barbers', label: 'Barbers', icon: Users },
   { to: '/admin/barber-earnings', label: 'Barber Earnings', icon: Wallet },
@@ -40,6 +42,7 @@ const NAV_ITEMS = [
   { to: '/admin/contacts', label: 'Contact Messages', icon: Contact2 },
   { to: '/admin/marketplace', label: 'Marketplace', icon: ShoppingBag },
   { to: '/admin/payment-settings', label: 'Payment Settings', icon: Settings2 },
+  { to: '/admin/notifications', label: 'Notifications', icon: Bell },
   { to: '/admin/appearance', label: 'Appearance', icon: Palette },
   { to: '/admin/profile', label: 'Admin Profile', icon: UserCheck },
 ]

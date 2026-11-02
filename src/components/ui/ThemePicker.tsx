@@ -40,10 +40,9 @@ export default function ThemePicker({ variant = 'popover' }: { variant?: 'popove
           aria-expanded={open}
           aria-label="Change theme color"
           title={`Theme: ${theme.name}`}
-          className="flex items-center gap-2 rounded-lg p-2 text-night-300 transition-colors hover:text-gold-400"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-night-700/80 text-night-200 transition-colors duration-200 hover:border-gold-500/70 hover:text-gold-300"
         >
-          <Palette className="h-5 w-5" />
-          <span className="hidden h-4 w-4 rounded-full border border-night-600 lg:inline-block" style={{ background: theme.swatch.accent }} />
+          <Palette className="h-[18px] w-[18px]" />
         </button>
 
         {open && (

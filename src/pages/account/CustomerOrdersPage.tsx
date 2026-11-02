@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Clipboard, History, PackageCheck, ShoppingBag } from 'lucide-react'
+import { ArrowRight, Check, Clipboard, History, Link2, PackageCheck, ShoppingBag } from 'lucide-react'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import EmptyState from '../../components/ui/EmptyState'
 import { useToast } from '../../components/ui/ToastNotification'
-import { useCustomerAuth } from '../../store/customerAuth'
 import { shopApi, type ShopOrder } from '../../api/shop'
 import { formatPrice } from '../../utils/format'
 import { cn } from '../../utils/cn'
@@ -41,12 +40,12 @@ function badgeTone(status: string): string {
 }
 
 export default function CustomerOrdersPage() {
-  const { customer } = useCustomerAuth()
   const { showToast } = useToast()
   const [orders, setOrders] = useState<ShopOrder[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [linking, setLinking] = useState(false)
   const [copiedReference, setCopiedReference] = useState<string | null>(null)
   const perPage = 15
 
@@ -79,14 +78,46 @@ export default function CustomerOrdersPage() {
     }
   }
 
+  /** Attaches past guest orders placed with this account's phone/email. */
+  async function linkOrders() {
+    if (linking) return
+    setLinking(true)
+    try {
+      const result = await shopApi.linkGuestOrders()
+      showToast(
+        result.linked > 0
+          ? `${result.linked} previous order${result.linked === 1 ? '' : 's'} linked to your account.`
+          : 'No previous guest orders matched your phone or email.',
+        'success',
+      )
+      if (result.linked > 0) await load()
+    } catch (error) {
+      showToast((error as Error).message, 'error')
+    } finally {
+      setLinking(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <p className="label-luxe mb-1">Marketplace</p>
-        <h1 className="font-display text-3xl text-night-50">My Orders</h1>
-        <p className="mt-2 text-sm text-night-400">
-          Manage marketplace purchases, payment status, pickup references, and delivery updates from your existing SAWABA account.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="label-luxe mb-1">Marketplace</p>
+          <h1 className="font-display text-3xl text-night-50">My Orders</h1>
+          <p className="mt-2 max-w-xl text-sm text-night-400">
+            Manage marketplace purchases, payment status, pickup references, and delivery updates from your existing SAWABA account.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void linkOrders()}
+          disabled={linking}
+          title="Attach past guest orders that used your phone number or email — nothing is duplicated."
+          className="inline-flex items-center gap-2 rounded-lg border border-gold-500/40 px-4 py-2 text-xs font-semibold text-gold-300 transition-colors hover:bg-gold-500/10 disabled:opacity-50"
+        >
+          {linking ? <LoadingSpinner className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+          Link previous guest orders
+        </button>
       </div>
 
       {loading ? (
@@ -128,32 +159,47 @@ export default function CustomerOrdersPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold-500/20 bg-gold-500/5 px-4 py-3">
-                <div>
+              {order.fulfillmentType === 'PICKUP' ? (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold-500/20 bg-gold-500/5 px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-night-400">
+                      Store pickup code
+                    </p>
+                    <p className="mt-1 font-mono text-sm font-bold tracking-wider text-gold-300">
+                      {order.pickup?.code ?? order.referenceCode}
+                    </p>
+                    <p className="mt-1 text-[11px] text-night-500">
+                      Collect at {order.pickup?.shopName ?? 'the studio'}
+                      {order.pickup?.hours ? ` · ${order.pickup.hours}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void copyPickupCode(order.pickup?.code ?? order.referenceCode)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gold-500/30 px-3 py-2 text-xs font-semibold text-gold-300 transition-colors hover:bg-gold-500/10"
+                    aria-label={`Copy pickup code ${order.pickup?.code ?? order.referenceCode}`}
+                  >
+                    {copiedReference === (order.pickup?.code ?? order.referenceCode) ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Clipboard className="h-3.5 w-3.5" />
+                    )}
+                    {copiedReference === (order.pickup?.code ?? order.referenceCode) ? 'Copied' : 'Copy code'}
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-night-800 bg-night-950/50 px-4 py-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-night-400">
-                    Pickup / collection code
+                    Home delivery
                   </p>
-                  <p className="mt-1 font-mono text-sm font-bold tracking-wider text-gold-300">
-                    {order.referenceCode}
-                  </p>
+                  <p className="mt-1 text-sm text-night-200">{order.deliveryAddress}</p>
                   <p className="mt-1 text-[11px] text-night-500">
-                    Keep this order reference handy for collection or order support.
+                    {order.estimatedDeliveryAt
+                      ? `Estimated ${new Date(order.estimatedDeliveryAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                      : 'Estimated delivery confirmed after payment.'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void copyPickupCode(order.referenceCode)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gold-500/30 px-3 py-2 text-xs font-semibold text-gold-300 transition-colors hover:bg-gold-500/10"
-                  aria-label={`Copy pickup code ${order.referenceCode}`}
-                >
-                  {copiedReference === order.referenceCode ? (
-                    <Check className="h-3.5 w-3.5" />
-                  ) : (
-                    <Clipboard className="h-3.5 w-3.5" />
-                  )}
-                  {copiedReference === order.referenceCode ? 'Copied' : 'Copy code'}
-                </button>
-              </div>
+              )}
 
               <div className="mt-4 divide-y divide-night-800">
                 {order.items.map((item) => (
@@ -184,8 +230,7 @@ export default function CustomerOrdersPage() {
                   Total <span className="ml-1 font-display text-lg text-gold-400">{formatPrice(order.totalAmount)}</span>
                 </p>
                 <Link
-                  to={`/shop/orders/${encodeURIComponent(order.referenceCode)}`}
-                  state={{ phone: customer?.phone }}
+                  to={`/account/orders/${encodeURIComponent(order.referenceCode)}`}
                   className="inline-flex items-center gap-2 rounded-lg border border-gold-500/40 px-4 py-2 text-xs font-semibold text-gold-300 transition-colors hover:bg-gold-500/10"
                 >
                   Order details & updates <ArrowRight className="h-3.5 w-3.5" />

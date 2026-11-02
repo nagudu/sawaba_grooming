@@ -35,6 +35,8 @@ import ProductDetailPage from './pages/shop/ProductDetailPage'
 import CartPage from './pages/shop/CartPage'
 import CheckoutPage from './pages/shop/CheckoutPage'
 import OrderStatusPage from './pages/shop/OrderStatusPage'
+import TrackOrderPage from './pages/shop/TrackOrderPage'
+import ShopReceiptPage from './pages/shop/ShopReceiptPage'
 
 // ── Vendor portal ───────────────────────────────────────────────────────────
 import VendorLayout from './pages/vendor/VendorLayout'
@@ -50,6 +52,7 @@ import AccountLayout from './components/account/AccountLayout'
 import CustomerLoginPage from './pages/account/CustomerLoginPage'
 import CustomerDashboardPage from './pages/account/CustomerDashboardPage'
 import CustomerOrdersPage from './pages/account/CustomerOrdersPage'
+import CustomerOrderDetailPage from './pages/account/CustomerOrderDetailPage'
 import CustomerAppointmentsPage from './pages/account/CustomerAppointmentsPage'
 import CustomerBookingDetailPage from './pages/account/CustomerBookingDetailPage'
 import CustomerPaymentsPage from './pages/account/CustomerPaymentsPage'
@@ -70,9 +73,11 @@ import AdminContactsPage from './pages/admin/AdminContactsPage'
 import AdminCustomersPage from './pages/admin/AdminCustomersPage'
 import AdminPaymentsPage from './pages/admin/AdminPaymentsPage'
 import AdminPaymentSettingsPage from './pages/admin/AdminPaymentSettingsPage'
+import AdminMarketplacePaymentsPage from './pages/admin/AdminMarketplacePaymentsPage'
 import AdminAppearancePage from './pages/admin/AdminAppearancePage'
 import AdminProfilePage from './pages/admin/AdminProfilePage'
 import AdminMarketplacePage from './pages/admin/AdminMarketplacePage'
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage'
 
 // ── Barber Portal ────────────────────────────────────────────────────────────
 import BarberLayout from './pages/barber/BarberLayout'
@@ -170,7 +175,9 @@ function AnimatedRoutes() {
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/shop/cart" element={<CartPage />} />
         <Route path="/shop/checkout" element={<CheckoutPage />} />
+        <Route path="/shop/orders/:reference/receipt" element={<ShopReceiptPage />} />
         <Route path="/shop/orders/:reference" element={<OrderStatusPage />} />
+        <Route path="/track" element={<TrackOrderPage />} />
         <Route path="/shop/:slug" element={<ProductDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
@@ -198,6 +205,7 @@ function CustomerAccountRoutes() {
       >
         <Route index element={<CustomerDashboardPage />} />
         <Route path="orders" element={<CustomerOrdersPage />} />
+        <Route path="orders/:reference" element={<CustomerOrderDetailPage />} />
         <Route path="bookings" element={<CustomerAppointmentsPage />} />
         <Route path="bookings/:id" element={<CustomerBookingDetailPage />} />
         <Route path="payments" element={<CustomerPaymentsPage />} />
@@ -233,7 +241,9 @@ function AdminRoutes() {
         <Route path="appointments" element={<AdminAppointmentsPage />} />
         <Route path="qr" element={<AdminQrPage />} />
         <Route path="payments" element={<AdminPaymentsPage />} />
+        <Route path="shop-payments" element={<AdminMarketplacePaymentsPage />} />
         <Route path="payment-settings" element={<AdminPaymentSettingsPage />} />
+        <Route path="notifications" element={<AdminNotificationsPage />} />
         <Route path="appearance" element={<AdminAppearancePage />} />
         <Route path="services" element={<AdminServicesPage />} />
         <Route path="barbers" element={<AdminBarbersPage />} />

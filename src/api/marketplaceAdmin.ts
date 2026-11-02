@@ -138,6 +138,9 @@ export interface AdminOrder {
   customerName: string
   customerPhone: string
   customerEmail: string | null
+  /** null = guest order (no linked account). */
+  customerId: number | null
+  isGuest: boolean
   deliveryAddress: string
   deliveryLocation: string | null
   notes: string | null
@@ -152,9 +155,24 @@ export interface AdminOrder {
   receiptUrl: string | null
   refundedAmount: number
   createdAt: string
+  fulfillmentType: string
+  deliveryInstructions: string | null
+  estimatedDeliveryAt: string | null
+  paymentAttempts: number
+  pickupCode: string | null
+  pickupShopName: string | null
+  pickupAddress: string | null
+  pickupPhone: string | null
+  pickupHours: string | null
+  pickupInstructions: string | null
+  pickupMapUrl: string | null
+  pickupReadyAt: string | null
+  collectedAt: string | null
   vendorIds: number[]
   vendorNames: string[]
   paymentVerifiedAt: string | null
+  paymentVerifiedBy: number | null
+  paymentVerifiedByName: string | null
   paymentNote: string | null
   cancelledAt: string | null
   deliveredAt: string | null
@@ -225,6 +243,14 @@ export interface MarketplaceSettings {
   deliveryFee: number
   freeDeliveryThreshold: number
   deliveryLocations: string
+  deliveryEstimateDays: number
+  storePickupEnabled: boolean
+  pickupShopName: string
+  pickupAddress: string
+  pickupPhone: string
+  pickupHours: string
+  pickupInstructions: string
+  pickupMapUrl: string
   requireProductApproval: boolean
   allowGuestCheckout: boolean
   vendorRegistrationOpen: boolean
@@ -321,6 +347,7 @@ export const marketplaceAdminApi = {
   orders: (params: {
     status?: string
     paymentStatus?: string
+    customerType?: 'GUEST' | 'REGISTERED'
     vendorId?: number
     search?: string
     from?: string

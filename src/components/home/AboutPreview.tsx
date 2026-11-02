@@ -30,7 +30,7 @@ export default function AboutPreview() {
               transition={{ duration: 0.6, delay: 0.15 }}
             >
               <img
-                src="/images/about-1.jpg"
+                src="/images/about.jpeg"
                 alt="Inside SAWABA Grooming Studio"
                 className="aspect-[3/4] w-full object-cover"
                 loading="lazy"
@@ -53,7 +53,7 @@ export default function AboutPreview() {
               </div>
               <div className="overflow-hidden rounded-2xl border border-night-800">
                 <img
-                  src="/images/about-3.jpg"
+                  src="/images/about-1.jpg"
                   alt="Precision styling tools"
                   className="aspect-square w-full object-cover"
                   loading="lazy"

@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, PackageSearch, Minus, Plus, ShoppingBag, Star, Truck, Store, ShieldCheck } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import {
+  ArrowLeft,
+  Clock,
+  MapPin,
+  Minus,
+  PackageSearch,
+  Plus,
+  ShieldCheck,
+  ShoppingBag,
+  Star,
+  Store,
+  Truck,
+  X,
+  ZoomIn,
+} from 'lucide-react'
 import PageTransition from '../../components/ui/PageTransition'
 import EmptyState from '../../components/ui/EmptyState'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -8,7 +22,8 @@ import StarRating from '../../components/ui/StarRating'
 import { Button } from '../../components/ui/Button'
 import { useShopCart } from '../../store/shopCart'
 import { useCustomerAuth } from '../../store/customerAuth'
-import { shopApi, type ShopProductDetail, type ShopReview } from '../../api/shop'
+import { shopApi, type ShopPickupInfo, type ShopProductDetail, type ShopReview } from '../../api/shop'
+import { setBuyNow } from '../../utils/buyNow'
 import { formatPrice } from '../../utils/format'
 import { useToast } from '../../components/ui/ToastNotification'
 import { cn } from '../../utils/cn'
@@ -18,6 +33,7 @@ export default function ProductDetailPage() {
   const { add, adding } = useShopCart()
   const { customer } = useCustomerAuth()
   const { showToast } = useToast()
+  const navigate = useNavigate()
 
   const [product, setProduct] = useState<ShopProductDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,6 +41,10 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0)
   const [variationId, setVariationId] = useState<number | null>(null)
   const [quantity, setQuantity] = useState(1)
+  const [zoomActive, setZoomActive] = useState(false)
+  const [zoomOrigin, setZoomOrigin] = useState('50% 50%')
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [pickupInfo, setPickupInfo] = useState<ShopPickupInfo | null>(null)
 
   const [reviews, setReviews] = useState<ShopReview[]>([])
   const [reviewTotal, setReviewTotal] = useState(0)
@@ -55,12 +75,24 @@ export default function ProductDetailPage() {
     void load()
   }, [load])
 
+  useEffect(() => {
+    shopApi.pickupInfo().then(setPickupInfo).catch(() => undefined)
+  }, [])
+
   const selectedVariation =
     product?.variations.find((item) => item.id === variationId) ?? null
   const unitPrice = product
     ? Math.max(0, product.price + (selectedVariation?.priceDelta ?? 0))
     : 0
   const outOfStock = (product?.stock ?? 0) <= 0
+  const maxStock = Math.max(
+    0,
+    Math.min(product?.stock ?? 0, selectedVariation?.stock ?? product?.stock ?? 0),
+  )
+  const discountPercent =
+    product?.compareAtPrice && product.compareAtPrice > product.price
+      ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
+      : 0
 
   const handleAdd = async () => {
     if (!product) return
@@ -72,14 +104,24 @@ export default function ProductDetailPage() {
     }
   }
 
-  const handleBuyNow = async () => {
+  /** Buy Now checks out ONLY this product — the saved cart is left untouched. */
+  const handleBuyNow = () => {
     if (!product) return
-    try {
-      await add({ productId: product.id, variationId, quantity })
-      window.location.href = '/shop/checkout'
-    } catch (err) {
-      showToast((err as Error).message, 'error')
-    }
+    setBuyNow({
+      productId: product.id,
+      variationId,
+      quantity,
+      name: product.name,
+      slug: product.slug,
+      image: product.images[selectedImage]?.url ?? product.image,
+      unitPrice,
+      variationLabel: selectedVariation
+        ? `${selectedVariation.name}: ${selectedVariation.value}`
+        : null,
+      vendorName: product.vendor.businessName,
+      stock: maxStock,
+    })
+    navigate('/shop/checkout?mode=buy-now')
   }
 
   const submitReview = async (event: React.FormEvent) => {
@@ -152,17 +194,37 @@ export default function ProductDetailPage() {
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Gallery */}
             <div className="space-y-4">
-              <div className="aspect-square overflow-hidden rounded-2xl border border-night-800 bg-night-900">
+              <div
+                className="group relative aspect-square cursor-zoom-in overflow-hidden rounded-2xl border border-night-800 bg-night-900"
+                onMouseEnter={() => setZoomActive(true)}
+                onMouseLeave={() => setZoomActive(false)}
+                onMouseMove={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect()
+                  const x = ((event.clientX - rect.left) / rect.width) * 100
+                  const y = ((event.clientY - rect.top) / rect.height) * 100
+                  setZoomOrigin(`${x}% ${y}%`)
+                }}
+                onClick={() => images[selectedImage]?.url && setLightboxOpen(true)}
+              >
                 {images[selectedImage]?.url ? (
                   <img
                     src={images[selectedImage].url}
                     alt={images[selectedImage].alt ?? product.name}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition-transform duration-200"
+                    style={{
+                      transform: zoomActive ? 'scale(2)' : 'scale(1)',
+                      transformOrigin: zoomOrigin,
+                    }}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-night-600">
                     <PackageSearch className="h-16 w-16" />
                   </div>
+                )}
+                {images[selectedImage]?.url && (
+                  <span className="pointer-events-none absolute right-3 bottom-3 inline-flex items-center gap-1.5 rounded-full bg-night-950/80 px-3 py-1.5 text-[11px] font-semibold text-night-200 opacity-0 transition-opacity group-hover:opacity-100">
+                    <ZoomIn className="h-3.5 w-3.5 text-gold-400" /> Hover to zoom · click for full size
+                  </span>
                 )}
               </div>
               {product.images.length > 1 && (
@@ -216,6 +278,11 @@ export default function ProductDetailPage() {
                     {formatPrice(product.compareAtPrice)}
                   </p>
                 )}
+                {discountPercent > 0 && (
+                  <span className="mb-1.5 rounded-full bg-red-500/90 px-2.5 py-1 text-[11px] font-bold text-white">
+                    -{discountPercent}% off
+                  </span>
+                )}
               </div>
 
               <p className="whitespace-pre-line text-sm leading-relaxed text-night-300">
@@ -245,12 +312,17 @@ export default function ProductDetailPage() {
                       <button
                         key={variation.id}
                         type="button"
-                        onClick={() => setVariationId(variation.id)}
+                        onClick={() => {
+                          setVariationId(variation.id)
+                          setQuantity((current) => Math.min(current, Math.max(1, variation.stock)))
+                        }}
+                        disabled={variation.stock <= 0}
                         className={cn(
                           'rounded-lg border px-3.5 py-2 text-sm transition-colors',
                           variationId === variation.id
                             ? 'border-gold-500 bg-gold-500/15 text-gold-300'
                             : 'border-night-700 text-night-300 hover:border-gold-500/50',
+                          variation.stock <= 0 && 'cursor-not-allowed line-through opacity-40',
                         )}
                       >
                         {variation.name}: {variation.value}
@@ -259,6 +331,9 @@ export default function ProductDetailPage() {
                             {variation.priceDelta > 0 ? '+' : ''}
                             {formatPrice(variation.priceDelta)}
                           </span>
+                        )}
+                        {variation.stock <= 0 && (
+                          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-red-400">Sold out</span>
                         )}
                       </button>
                     ))}
@@ -280,9 +355,10 @@ export default function ProductDetailPage() {
                   <span className="w-10 text-center text-sm font-semibold text-night-100">{quantity}</span>
                   <button
                     type="button"
-                    onClick={() => setQuantity((current) => Math.min(product.stock, current + 1))}
+                    onClick={() => setQuantity((current) => Math.min(Math.max(1, maxStock), current + 1))}
                     aria-label="Increase quantity"
-                    className="p-3 text-night-300 transition-colors hover:text-gold-400"
+                    disabled={quantity >= maxStock}
+                    className="p-3 text-night-300 transition-colors hover:text-gold-400 disabled:opacity-40"
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -290,7 +366,7 @@ export default function ProductDetailPage() {
                 <p className={cn('text-sm', outOfStock ? 'text-red-400' : 'text-night-400')}>
                   {outOfStock
                     ? 'Out of stock'
-                    : `${product.stock} unit${product.stock === 1 ? '' : 's'} available`}
+                    : `${maxStock} unit${maxStock === 1 ? '' : 's'} available`}
                 </p>
               </div>
 
@@ -311,17 +387,29 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Delivery info */}
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div className="flex items-start gap-3 rounded-xl border border-night-800 bg-night-900/50 p-4">
                   <Truck className="mt-0.5 h-5 w-5 shrink-0 text-gold-500" />
                   <div>
                     <p className="text-sm font-semibold text-night-100">Delivery</p>
                     <p className="mt-0.5 text-xs leading-relaxed text-night-400">
-                      Dispatched by the vendor within 24 hours of payment confirmation. Delivery fee shown
-                      at checkout.
+                      Dispatched after payment confirmation, within ~{pickupInfo?.deliveryEstimateDays ?? 3} day
+                      {(pickupInfo?.deliveryEstimateDays ?? 3) === 1 ? '' : 's'}. Fee shown at checkout.
                     </p>
                   </div>
                 </div>
+                {pickupInfo?.enabled !== false && (
+                  <div className="flex items-start gap-3 rounded-xl border border-night-800 bg-night-900/50 p-4">
+                    <Store className="mt-0.5 h-5 w-5 shrink-0 text-gold-500" />
+                    <div>
+                      <p className="text-sm font-semibold text-night-100">Store pickup</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-night-400">
+                        Collect free from {pickupInfo?.shopName ?? 'the studio'} — you get a unique pickup code
+                        after ordering.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start gap-3 rounded-xl border border-night-800 bg-night-900/50 p-4">
                   <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-gold-500" />
                   <div>
@@ -336,6 +424,57 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Reviews */}
+          <section className="mt-12 rounded-2xl border border-night-800 bg-night-900/40 p-6">
+            <h2 className="font-display text-xl text-night-50">Product specifications</h2>
+            <dl className="mt-4 grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
+              {[
+                { label: 'Brand', value: product.brand ?? '—' },
+                { label: 'Category', value: product.category?.name ?? 'Salon supplies' },
+                { label: 'Seller', value: product.vendor.businessName },
+                { label: 'Availability', value: outOfStock ? 'Out of stock' : `${product.stock} in stock` },
+                { label: 'Condition', value: 'Brand new' },
+                ...(pickupInfo?.phone ? [{ label: 'Seller support', value: pickupInfo.phone }] : []),
+              ].map((row) => (
+                <div key={row.label} className="flex items-start justify-between gap-4 border-b border-night-800 py-2.5">
+                  <dt className="text-night-400">{row.label}</dt>
+                  <dd className="text-right font-medium text-night-100">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {product.variations.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">
+                  Available sizes & colours
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {product.variations.map((variation) => (
+                    <li
+                      key={variation.id}
+                      className="rounded-lg border border-night-700 px-2.5 py-1 text-xs text-night-200"
+                    >
+                      {variation.name}: {variation.value}
+                      <span className="ml-1.5 text-night-500">
+                        {variation.stock > 0 ? `${variation.stock} left` : 'sold out'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {pickupInfo && (
+              <div className="mt-5 grid gap-3 rounded-xl border border-night-800 bg-night-950/50 p-4 text-xs text-night-300 sm:grid-cols-2">
+                <p className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold-500" />
+                  Pickup: {pickupInfo.shopName}, {pickupInfo.address}
+                </p>
+                <p className="flex items-start gap-2">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-gold-500" />
+                  {pickupInfo.hours}
+                </p>
+              </div>
+            )}
+          </section>
+
           <div className="mt-16">
             <div className="flex items-center justify-between gap-4">
               <h2 className="font-display text-2xl text-night-50">
@@ -442,6 +581,30 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+      {lightboxOpen && images[selectedImage]?.url && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Product image"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-night-950/95 p-4 backdrop-blur-sm"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            aria-label="Close image"
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-4 rounded-full border border-night-700 bg-night-900/80 p-2 text-night-200 hover:text-gold-300"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={images[selectedImage].url}
+            alt={images[selectedImage].alt ?? product.name}
+            className="max-h-[90vh] w-auto max-w-full rounded-xl object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
+      )}
     </PageTransition>
   )
 }

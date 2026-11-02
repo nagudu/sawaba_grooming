@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Store, ArrowLeft } from 'lucide-react'
+import { Eye, EyeOff, Store, ArrowLeft } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/ToastNotification'
 import { setVendorToken, vendorApi } from '../../api/vendor'
@@ -32,6 +32,7 @@ export default function VendorAuthPage({ mode }: { mode: 'login' | 'register' })
   // Login state
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   // Register state
   const [form, setForm] = useState({
@@ -132,15 +133,25 @@ export default function VendorAuthPage({ mode }: { mode: 'login' | 'register' })
                 />
               </Field>
               <Field label="Password">
-                <input
-                  required
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
-                  className={inputClass}
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <input
+                    required
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="••••••••"
+                    className={`${inputClass} pr-11`}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-night-500 transition-colors hover:text-night-300"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </Field>
               <Button type="submit" variant="gold" size="lg" fullWidth loading={busy}>
                 Sign In

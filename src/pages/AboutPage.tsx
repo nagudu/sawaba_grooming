@@ -151,7 +151,7 @@ export default function AboutPage() {
               </h3>
               <p className="mt-4 leading-relaxed text-night-400">
                 To be the most trusted name in men&rsquo;s grooming — the place
-                where craft meets character, setting the standard for what a
+                character, setting the standard for what a
                 modern barber experience should feel like.
               </p>
             </motion.div>

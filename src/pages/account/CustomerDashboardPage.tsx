@@ -11,6 +11,7 @@ import {
   Clock,
   CreditCard,
   LoaderCircle,
+  PackageSearch,
   RotateCcw,
   Scissors,
   ShoppingBag,
@@ -23,6 +24,7 @@ import {
 import { Button, ButtonLink } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/ToastNotification'
 import { accountApi, type CustomerSummary } from '../../api/account'
+import { shopApi, type ShopOrder } from '../../api/shop'
 import { useCustomerAuth } from '../../store/customerAuth'
 import { formatDate, formatPrice, formatTime } from '../../utils/format'
 import {
@@ -49,6 +51,30 @@ function needsPayment(appointment: AppointmentItem): boolean {
   )
 }
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  AWAITING_PAYMENT: 'Awaiting payment',
+  PAYMENT_CONFIRMED: 'Confirmed',
+  PROCESSING: 'Processing',
+  READY_FOR_DISPATCH: 'Ready for dispatch',
+  READY_FOR_PICKUP: 'Ready for pickup',
+  SHIPPED: 'Shipped',
+  DELIVERED: 'Delivered',
+  COLLECTED: 'Collected',
+  CANCELLED: 'Cancelled',
+  REFUNDED: 'Refunded',
+  RETURNED: 'Returned',
+}
+
+function orderStatusTone(status: string): string {
+  if (['PAID', 'DELIVERED', 'COLLECTED', 'PAYMENT_CONFIRMED'].includes(status)) {
+    return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+  }
+  if (['CANCELLED', 'REJECTED', 'REFUNDED', 'RETURNED'].includes(status)) {
+    return 'border-red-500/40 bg-red-500/10 text-red-300'
+  }
+  return 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function CustomerDashboardPage() {
@@ -56,6 +82,10 @@ export default function CustomerDashboardPage() {
   const [summary, setSummary] = useState<CustomerSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState<number | null>(null)
+  const [recentOrders, setRecentOrders] = useState<ShopOrder[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(true)
+  const [orderRef, setOrderRef] = useState('')
+  const [tracking, setTracking] = useState(false)
   const { showToast } = useToast()
   const navigate = useNavigate()
 
@@ -76,6 +106,42 @@ export default function CustomerDashboardPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Recent marketplace orders (optional — the dashboard still works without them).
+  useEffect(() => {
+    let cancelled = false
+    shopApi
+      .myOrders(1)
+      .then((result) => {
+        if (!cancelled) setRecentOrders(result.items.slice(0, 3))
+      })
+      .catch(() => {
+        // Silent: orders are a secondary surface on the dashboard.
+      })
+      .finally(() => {
+        if (!cancelled) setOrdersLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /** Track by number from the dashboard; a matching guest order is claimed automatically. */
+  async function trackOrder(event: React.FormEvent) {
+    event.preventDefault()
+    const reference = orderRef.trim()
+    if (!reference || tracking) return
+    setTracking(true)
+    try {
+      const result = await shopApi.trackMyOrder(reference)
+      showToast(result.linked ? 'Order linked to your account.' : 'Order found.', 'success')
+      navigate(`/account/orders/${encodeURIComponent(result.order.referenceCode)}`)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Order not found.', 'error')
+    } finally {
+      setTracking(false)
+    }
+  }
 
   async function cancelAppointment(id: number) {
     if (cancelling) return
@@ -288,6 +354,104 @@ export default function CustomerDashboardPage() {
                   <span className="text-sm font-bold text-night-100">{label}</span>
                 </Link>
               ))}
+            </div>
+          </section>
+
+          {/* ── Marketplace orders + track ── */}
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-display text-xl text-night-50">Marketplace Orders</h2>
+              <Link to="/account/orders" className="text-sm text-gold-400 hover:text-gold-300">
+                View all
+              </Link>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+              <div className="card-lux p-5">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-night-100">
+                  <ShoppingBag className="h-4 w-4 text-gold-400" /> Recent orders
+                </h3>
+                {ordersLoading ? (
+                  <div className="flex items-center gap-2 py-6 text-sm text-night-500">
+                    <LoaderCircle className="h-4 w-4 animate-spin text-gold-500" /> Loading orders…
+                  </div>
+                ) : recentOrders.length === 0 ? (
+                  <p className="mt-3 text-sm text-night-400">
+                    No marketplace orders yet.{' '}
+                    <Link to="/shop" className="text-gold-400 hover:text-gold-300">
+                      Browse the shop
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  <ul className="mt-2 divide-y divide-night-800">
+                    {recentOrders.map((order) => (
+                      <li key={order.id} className="flex flex-wrap items-center gap-3 py-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-mono text-xs font-bold tracking-wide text-night-100">
+                            {order.referenceCode}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-night-500">
+                            {new Date(order.createdAt).toLocaleDateString('en-GB')} ·{' '}
+                            {order.items.reduce((sum, item) => sum + item.quantity, 0)} item(s)
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            'rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                            orderStatusTone(order.status),
+                          )}
+                        >
+                          {ORDER_STATUS_LABELS[order.status] ?? order.status.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-sm font-semibold text-gold-400">
+                          {formatPrice(order.totalAmount)}
+                        </span>
+                        <Link
+                          to={`/account/orders/${encodeURIComponent(order.referenceCode)}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-gold-300 hover:text-gold-200"
+                        >
+                          Track <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <form onSubmit={trackOrder} className="card-lux flex flex-col p-5">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-night-100">
+                  <PackageSearch className="h-4 w-4 text-gold-400" /> Track an order
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-night-500">
+                  Enter an order number to open it. Guest orders bought with your phone or email
+                  are added to this account automatically, so nothing is duplicated.
+                </p>
+                <input
+                  value={orderRef}
+                  onChange={(event) => setOrderRef(event.target.value)}
+                  placeholder="e.g. SGS-2026-0001"
+                  aria-label="Order number"
+                  className="field mt-3"
+                />
+                <Button
+                  type="submit"
+                  variant="gold"
+                  size="md"
+                  className="mt-3"
+                  loading={tracking}
+                  disabled={!orderRef.trim()}
+                >
+                  Track order
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <p className="mt-3 text-[11px] leading-relaxed text-night-500">
+                  Bought with a different phone or email?{' '}
+                  <Link to="/track" className="text-gold-400 hover:text-gold-300">
+                    Use the public tracker
+                  </Link>
+                  .
+                </p>
+              </form>
             </div>
           </section>
 

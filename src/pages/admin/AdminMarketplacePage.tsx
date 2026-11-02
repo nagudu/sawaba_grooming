@@ -874,6 +874,7 @@ function OrdersTab() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('')
+  const [customerType, setCustomerType] = useState('')
   const [search, setSearch] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -889,6 +890,7 @@ function OrdersTab() {
       const result = await marketplaceAdminApi.orders({
         status: status || undefined,
         paymentStatus: paymentStatus || undefined,
+        customerType: (customerType || undefined) as 'GUEST' | 'REGISTERED' | undefined,
         search: search || undefined,
         from: from || undefined,
         to: to || undefined,
@@ -902,7 +904,7 @@ function OrdersTab() {
     } finally {
       setLoading(false)
     }
-  }, [status, paymentStatus, search, from, to, page, showToast])
+  }, [status, paymentStatus, customerType, search, from, to, page, showToast])
 
   useEffect(() => {
     void load()
@@ -956,7 +958,7 @@ function OrdersTab() {
           <input type="date" value={to} onChange={(event) => setTo(event.target.value)} aria-label="To date" className="h-11 rounded-xl border border-night-700 bg-night-900/80 px-3 text-sm text-night-100 focus:border-gold-500/70 focus:outline-none" />
           <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Order status" className="h-11 rounded-xl border border-night-700 bg-night-900/80 px-3 text-sm text-night-100 focus:border-gold-500/70 focus:outline-none">
             <option value="">All statuses</option>
-            {['AWAITING_PAYMENT', 'PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'].map((value) => (
+            {['AWAITING_PAYMENT', 'PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH', 'READY_FOR_PICKUP', 'SHIPPED', 'DELIVERED', 'COLLECTED', 'CANCELLED', 'REFUNDED'].map((value) => (
               <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>
             ))}
           </select>
@@ -965,6 +967,11 @@ function OrdersTab() {
             {['UNPAID', 'PENDING_VERIFICATION', 'PAID', 'REJECTED', 'REFUNDED'].map((value) => (
               <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>
             ))}
+          </select>
+          <select value={customerType} onChange={(event) => { setCustomerType(event.target.value); setPage(1) }} aria-label="Customer type" className="h-11 rounded-xl border border-night-700 bg-night-900/80 px-3 text-sm text-night-100 focus:border-gold-500/70 focus:outline-none">
+            <option value="">All customers</option>
+            <option value="GUEST">Guest orders</option>
+            <option value="REGISTERED">Registered customers</option>
           </select>
           <button
             onClick={async () => {
@@ -1021,7 +1028,14 @@ function OrdersTab() {
                   <tr key={order.id} onClick={() => openOrder(order.referenceCode)} className="cursor-pointer text-sm transition-colors hover:bg-night-900/60">
                     <Td className="font-semibold text-night-100">{order.referenceCode}</Td>
                     <Td>
-                      <p className="text-night-200">{order.customerName}</p>
+                      <p className="flex items-center gap-2 text-night-200">
+                        {order.customerName}
+                        {order.isGuest && (
+                          <span className="rounded-full border border-gold-500/40 bg-gold-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gold-300">
+                            Guest
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-night-500">{order.customerPhone}</p>
                     </Td>
                     <Td className="max-w-[180px] truncate text-xs text-night-400">{order.vendorNames.join(' + ')}</Td>
@@ -1056,6 +1070,9 @@ function OrdersTab() {
               <StatusBadge status={active.paymentStatus} />
               <span className="text-sm text-night-400">
                 {(active.paymentMethod ?? '—').replace('_', ' ')} · {active.vendorNames.join(' + ')}
+              </span>
+              <span className="rounded-full border border-night-700 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-night-300">
+                {active.fulfillmentType === 'PICKUP' ? 'Store pickup' : 'Home delivery'}
               </span>
               <span className="ml-auto font-display text-2xl text-gold-400">{formatPrice(active.totalAmount)}</span>
             </div>
@@ -1129,6 +1146,29 @@ function OrdersTab() {
                 <p className="mt-2 text-sm text-night-100">{active.customerName}</p>
                 <p className="text-xs text-night-400">{active.customerPhone} {active.customerEmail ? `· ${active.customerEmail}` : ''}</p>
                 <p className="mt-2 text-xs text-night-400">{active.deliveryAddress}{active.deliveryLocation ? ` · ${active.deliveryLocation}` : ''}</p>
+                {active.fulfillmentType === 'PICKUP' && (
+                  <div className="mt-2 rounded-lg border border-gold-500/25 bg-gold-500/5 p-2.5 text-xs text-night-300">
+                    <p className="font-semibold text-gold-300">Pickup code: {active.pickupCode ?? '—'}</p>
+                    <p className="mt-1">{active.pickupShopName}</p>
+                    <p>{active.pickupAddress}</p>
+                    <p>{active.pickupPhone}</p>
+                    <p>{active.pickupHours}</p>
+                    {active.pickupReadyAt && (
+                      <p className="mt-1 text-emerald-300">Ready since {new Date(active.pickupReadyAt).toLocaleString('en-GB')}</p>
+                    )}
+                    {active.collectedAt && (
+                      <p className="mt-1 text-emerald-300">Collected {new Date(active.collectedAt).toLocaleString('en-GB')}</p>
+                    )}
+                  </div>
+                )}
+                {active.fulfillmentType !== 'PICKUP' && active.estimatedDeliveryAt && (
+                  <p className="mt-1 text-xs text-night-500">
+                    Estimated delivery {new Date(active.estimatedDeliveryAt).toLocaleDateString('en-GB')}
+                  </p>
+                )}
+                {active.deliveryInstructions && (
+                  <p className="mt-1 text-xs text-night-500">Instruction: {active.deliveryInstructions}</p>
+                )}
                 <p className="mt-3 text-[11px] uppercase tracking-[0.14em] text-night-500">Payment reference</p>
                 <p className="mt-1 break-all text-xs text-night-200">{active.transactionRef ?? 'Not provided'}</p>
                 {active.paymentVerifiedAt && (
@@ -1171,6 +1211,16 @@ function OrdersTab() {
               {active.paymentStatus === 'PAID' && ['PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH', 'SHIPPED'].includes(active.status) && (
                 <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'DELIVERED'), 'Order marked delivered.')}>
                   Mark Delivered
+                </Button>
+              )}
+              {active.paymentStatus === 'PAID' && ['PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH'].includes(active.status) && (
+                <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'READY_FOR_PICKUP'), 'Order is ready for pickup — the customer can collect with their code.')}>
+                  Ready for Pickup
+                </Button>
+              )}
+              {active.paymentStatus === 'PAID' && active.status === 'READY_FOR_PICKUP' && (
+                <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'COLLECTED'), 'Order marked collected.')}>
+                  Mark Collected
                 </Button>
               )}
               {active.paymentStatus === 'PAID' && !['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(active.status) && (
@@ -1641,6 +1691,44 @@ function SettingsTab() {
               <input value={settings.deliveryLocations} onChange={(event) => setSettings({ ...settings, deliveryLocations: event.target.value })} placeholder="Dutse, Kubwa, Gwarinpa" className={inputClass} />
             </Field>
           </div>
+          <Field label="Estimated delivery (days)" hint="Shown at checkout and on the order page.">
+            <input required type="number" min={1} max={30} value={settings.deliveryEstimateDays} onChange={(event) => setSettings({ ...settings, deliveryEstimateDays: Number(event.target.value) })} className={inputClass} />
+          </Field>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-night-800 bg-night-900/40 p-6">
+        <h2 className="font-display text-xl text-night-50">Store pickup</h2>
+        <p className="mt-1 text-xs text-night-500">
+          These details are shown at checkout and copied onto each pickup order, together with a unique
+          collection code. Customers collect during your opening hours.
+        </p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <Field label="Shop name">
+            <input value={settings.pickupShopName} onChange={(event) => setSettings({ ...settings, pickupShopName: event.target.value })} className={inputClass} />
+          </Field>
+          <Field label="Contact phone">
+            <input value={settings.pickupPhone} onChange={(event) => setSettings({ ...settings, pickupPhone: event.target.value })} placeholder="0706 928 8456" className={inputClass} />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Full pickup address">
+              <input value={settings.pickupAddress} onChange={(event) => setSettings({ ...settings, pickupAddress: event.target.value })} placeholder="Unguwa Uku, Sabuwar Abuja, Kano, Nigeria" className={inputClass} />
+            </Field>
+          </div>
+          <Field label="Opening hours">
+            <input value={settings.pickupHours} onChange={(event) => setSettings({ ...settings, pickupHours: event.target.value })} placeholder="Mon – Sat, 9:00am – 7:00pm" className={inputClass} />
+          </Field>
+          <Field label="Google Maps link" hint="Opens turn-by-turn directions for the customer.">
+            <input value={settings.pickupMapUrl} onChange={(event) => setSettings({ ...settings, pickupMapUrl: event.target.value })} placeholder="https://maps.google.com/?q=..." className={inputClass} />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Pickup instructions">
+              <textarea rows={3} value={settings.pickupInstructions} onChange={(event) => setSettings({ ...settings, pickupInstructions: event.target.value })} placeholder="Bring your order number and pickup code to the counter." className={inputClass} />
+            </Field>
+          </div>
+        </div>
+        <div className="mt-4">
+          {toggle('storePickupEnabled', 'Enable store pickup', 'When off, checkout only offers home delivery.')}
         </div>
       </div>
 

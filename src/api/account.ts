@@ -18,6 +18,9 @@ export interface CustomerProfile {
   preferredBarberId: number | null
   favoriteServiceId: number | null
   reminderOptIn: boolean
+  emailOptIn: boolean
+  smsOptIn: boolean
+  whatsappOptIn: boolean
   isActive: boolean
   /** False for accounts created via Google, which still need a real number. */
   phoneVerified: boolean
@@ -185,6 +188,9 @@ export const accountApi = {
       preferredBarberId: number | null
       favoriteServiceId: number | null
       reminderOptIn: boolean
+      emailOptIn: boolean
+      smsOptIn: boolean
+      whatsappOptIn: boolean
     }>,
   ) =>
     accountFetch<{ customer: CustomerProfile }>('/api/account/me', {

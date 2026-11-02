@@ -11,7 +11,7 @@ import { useToast } from '../../components/ui/ToastNotification'
 import { PAYMENT_METHOD_LABELS } from '../../utils/payment'
 import { cn } from '../../utils/cn'
 
-const METHODS: PaymentMethod[] = ['OPAY', 'BANK_TRANSFER', 'CASH', 'OTHER']
+const METHODS: PaymentMethod[] = ['ONLINE', 'OPAY', 'BANK_TRANSFER', 'CASH', 'OTHER']
 
 const EMPTY_SETTINGS: PaymentSettings = {
   shopName: '',
@@ -204,7 +204,11 @@ export default function AdminPaymentSettingsPage() {
         </section>
 
         <section className="card-lux p-6">
-          <h2 className="mb-4 font-display text-lg text-night-50">Payment Rules</h2>
+          <h2 className="mb-1 font-display text-lg text-night-50">Payment Rules</h2>
+          <p className="mb-4 text-xs text-night-500">
+            Only methods that are switched on <em>and</em> fully configured are shown at checkout. Paystack is{' '}
+            {settings.onlinePaymentEnabled ? 'configured on this server' : 'not configured — card payments stay hidden'}.
+          </p>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Accepted methods">
               <div className="grid grid-cols-2 gap-2">

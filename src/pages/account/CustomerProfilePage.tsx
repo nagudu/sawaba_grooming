@@ -29,6 +29,9 @@ export default function CustomerProfilePage() {
   const [preferredBarberId, setPreferredBarberId] = useState<number | null>(null)
   const [favoriteServiceId, setFavoriteServiceId] = useState<number | null>(null)
   const [reminderOptIn, setReminderOptIn] = useState(true)
+  const [emailOptIn, setEmailOptIn] = useState(true)
+  const [smsOptIn, setSmsOptIn] = useState(true)
+  const [whatsappOptIn, setWhatsappOptIn] = useState(true)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -41,6 +44,9 @@ export default function CustomerProfilePage() {
     setPreferredBarberId(customer.preferredBarberId)
     setFavoriteServiceId(customer.favoriteServiceId)
     setReminderOptIn(customer.reminderOptIn)
+    setEmailOptIn(customer.emailOptIn)
+    setSmsOptIn(customer.smsOptIn)
+    setWhatsappOptIn(customer.whatsappOptIn)
   }, [customer])
 
   useEffect(() => {
@@ -73,6 +79,9 @@ export default function CustomerProfilePage() {
         preferredBarberId,
         favoriteServiceId,
         reminderOptIn,
+        emailOptIn,
+        smsOptIn,
+        whatsappOptIn,
       })
       showToast('Profile updated.', 'success')
       await refresh()
@@ -205,6 +214,44 @@ export default function CustomerProfilePage() {
                   Send me booking reminders when it's almost time for my next visit
                 </span>
               </label>
+
+              <div className="sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-night-400">
+                  Notification channels
+                </p>
+                <p className="mt-1 text-[11px] text-night-500">
+                  Choose how we reach you about your bookings and orders. You can opt out at any time.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={emailOptIn}
+                      onChange={(event) => setEmailOptIn(event.target.checked)}
+                      className="h-4 w-4 accent-gold-500"
+                    />
+                    <span className="text-sm text-night-300">Email</span>
+                  </label>
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={smsOptIn}
+                      onChange={(event) => setSmsOptIn(event.target.checked)}
+                      className="h-4 w-4 accent-gold-500"
+                    />
+                    <span className="text-sm text-night-300">SMS</span>
+                  </label>
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={whatsappOptIn}
+                      onChange={(event) => setWhatsappOptIn(event.target.checked)}
+                      className="h-4 w-4 accent-gold-500"
+                    />
+                    <span className="text-sm text-night-300">WhatsApp</span>
+                  </label>
+                </div>
+              </div>
             </div>
             <Button variant="gold" size="md" loading={saving} className="mt-5" onClick={() => void saveProfile()}>
               <Save className="h-4 w-4" />

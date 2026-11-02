@@ -1,4 +1,5 @@
 import { API_BASE } from './index'
+import type { CustomerProfile } from './account'
 
 /**
  * Public Shop API client (marketplace). Works for guests — the cart is keyed
@@ -91,7 +92,7 @@ export interface ShopProductDetail extends ShopProduct {
   description: string
   isActive: boolean
   status: string
-  variations: Array<{ id: number; name: string; value: string; priceDelta: number }>
+  variations: Array<{ id: number; name: string; value: string; priceDelta: number; stock: number }>
   images: Array<{ id: number; url: string; alt: string | null }>
 }
 
@@ -161,8 +162,27 @@ export interface ShopOrder {
   paymentStatus: string
   transactionRef: string | null
   receiptUrl: string | null
+  /** Admin's reason when a submitted payment proof was rejected. */
+  paymentNote: string | null
+  paymentVerifiedAt: string | null
   refundedAmount: number
   createdAt: string
+  /** DELIVERY = courier, PICKUP = collect at the studio. */
+  fulfillmentType: 'DELIVERY' | 'PICKUP'
+  deliveryInstructions: string | null
+  estimatedDeliveryAt: string | null
+  paymentAttempts: number
+  pickup: {
+    code: string | null
+    shopName: string | null
+    address: string | null
+    phone: string | null
+    hours: string | null
+    instructions: string | null
+    mapUrl: string | null
+    readyAt: string | null
+    collectedAt: string | null
+  } | null
   items: ShopOrderItem[]
   history?: Array<{
     id: number
@@ -192,6 +212,43 @@ export interface ShopSettings {
   requireProductApproval: boolean
 }
 
+export interface ShopPickupInfo {
+  enabled: boolean
+  shopName: string
+  address: string
+  phone: string
+  hours: string
+  instructions: string
+  mapUrl: string
+  deliveryFee: number
+  freeDeliveryThreshold: number
+  deliveryEstimateDays: number
+  deliveryLocations: string[]
+}
+
+export type ShopPaymentMethod = 'ONLINE' | 'OPAY' | 'BANK_TRANSFER' | 'CASH'
+
+export interface ShopPaymentOption {
+  method: ShopPaymentMethod
+  label: string
+  enabled: boolean
+  available: boolean
+  reason: string | null
+}
+
+/** Payment methods + the studio's real account details (never hardcoded). */
+export interface ShopPaymentOptions {
+  methods: ShopPaymentOption[]
+  instructions: string | null
+  shopName: string
+  bankName: string | null
+  accountName: string | null
+  accountNumber: string | null
+  opayAccountName: string | null
+  opayAccountNumber: string | null
+  paystackEnabled: boolean
+}
+
 export interface ShopReview {
   id: number
   customerName: string
@@ -199,6 +256,14 @@ export interface ShopReview {
   comment: string
   reply: string | null
   createdAt: string
+}
+
+/** Account the server creates for a guest at checkout (passwordless). */
+export interface CheckoutAccount {
+  created: boolean
+  signedIn: boolean
+  token: string | null
+  customer: CustomerProfile
 }
 
 export interface Paged<T> {
@@ -221,6 +286,8 @@ function qs(params: Record<string, string | number | undefined>): string {
 
 export const shopApi = {
   settings: () => shopFetch<ShopSettings>('/api/shop/settings'),
+  pickupInfo: () => shopFetch<ShopPickupInfo>('/api/shop/pickup-info'),
+  paymentOptions: () => shopFetch<ShopPaymentOptions>('/api/shop/payment-options'),
 
   products: (params: {
     search?: string
@@ -284,14 +351,21 @@ export const shopApi = {
     customerName: string
     customerPhone: string
     customerEmail?: string
-    deliveryAddress: string
+    fulfillmentType: 'DELIVERY' | 'PICKUP'
+    deliveryAddress?: string
     deliveryLocation?: string
+    deliveryInstructions?: string
     notes?: string
     paymentMethod: 'BANK_TRANSFER' | 'OPAY' | 'ONLINE' | 'CASH'
+    /** Explicit lines (Buy Now). When present the cart is not consumed. */
+    items?: Array<{ productId: number; variationId?: number | null; quantity: number }>
   }) =>
-    shopFetch<ShopOrder>('/api/shop/orders', {
+    shopFetch<{ order: ShopOrder; account: CheckoutAccount | null; tracking: { token: string; trackingUrl: string } }>('/api/shop/orders', {
       method: 'POST',
-      body: JSON.stringify({ ...input, token: ensureCartToken() }),
+      body: JSON.stringify({
+        ...input,
+        token: input.items?.length ? undefined : ensureCartToken(),
+      }),
     }),
 
   getOrder: (reference: string, phone: string) =>
@@ -334,4 +408,31 @@ export const shopApi = {
 
   myOrders: (page = 1) =>
     shopFetch<Paged<ShopOrder>>(`/api/shop/my/orders${qs({ page })}`),
+
+  /** Authenticated order detail — no phone number needed (ownership checked). */
+  myOrder: (reference: string) =>
+    shopFetch<ShopOrder>(`/api/shop/my/orders/${encodeURIComponent(reference)}`),
+
+  // ─── Guest order tracking (secure signed link) ─────────────────────────────
+  /** Order number + the phone OR email on the order → a signed tracking link. */
+  lookupOrder: (reference: string, contact: string) =>
+    shopFetch<{ token: string; trackingUrl: string; order: ShopOrder }>('/api/shop/track/lookup', {
+      method: 'POST',
+      body: JSON.stringify({ reference, contact }),
+    }),
+
+  /** Read-only order view from a tracking token (no login, no OTP). */
+  getTrackedOrder: (token: string) =>
+    shopFetch<ShopOrder>(`/api/shop/track/${encodeURIComponent(token)}`),
+
+  /** Authenticated: attach past guest orders matching the account's phone/email. */
+  linkGuestOrders: () =>
+    shopFetch<{ linked: number }>('/api/shop/my/link-guest-orders', { method: 'POST', body: JSON.stringify({}) }),
+
+  /** Authenticated: track one order by number; claims a matching guest order. */
+  trackMyOrder: (reference: string) =>
+    shopFetch<{ order: ShopOrder; linked: boolean }>('/api/shop/my/track', {
+      method: 'POST',
+      body: JSON.stringify({ reference }),
+    }),
 }
