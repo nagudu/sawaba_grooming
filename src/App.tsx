@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { Layout } from './components/layout/Layout'
 import { ToastProvider } from './components/ui/ToastNotification'
@@ -7,7 +8,10 @@ import { CustomerAuthProvider } from './store/customerAuth'
 import { BarberAuthProvider, useBarberAuth } from './store/barberAuth'
 import OfflineIndicator from './components/ui/OfflineIndicator'
 import { getCustomerToken } from './api/account'
+import { getVendorToken } from './api/vendor'
 import { getAdminToken } from './api'
+import { dashboardPathForRole, resolveStoredSession } from './api/session'
+import { isNativePlatform } from './lib/native'
 
 // ── Public pages ───────────────────────────────────────────────────────────────
 import HomePage from './pages/HomePage'
@@ -28,6 +32,8 @@ import QrScanLandingPage from './pages/QrScanLandingPage'
 import PaystackCallbackPage from './pages/PaystackCallbackPage'
 import ContactPage from './pages/ContactPage'
 import NotFoundPage from './pages/NotFoundPage'
+import LoginPage from './pages/LoginPage'
+import SessionLanding from './components/auth/SessionLanding'
 
 // ── Public shop (multi-vendor marketplace) ───────────────────────────────────
 import ShopPage from './pages/shop/ShopPage'
@@ -64,6 +70,7 @@ import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminAppointmentsPage from './pages/admin/AdminAppointmentsPage'
 import AdminQrPage from './pages/admin/AdminQrPage'
+import AdminPickupVerifyPage from './pages/admin/AdminPickupVerifyPage'
 import AdminServicesPage from './pages/admin/AdminServicesPage'
 import AdminBarbersPage from './pages/admin/AdminBarbersPage'
 import AdminBarberEarningsPage from './pages/admin/AdminBarberEarningsPage'
@@ -77,6 +84,7 @@ import AdminMarketplacePaymentsPage from './pages/admin/AdminMarketplacePayments
 import AdminAppearancePage from './pages/admin/AdminAppearancePage'
 import AdminProfilePage from './pages/admin/AdminProfilePage'
 import AdminMarketplacePage from './pages/admin/AdminMarketplacePage'
+import AdminWithdrawalsPage from './pages/admin/AdminWithdrawalsPage'
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage'
 
 // ── Barber Portal ────────────────────────────────────────────────────────────
@@ -93,6 +101,7 @@ import BarberScanPage from './pages/barber/BarberScanPage'
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
 function RequireCustomer({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
   if (!getCustomerToken()) {
     return (
       <Navigate
@@ -101,6 +110,14 @@ function RequireCustomer({ children }: { children: React.ReactNode }) {
         state={{ from: location.pathname }}
       />
     )
+  }
+  return <>{children}</>
+}
+
+function RequireVendor({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+  if (!getVendorToken()) {
+    return <Navigate to="/vendor/login" replace state={{ from: location.pathname }} />
   }
   return <>{children}</>
 }
@@ -178,6 +195,8 @@ function AnimatedRoutes() {
         <Route path="/shop/orders/:reference/receipt" element={<ShopReceiptPage />} />
         <Route path="/shop/orders/:reference" element={<OrderStatusPage />} />
         <Route path="/track" element={<TrackOrderPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/dashboard" element={<SessionLanding />} />
         <Route path="/shop/:slug" element={<ProductDetailPage />} />
         <Route path="/404" element={<NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
@@ -240,6 +259,7 @@ function AdminRoutes() {
         <Route index element={<AdminDashboardPage />} />
         <Route path="appointments" element={<AdminAppointmentsPage />} />
         <Route path="qr" element={<AdminQrPage />} />
+        <Route path="pickup" element={<AdminPickupVerifyPage />} />
         <Route path="payments" element={<AdminPaymentsPage />} />
         <Route path="shop-payments" element={<AdminMarketplacePaymentsPage />} />
         <Route path="payment-settings" element={<AdminPaymentSettingsPage />} />
@@ -253,6 +273,7 @@ function AdminRoutes() {
         <Route path="contacts" element={<AdminContactsPage />} />
         <Route path="customers" element={<AdminCustomersPage />} />
         <Route path="marketplace" element={<AdminMarketplacePage />} />
+        <Route path="withdrawals" element={<AdminWithdrawalsPage />} />
         <Route path="profile" element={<AdminProfilePage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
@@ -267,7 +288,7 @@ function VendorRoutes() {
     <Routes>
       <Route path="/vendor/login" element={<VendorAuthPage mode="login" />} />
       <Route path="/vendor/register" element={<VendorAuthPage mode="register" />} />
-      <Route path="/vendor" element={<VendorLayout />}>
+      <Route path="/vendor" element={<RequireVendor><VendorLayout /></RequireVendor>}>
         <Route index element={<VendorDashboardPage />} />
         <Route path="products" element={<VendorProductsPage />} />
         <Route path="orders" element={<VendorOrdersPage />} />
@@ -289,6 +310,26 @@ function QrScanRoutes() {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
+}
+
+// ─── Native app entry: reopening the app lands on the right dashboard ─────────
+
+function AppEntryRedirect() {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!isNativePlatform() || location.pathname !== '/') return
+    let active = true
+    void resolveStoredSession().then((session) => {
+      if (active && session) navigate(dashboardPathForRole(session.role), { replace: true })
+    })
+    return () => {
+      active = false
+    }
+  }, [navigate, location.pathname])
+
+  return null
 }
 
 // ─── Top-level router — dispatch by path prefix ───────────────────────────────
@@ -340,6 +381,7 @@ export default function App() {
       <ToastProvider>
         <AdminAuthProvider>
           <CustomerAuthProvider>
+            <AppEntryRedirect />
             <AppRoutes />
             <OfflineIndicator />
           </CustomerAuthProvider>

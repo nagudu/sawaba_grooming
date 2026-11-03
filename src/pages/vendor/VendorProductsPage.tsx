@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, ImagePlus, Package, Pause, Play, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Package, Pause, Play, Plus, Trash2 } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog, Field, StatusBadge } from '../../components/admin/AdminUI'
@@ -11,6 +11,14 @@ import { vendorApi, type VendorProduct } from '../../api/vendor'
 import { shopApi, type ShopCategory } from '../../api/shop'
 import { formatPrice } from '../../utils/format'
 import { cn } from '../../utils/cn'
+import ProductMediaManager from '../../components/product/ProductMediaManager'
+import ProductMediaThumb, { primaryProductMedia } from '../../components/product/ProductMediaThumb'
+import {
+  buildProductMediaPayload,
+  emptyMediaState,
+  mediaStateFromExisting,
+  type MediaManagerState,
+} from '../../lib/mediaUpload'
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
@@ -57,8 +65,7 @@ export default function VendorProductsPage() {
   const [editing, setEditing] = useState<VendorProduct | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [variations, setVariations] = useState<VariationDraft[]>([])
-  const [files, setFiles] = useState<File[]>([])
-  const [existingImages, setExistingImages] = useState<VendorProduct['images']>([])
+  const [mediaState, setMediaState] = useState<MediaManagerState>(emptyMediaState())
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<VendorProduct | null>(null)
   const [categories, setCategories] = useState<ShopCategory[]>([])
@@ -98,8 +105,7 @@ export default function VendorProductsPage() {
     setEditing(null)
     setForm(EMPTY_FORM)
     setVariations([])
-    setFiles([])
-    setExistingImages([])
+    setMediaState(emptyMediaState())
     setEditorOpen(true)
   }
 
@@ -123,15 +129,14 @@ export default function VendorProductsPage() {
         priceDelta: String(variation.priceDelta),
       })),
     )
-    setFiles([])
-    setExistingImages(product.images)
+    setMediaState(mediaStateFromExisting(product.images))
     setEditorOpen(true)
   }
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (files.length === 0 && existingImages.length === 0) {
-      showToast('Add at least one product image.', 'error')
+    if (mediaState.existing.length === 0 && mediaState.pending.length === 0) {
+      showToast('Add at least one product image or video.', 'error')
       return
     }
     setSaving(true)
@@ -160,7 +165,14 @@ export default function VendorProductsPage() {
           ),
         )
       }
-      for (const file of files) fd.append('images', file)
+      const media = await buildProductMediaPayload(mediaState, (resourceType) =>
+        vendorApi.requestUploadSignature(resourceType),
+      )
+      fd.set('existingMedia', media.existingMedia)
+      if (media.mediaJson) fd.set('mediaJson', media.mediaJson)
+      if (media.primaryUrl) fd.set('primaryUrl', media.primaryUrl)
+      for (const file of media.images) fd.append('images', file)
+      for (const file of media.videos) fd.append('videos', file)
 
       if (editing) {
         await vendorApi.updateProduct(editing.id, fd)
@@ -268,13 +280,15 @@ export default function VendorProductsPage() {
                 className="flex flex-col overflow-hidden rounded-2xl border border-night-800 bg-night-900/40"
               >
                 <div className="relative aspect-[4/3] bg-night-950">
-                  {product.images[0] ? (
-                    <img src={product.images[0].url} alt={product.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-night-700">
-                      <Package className="h-10 w-10" />
-                    </div>
-                  )}
+                  <ProductMediaThumb
+                    media={primaryProductMedia(product.images)}
+                    className="h-full w-full object-cover"
+                    fallback={
+                      <div className="flex h-full w-full items-center justify-center text-night-700">
+                        <Package className="h-10 w-10" />
+                      </div>
+                    }
+                  />
                   <span className="absolute top-3 left-3">
                     <StatusBadge status={product.status} />
                   </span>
@@ -491,31 +505,9 @@ export default function VendorProductsPage() {
             )}
           </div>
 
-          {/* Images */}
+          {/* Images & videos */}
           <div className="rounded-xl border border-night-800 bg-night-950/40 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-night-400">Images (max 8)</p>
-            {existingImages.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {existingImages.map((image) => (
-                  <div key={image.id} className="relative h-16 w-16 overflow-hidden rounded-lg border border-night-700">
-                    <img src={image.url} alt={image.alt ?? ''} className="h-full w-full object-cover" />
-                  </div>
-                ))}
-              </div>
-            )}
-            <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-night-600 p-4 transition-colors hover:border-gold-500/50">
-              <ImagePlus className="h-5 w-5 text-gold-500" />
-              <span className="text-sm text-night-300">
-                {files.length > 0 ? `${files.length} new image(s) selected` : 'Choose product photos'}
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 8))}
-              />
-            </label>
+            <ProductMediaManager value={mediaState} onChange={setMediaState} disabled={saving} />
           </div>
 
           <div className="flex justify-end gap-3 border-t border-night-800 pt-4">

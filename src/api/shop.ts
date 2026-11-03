@@ -93,7 +93,16 @@ export interface ShopProductDetail extends ShopProduct {
   isActive: boolean
   status: string
   variations: Array<{ id: number; name: string; value: string; priceDelta: number; stock: number }>
-  images: Array<{ id: number; url: string; alt: string | null }>
+  images: Array<{
+    id: number
+    url: string
+    alt: string | null
+    mediaType: string
+    thumbnailUrl: string | null
+    duration: number | null
+    isPrimary: boolean
+    sortOrder: number
+  }>
 }
 
 export interface ShopCategory {
@@ -147,6 +156,8 @@ export interface ShopOrderItem {
 export interface ShopOrder {
   id: number
   referenceCode: string
+  /** Secure, expiring, login-free tracking link. */
+  trackingUrl: string
   customerName: string
   customerPhone: string
   customerEmail: string | null
@@ -171,6 +182,8 @@ export interface ShopOrder {
   fulfillmentType: 'DELIVERY' | 'PICKUP'
   deliveryInstructions: string | null
   estimatedDeliveryAt: string | null
+  /** Delivery flow: set when the order goes out for delivery. */
+  outForDeliveryAt: string | null
   paymentAttempts: number
   pickup: {
     code: string | null

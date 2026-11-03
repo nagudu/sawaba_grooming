@@ -1,4 +1,5 @@
 import { API_BASE, getAdminToken } from './index'
+import type { UploadSignature } from '../lib/mediaUpload'
 
 /** Admin marketplace API client (JWT: admin token). */
 
@@ -118,7 +119,16 @@ export interface AdminProduct {
   createdAt: string
   vendor: { id: number; businessName: string; status: string; isOfficial: boolean }
   category: { id: number; name: string } | null
-  images: Array<{ id: number; url: string }>
+  images: Array<{
+    id: number
+    url: string
+    alt: string | null
+    mediaType: string
+    thumbnailUrl: string | null
+    duration: number | null
+    isPrimary: boolean
+    sortOrder: number
+  }>
 }
 
 export interface AdminCategory {
@@ -135,6 +145,8 @@ export interface AdminCategory {
 export interface AdminOrder {
   id: number
   referenceCode: string
+  /** Secure, expiring, login-free tracking link. */
+  trackingUrl: string
   customerName: string
   customerPhone: string
   customerEmail: string | null
@@ -158,6 +170,8 @@ export interface AdminOrder {
   fulfillmentType: string
   deliveryInstructions: string | null
   estimatedDeliveryAt: string | null
+  /** Delivery flow: set when the order goes out for delivery. */
+  outForDeliveryAt: string | null
   paymentAttempts: number
   pickupCode: string | null
   pickupShopName: string | null
@@ -202,6 +216,13 @@ export interface AdminOrderDetail extends AdminOrder {
   ledger: Array<{ id: number; vendorId: number; commissionAmount: number; vendorNet: number; settlementStatus: string }>
 }
 
+/** Result of previewing an order by its customer pickup code. */
+export interface OrderPickupLookup {
+  order: AdminOrderDetail
+  eligible: boolean
+  reason: string | null
+}
+
 export interface LedgerEntry {
   id: number
   orderReference: string
@@ -225,15 +246,66 @@ export interface PayoutRow {
   referenceCode: string
   vendorId: number
   vendorName: string
+  vendorContactName: string
+  vendorEmail: string
+  vendorPhone: string
   bankName: string | null
   accountName: string | null
   accountNumber: string | null
   amount: number
   status: string
   note: string | null
+  adminNote: string | null
   transactionRef: string | null
   requestedAt: string
   processedAt: string | null
+}
+
+export interface VendorWalletBalances {
+  pending: number
+  available: number
+  locked: number
+  paid: number
+  reversed: number
+  totalSales: number
+  totalEarnings: number
+  totalCommission: number
+  totalWithdrawn: number
+}
+
+export interface VendorWalletLedgerEntry {
+  id: number
+  orderReference: string
+  productName: string
+  quantity: number
+  salePrice: number
+  commissionRate: number
+  commissionAmount: number
+  vendorNet: number
+  reversedAmount: number
+  settlementStatus: string
+  releasedAt: string | null
+  paidAt: string | null
+  createdAt: string
+}
+
+export interface VendorWalletPayout {
+  id: number
+  referenceCode: string
+  amount: number
+  status: string
+  note: string | null
+  adminNote: string | null
+  transactionRef: string | null
+  requestedAt: string
+  processedAt: string | null
+}
+
+export interface VendorWallet {
+  vendor: AdminVendor
+  balances: VendorWalletBalances
+  ledger: VendorWalletLedgerEntry[]
+  payouts: VendorWalletPayout[]
 }
 
 export interface MarketplaceSettings {
@@ -313,6 +385,12 @@ export const marketplaceAdminApi = {
   createProduct: (body: FormData) =>
     adminFetch<AdminProduct>(`${BASE}/products`, { method: 'POST', body }),
 
+  requestUploadSignature: (resourceType: 'IMAGE' | 'VIDEO') =>
+    adminFetch<UploadSignature>(`${BASE}/uploads/signature`, {
+      method: 'POST',
+      body: JSON.stringify({ resourceType: resourceType === 'IMAGE' ? 'image' : 'video' }),
+    }),
+
   updateProduct: (id: number, body: FormData) =>
     adminFetch<AdminProduct>(`${BASE}/products/${id}`, { method: 'PUT', body }),
 
@@ -376,6 +454,18 @@ export const marketplaceAdminApi = {
       body: JSON.stringify({ reason }),
     }),
 
+  lookupPickup: (code: string) =>
+    adminFetch<OrderPickupLookup>(`${BASE}/orders/pickup/lookup`, {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  collectPickup: (code: string) =>
+    adminFetch<AdminOrder>(`${BASE}/orders/pickup/collect`, {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
   createRefund: (reference: string, input: { reason: string; amount?: number; vendorId?: number }) =>
     adminFetch<{ id: number; status: string }>(`${BASE}/orders/${encodeURIComponent(reference)}/refunds`, {
       method: 'POST',
@@ -401,11 +491,13 @@ export const marketplaceAdminApi = {
   payouts: (params: { status?: string; vendorId?: number; page?: number; perPage?: number }) =>
     adminFetch<Paged<PayoutRow>>(`${BASE}/payouts${qs(params)}`),
 
-  processPayout: (id: number, action: 'APPROVED' | 'REJECTED' | 'PAID', input?: { transactionRef?: string; note?: string }) =>
+  processPayout: (id: number, action: 'APPROVED' | 'PROCESSING' | 'REJECTED' | 'PAID', input?: { transactionRef?: string; note?: string }) =>
     adminFetch<Record<string, never>>(`${BASE}/payouts/${id}/process`, {
       method: 'POST',
       body: JSON.stringify({ action, ...input }),
     }),
+
+  vendorWallet: (id: number) => adminFetch<VendorWallet>(`${BASE}/vendors/${id}/wallet`),
 
   reviews: (params: { status?: string; search?: string; page?: number; perPage?: number }) =>
     adminFetch<Paged<ReviewRow>>(`${BASE}/reviews${qs(params)}`),

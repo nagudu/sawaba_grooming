@@ -50,6 +50,19 @@ export default function VendorSettingsPage() {
 
   const saveProfile = async (event: React.FormEvent) => {
     event.preventDefault()
+    const anyBankField = Boolean(
+      form.bankName.trim() || form.bankAccountName.trim() || form.bankAccountNumber.trim(),
+    )
+    if (anyBankField) {
+      if (!form.bankName.trim() || !form.bankAccountName.trim() || !form.bankAccountNumber.trim()) {
+        showToast('Provide your bank name, account name and account number together.', 'error')
+        return
+      }
+      if (!/^\d{10}$/.test(form.bankAccountNumber.trim())) {
+        showToast('Account number must be exactly 10 digits.', 'error')
+        return
+      }
+    }
     setSaving(true)
     try {
       const updated = await vendorApi.updateProfile(form)
@@ -133,16 +146,32 @@ export default function VendorSettingsPage() {
             Payout details
           </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <Field label="Bank name">
-              <input value={form.bankName} onChange={set('bankName')} placeholder="e.g. GTBank" className={inputClass} />
+            <Field label="Bank name" hint="Your bank's name">
+              <input value={form.bankName} onChange={set('bankName')} placeholder="e.g. GTBank" maxLength={100} className={inputClass} />
             </Field>
-            <Field label="Account name">
-              <input value={form.bankAccountName} onChange={set('bankAccountName')} className={inputClass} />
+            <Field label="Account name" hint="As it appears on your bank account">
+              <input value={form.bankAccountName} onChange={set('bankAccountName')} maxLength={150} className={inputClass} />
             </Field>
-            <Field label="Account number">
-              <input value={form.bankAccountNumber} onChange={set('bankAccountNumber')} className={inputClass} />
+            <Field label="Account number" hint="10-digit NUBAN">
+              <input
+                value={form.bankAccountNumber}
+                onChange={set('bankAccountNumber')}
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="0123456789"
+                className={inputClass}
+              />
+              {form.bankAccountNumber && !/^\d{10}$/.test(form.bankAccountNumber) && (
+                <span className="mt-1 block text-[11px] text-red-300">
+                  Account number must be exactly 10 digits.
+                </span>
+              )}
             </Field>
           </div>
+          <p className="mt-3 text-xs text-night-500">
+            Your bank details are only used by SAWABA administrators to pay your withdrawals. Customers
+            never see them.
+          </p>
         </div>
 
         <div className="mt-6">

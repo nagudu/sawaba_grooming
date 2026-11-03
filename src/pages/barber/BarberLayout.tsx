@@ -106,7 +106,7 @@ export default function BarberLayout() {
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t border-night-800 bg-night-900/95 backdrop-blur md:hidden">
+      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t border-night-800 bg-night-900/95 backdrop-blur md:hidden">
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

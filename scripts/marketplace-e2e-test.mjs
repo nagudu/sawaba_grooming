@@ -312,7 +312,7 @@ async function run() {
       paymentMethod: 'BANK_TRANSFER',
     },
   })
-  const orderData = data(order)
+  const orderData = data(order)?.order ?? data(order)
   orderRef = orderData?.referenceCode ?? orderData?.reference
   check('guest checkout creates an order', order.status < 300 && Boolean(orderRef), msg(order))
   const orderTotal = Number(orderData?.totalAmount)
@@ -428,10 +428,14 @@ async function run() {
 
   // ── 11. Fulfillment → release → payout ─────────────────────────────────
   console.log('11. Fulfillment + payout lifecycle')
-  const setStatus = await req('PATCH', `/admin/marketplace/orders/${orderRef}/status`, {
-    token: adminToken,
-    body: { status: 'DELIVERED' },
-  })
+  let setStatus = null
+  for (const step of ['PROCESSING', 'OUT_FOR_DELIVERY', 'DELIVERED']) {
+    setStatus = await req('PATCH', `/admin/marketplace/orders/${orderRef}/status`, {
+      token: adminToken,
+      body: { status: step },
+    })
+    if (setStatus.status >= 300) break
+  }
   check('admin marks order delivered', setStatus.status < 300, msg(setStatus))
 
   const earnA2 = await req('GET', '/vendor/earnings', { token: vendorAToken })
@@ -439,29 +443,92 @@ async function run() {
   console.log(`    earnings after delivery: ${JSON.stringify(sum2).slice(0, 200)}`)
   check('earnings summary still loads post-delivery', earnA2.status < 300, msg(earnA2))
 
+  const earnReady = await req('GET', '/vendor/earnings', { token: vendorAToken })
+  const availableBefore = Number(data(earnReady)?.balances?.available ?? 0)
+  check('earnings released to available after delivery', availableBefore >= 100, `available=${availableBefore}`)
+
   const payoutReq = await req('POST', '/vendor/payouts', {
     token: vendorAToken,
-    body: { amount: 500, note: 'QA payout request' },
+    body: { amount: Math.floor(availableBefore), note: 'QA payout request' },
   })
-  payoutId = data(payoutReq)?.id
-  check('vendor requests payout', payoutReq.status < 300, msg(payoutReq))
+  const payout = data(payoutReq)?.payout
+  payoutId = payout?.id
+  check('vendor requests a whole-earning withdrawal', payoutReq.status < 300 && Boolean(payoutId), msg(payoutReq))
+  check(
+    'withdrawal amount equals the claimed whole earnings',
+    Math.abs(Number(payout?.amount ?? 0) - availableBefore) < 1,
+    `${payout?.amount} vs ${availableBefore}`,
+  )
+
+  const secondReq = await req('POST', '/vendor/payouts', {
+    token: vendorAToken,
+    body: { amount: 100 },
+  })
+  check('a second withdrawal is blocked while one is open', secondReq.status >= 400, `status=${secondReq.status}`)
+
+  const earnLocked = await req('GET', '/vendor/earnings', { token: vendorAToken })
+  check(
+    'funds are locked (available reduces) while the withdrawal is open',
+    Number(data(earnLocked)?.balances?.available) < 1 && Number(data(earnLocked)?.balances?.locked) > 0,
+    JSON.stringify(data(earnLocked)?.balances),
+  )
 
   if (payoutId) {
     const approvePayout = await req('POST', `/admin/marketplace/payouts/${payoutId}/process`, {
       token: adminToken,
-      body: { action: 'APPROVED' },
+      body: { action: 'APPROVED', note: 'QA approved' },
     })
-    check('admin approves payout', approvePayout.status < 300, msg(approvePayout))
+    check('admin approves withdrawal', approvePayout.status < 300, msg(approvePayout))
+
+    const processingPayout = await req('POST', `/admin/marketplace/payouts/${payoutId}/process`, {
+      token: adminToken,
+      body: { action: 'PROCESSING', note: 'QA processing' },
+    })
+    check('admin marks withdrawal processing', processingPayout.status < 300, msg(processingPayout))
+
     const paidPayout = await req('POST', `/admin/marketplace/payouts/${payoutId}/process`, {
       token: adminToken,
-      body: { action: 'PAID', transactionRef: `QA-PAYOUT-${uniq}` },
+      body: { action: 'PAID', transactionRef: `QA-PAYOUT-${uniq}`, note: 'QA bank transfer done' },
     })
-    check('admin records payout as paid', paidPayout.status < 300, msg(paidPayout))
+    check('admin records withdrawal as paid', paidPayout.status < 300, msg(paidPayout))
+
     const paidAgain = await req('POST', `/admin/marketplace/payouts/${payoutId}/process`, {
       token: adminToken,
-      body: { action: 'PAID' },
+      body: { action: 'PAID', transactionRef: 'duplicate' },
     })
-    check('payout cannot be paid twice', paidAgain.status >= 400, `status=${paidAgain.status}`)
+    check('withdrawal cannot be paid twice', paidAgain.status >= 400, `status=${paidAgain.status}`)
+
+    const earnPaid = await req('GET', '/vendor/earnings', { token: vendorAToken })
+    const paidBalances = data(earnPaid)?.balances
+    check(
+      'total withdrawn increased and locked cleared',
+      Number(paidBalances?.totalWithdrawn) >= availableBefore - 1 && Number(paidBalances?.locked) === 0,
+      JSON.stringify(paidBalances),
+    )
+
+    const history = await req('GET', '/vendor/payouts?perPage=20', { token: vendorAToken })
+    check(
+      'withdrawal history shows the paid request',
+      (data(history)?.items ?? []).some((p) => p.id === payoutId && p.status === 'PAID'),
+      msg(history),
+    )
+
+    const walletView = await req('GET', `/admin/marketplace/vendors/${vendorAId}/wallet`, { token: adminToken })
+    check(
+      'admin can view the vendor wallet',
+      walletView.status === 200 && Boolean(data(walletView)?.balances),
+      msg(walletView),
+    )
+
+    const paidList = await req('GET', `/admin/marketplace/payouts?status=PAID&vendorId=${vendorAId}`, {
+      token: adminToken,
+    })
+    const paidRow = (data(paidList)?.items ?? []).find((p) => p.id === payoutId)
+    check(
+      'admin payout record stores reference, admin note and payment date',
+      Boolean(paidRow?.transactionRef) && Boolean(paidRow?.adminNote) && Boolean(paidRow?.processedAt),
+      JSON.stringify(paidRow && { ref: paidRow.transactionRef, note: paidRow.adminNote, date: paidRow.processedAt }),
+    )
   }
 
   // ── 12. Refund reverses commission, history preserved ───────────────────

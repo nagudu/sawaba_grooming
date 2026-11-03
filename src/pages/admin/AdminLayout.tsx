@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
+  Banknote,
   Bell,
   CalendarDays,
   Contact2,
   CreditCard,
   Gauge,
   QrCode,
+  PackageCheck,
   Images,
   LayoutDashboard,
   LogOut,
@@ -41,6 +43,8 @@ const NAV_ITEMS = [
   { to: '/admin/reviews', label: 'Reviews', icon: Star },
   { to: '/admin/contacts', label: 'Contact Messages', icon: Contact2 },
   { to: '/admin/marketplace', label: 'Marketplace', icon: ShoppingBag },
+  { to: '/admin/pickup', label: 'Pickup Verification', icon: PackageCheck },
+  { to: '/admin/withdrawals', label: 'Withdrawals', icon: Banknote },
   { to: '/admin/payment-settings', label: 'Payment Settings', icon: Settings2 },
   { to: '/admin/notifications', label: 'Notifications', icon: Bell },
   { to: '/admin/appearance', label: 'Appearance', icon: Palette },

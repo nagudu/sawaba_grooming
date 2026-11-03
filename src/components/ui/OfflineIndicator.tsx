@@ -28,7 +28,7 @@ export default function OfflineIndicator() {
   return (
     <div
       role="status"
-      className="fixed bottom-4 left-4 z-[70] flex items-center gap-2 rounded-full border border-gold-500/40 bg-night-900/95 px-4 py-2 text-xs font-semibold text-night-100 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-md"
+      className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 z-[70] flex items-center gap-2 rounded-full border border-gold-500/40 bg-night-900/95 px-4 py-2 text-xs font-semibold text-night-100 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-md"
     >
       {dismissed ? (
         <>

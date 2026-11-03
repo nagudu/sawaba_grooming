@@ -26,6 +26,14 @@ import SearchInput from '../../components/ui/SearchInput'
 import { useToast } from '../../components/ui/ToastNotification'
 import { cn } from '../../utils/cn'
 import { formatPrice } from '../../utils/format'
+import ProductMediaManager from '../../components/product/ProductMediaManager'
+import ProductMediaThumb, { primaryProductMedia } from '../../components/product/ProductMediaThumb'
+import {
+  buildProductMediaPayload,
+  emptyMediaState,
+  mediaStateFromExisting,
+  type MediaManagerState,
+} from '../../lib/mediaUpload'
 import {
   marketplaceAdminApi,
   type AdminCategory,
@@ -35,7 +43,6 @@ import {
   type AdminVendor,
   type MarketplaceOverview,
   type MarketplaceSettings,
-  type PayoutRow,
   type ReviewRow,
 } from '../../api/marketplaceAdmin'
 
@@ -418,8 +425,7 @@ function ProductsTab() {
     status: 'DRAFT' as 'DRAFT' | 'ACTIVE',
     isActive: true,
   })
-  const [existingImages, setExistingImages] = useState<string[]>([])
-  const [newImages, setNewImages] = useState<File[]>([])
+  const [mediaState, setMediaState] = useState<MediaManagerState>(emptyMediaState())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -510,19 +516,14 @@ function ProductsTab() {
           status: 'DRAFT',
           isActive: true,
         })
-    setExistingImages(product?.images.map((image) => image.url) ?? [])
-    setNewImages([])
+    setMediaState(product ? mediaStateFromExisting(product.images) : emptyMediaState())
   }
 
   const submitProduct = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!productEditor) return
-    if (existingImages.length + newImages.length === 0) {
-      showToast('Upload at least one product image.', 'error')
-      return
-    }
-    if (existingImages.length + newImages.length > 8) {
-      showToast('A maximum of 8 product images is allowed.', 'error')
+    if (mediaState.existing.length === 0 && mediaState.pending.length === 0) {
+      showToast('Add at least one product image or video.', 'error')
       return
     }
     setBusy(true)
@@ -538,8 +539,14 @@ function ProductsTab() {
       body.set('stock', productForm.stock)
       body.set('status', productForm.status)
       body.set('isActive', String(productForm.isActive))
-      body.set('existingImages', JSON.stringify(existingImages))
-      newImages.forEach((image) => body.append('images', image))
+      const media = await buildProductMediaPayload(mediaState, (resourceType) =>
+        marketplaceAdminApi.requestUploadSignature(resourceType),
+      )
+      body.set('existingMedia', media.existingMedia)
+      if (media.mediaJson) body.set('mediaJson', media.mediaJson)
+      if (media.primaryUrl) body.set('primaryUrl', media.primaryUrl)
+      media.images.forEach((image) => body.append('images', image))
+      media.videos.forEach((video) => body.append('videos', video))
 
       if (productEditor === 'new') {
         await marketplaceAdminApi.createProduct(body)
@@ -671,11 +678,11 @@ function ProductsTab() {
                   <tr key={product.id} className="text-sm">
                     <Td>
                       <div className="flex items-center gap-3">
-                        {product.images[0] ? (
-                          <img src={product.images[0].url} alt="" className="h-10 w-10 shrink-0 rounded-lg border border-night-800 object-cover" />
-                        ) : (
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-night-800 text-night-600"><Package className="h-4 w-4" /></span>
-                        )}
+                        <ProductMediaThumb
+                          media={primaryProductMedia(product.images)}
+                          className="h-10 w-10 shrink-0 rounded-lg border border-night-800 object-cover"
+                          fallback={<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-night-800 text-night-600"><Package className="h-4 w-4" /></span>}
+                        />
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-night-100">{product.name}</p>
                           {product.brand && <p className="text-xs text-night-500">{product.brand}</p>}
@@ -782,39 +789,14 @@ function ProductsTab() {
                 <option value="ACTIVE">Publish</option>
               </select>
             </Field>
-            <Field label="Product images (up to 8)">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
-                multiple
-                onChange={(event) => {
-                  const picked = Array.from(event.target.files ?? [])
-                  setNewImages((current) => [...current, ...picked].slice(0, Math.max(0, 8 - existingImages.length)))
-                  event.target.value = ''
-                }}
-                className={inputClass}
-              />
-            </Field>
+            <div className="sm:col-span-2">
+              <ProductMediaManager value={mediaState} onChange={setMediaState} disabled={busy} />
+            </div>
           </div>
           <Field label="Description">
             <textarea required minLength={10} maxLength={5000} rows={5} value={productForm.description} onChange={(event) => setProductForm((form) => ({ ...form, description: event.target.value }))} className={inputClass} />
           </Field>
-          {(existingImages.length > 0 || newImages.length > 0) && (
-            <div className="flex flex-wrap gap-3">
-              {existingImages.map((url, index) => (
-                <div key={`${url}-${index}`} className="relative">
-                  <img src={url} alt={`Product image ${index + 1}`} className="h-16 w-16 rounded-lg border border-night-700 object-cover" />
-                  <button type="button" onClick={() => setExistingImages((items) => items.filter((_, imageIndex) => imageIndex !== index))} className="absolute -right-2 -top-2 rounded-full bg-red-500 px-1.5 text-xs text-white" aria-label="Remove existing image">×</button>
-                </div>
-              ))}
-              {newImages.map((file, index) => (
-                <div key={`${file.name}-${index}`} className="flex max-w-28 items-center gap-1 rounded-lg border border-night-700 px-2 py-1 text-[10px] text-night-300">
-                  <span className="truncate">{file.name}</span>
-                  <button type="button" onClick={() => setNewImages((items) => items.filter((_, imageIndex) => imageIndex !== index))} aria-label={`Remove ${file.name}`} className="text-red-300">×</button>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Media previews and controls are handled by ProductMediaManager */}
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" size="md" onClick={() => setProductEditor(null)} disabled={busy}>Cancel</Button>
             <Button type="submit" variant="gold" size="md" loading={busy}>
@@ -1148,7 +1130,17 @@ function OrdersTab() {
                 <p className="mt-2 text-xs text-night-400">{active.deliveryAddress}{active.deliveryLocation ? ` · ${active.deliveryLocation}` : ''}</p>
                 {active.fulfillmentType === 'PICKUP' && (
                   <div className="mt-2 rounded-lg border border-gold-500/25 bg-gold-500/5 p-2.5 text-xs text-night-300">
-                    <p className="font-semibold text-gold-300">Pickup code: {active.pickupCode ?? '—'}</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-gold-300">Pickup code: {active.pickupCode ?? '—'}</p>
+                      {active.pickupCode ? (
+                        <Link
+                          to={`/admin/pickup?code=${encodeURIComponent(active.pickupCode)}`}
+                          className="rounded-md border border-gold-500/30 px-2 py-1 text-[11px] font-semibold text-gold-300 hover:bg-gold-500/10"
+                        >
+                          Verify pickup →
+                        </Link>
+                      ) : null}
+                    </div>
                     <p className="mt-1">{active.pickupShopName}</p>
                     <p>{active.pickupAddress}</p>
                     <p>{active.pickupPhone}</p>
@@ -1191,44 +1183,59 @@ function OrdersTab() {
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Actions — delivery and pickup have separate fulfilment flows */}
             <div className="flex flex-wrap gap-3 border-t border-night-800 pt-4">
-              {active.paymentStatus === 'PAID' && active.status === 'PAYMENT_CONFIRMED' && (
-                <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'PROCESSING'), 'Order moved to processing.')}>
-                  Start Processing
-                </Button>
+              {active.paymentStatus === 'PAID' && active.fulfillmentType !== 'PICKUP' && (
+                <>
+                  {active.status === 'PAYMENT_CONFIRMED' && (
+                    <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'PROCESSING'), 'Order moved to processing.')}>
+                      Start Processing
+                    </Button>
+                  )}
+                  {active.status === 'PROCESSING' && (
+                    <Button variant="outline" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'READY_FOR_DISPATCH'), 'Order is ready for dispatch.')}>
+                      Ready for Dispatch
+                    </Button>
+                  )}
+                  {['PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH'].includes(active.status) && (
+                    <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'OUT_FOR_DELIVERY'), 'Order is out for delivery.')}>
+                      Out for Delivery
+                    </Button>
+                  )}
+                  {['OUT_FOR_DELIVERY', 'SHIPPED'].includes(active.status) && (
+                    <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'DELIVERED'), 'Order marked delivered.')}>
+                      Mark Delivered
+                    </Button>
+                  )}
+                </>
               )}
-              {active.paymentStatus === 'PAID' && active.status === 'PROCESSING' && (
-                <Button variant="outline" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'READY_FOR_DISPATCH'), 'Order is ready for dispatch.')}>
-                  Ready for Dispatch
-                </Button>
+
+              {active.paymentStatus === 'PAID' && active.fulfillmentType === 'PICKUP' && (
+                <>
+                  {active.status === 'PAYMENT_CONFIRMED' && (
+                    <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'PROCESSING'), 'Order moved to processing.')}>
+                      Start Processing
+                    </Button>
+                  )}
+                  {['PAYMENT_CONFIRMED', 'PROCESSING'].includes(active.status) && (
+                    <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'READY_FOR_PICKUP'), 'Order is ready for pickup — the customer can collect with their code.')}>
+                      Ready for Pickup
+                    </Button>
+                  )}
+                  {active.status === 'READY_FOR_PICKUP' && (
+                    <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'COLLECTED'), 'Order marked collected.')}>
+                      Mark Collected
+                    </Button>
+                  )}
+                </>
               )}
-              {active.paymentStatus === 'PAID' && ['PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH'].includes(active.status) && (
-                <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'SHIPPED'), 'Order marked shipped.')}>
-                  Mark Shipped
-                </Button>
-              )}
-              {active.paymentStatus === 'PAID' && ['PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH', 'SHIPPED'].includes(active.status) && (
-                <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'DELIVERED'), 'Order marked delivered.')}>
-                  Mark Delivered
-                </Button>
-              )}
-              {active.paymentStatus === 'PAID' && ['PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH'].includes(active.status) && (
-                <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'READY_FOR_PICKUP'), 'Order is ready for pickup — the customer can collect with their code.')}>
-                  Ready for Pickup
-                </Button>
-              )}
-              {active.paymentStatus === 'PAID' && active.status === 'READY_FOR_PICKUP' && (
-                <Button variant="gold" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'COLLECTED'), 'Order marked collected.')}>
-                  Mark Collected
-                </Button>
-              )}
-              {active.paymentStatus === 'PAID' && !['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(active.status) && (
+
+              {active.paymentStatus === 'PAID' && !['DELIVERED', 'COLLECTED', 'CANCELLED', 'REFUNDED'].includes(active.status) && (
                 <Button variant="outline" size="sm" loading={busy} onClick={() => setRefundOpen(true)}>
                   Issue Refund
                 </Button>
               )}
-              {active.paymentStatus !== 'PAID' && active.status !== 'CANCELLED' && (
+              {!['DELIVERED', 'COLLECTED', 'CANCELLED', 'REFUNDED'].includes(active.status) && (
                 <Button variant="outline" size="sm" loading={busy} onClick={() => run(() => marketplaceAdminApi.updateOrderStatus(active.referenceCode, 'CANCELLED', 'Cancelled by admin'), 'Order cancelled and stock returned.')}>
                   Cancel Order
                 </Button>
@@ -1279,48 +1286,23 @@ function OrdersTab() {
 
 function FinanceTab() {
   const { showToast } = useToast()
-  const [payouts, setPayouts] = useState<PayoutRow[]>([])
   const [ledger, setLedger] = useState<Awaited<ReturnType<typeof marketplaceAdminApi.ledger>> | null>(null)
-  const [payoutFilter, setPayoutFilter] = useState('')
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [payTarget, setPayTarget] = useState<PayoutRow | null>(null)
-  const [payRef, setPayRef] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [payoutResult, ledgerResult] = await Promise.all([
-        marketplaceAdminApi.payouts({ status: payoutFilter || undefined, perPage: 25 }),
-        marketplaceAdminApi.ledger({ perPage: 25 }),
-      ])
-      setPayouts(payoutResult.items)
-      setLedger(ledgerResult)
+      setLedger(await marketplaceAdminApi.ledger({ perPage: 25 }))
     } catch (error) {
       showToast((error as Error).message, 'error')
     } finally {
       setLoading(false)
     }
-  }, [payoutFilter, showToast])
+  }, [showToast])
 
   useEffect(() => {
     void load()
   }, [load])
-
-  const process = async (payout: PayoutRow, action: 'APPROVED' | 'REJECTED' | 'PAID') => {
-    setBusy(true)
-    try {
-      await marketplaceAdminApi.processPayout(payout.id, action, action === 'PAID' ? { transactionRef: payRef || undefined } : undefined)
-      showToast(`Payout ${action.toLowerCase()}.`)
-      setPayTarget(null)
-      setPayRef('')
-      await load()
-    } catch (error) {
-      showToast((error as Error).message, 'error')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   if (loading && !ledger) {
     return (
@@ -1342,63 +1324,21 @@ function FinanceTab() {
         </div>
       )}
 
-      {/* Payouts */}
-      <div>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-xl text-night-50">Payout Requests</h2>
-          <div className="flex gap-2">
-            {['', 'REQUESTED', 'APPROVED', 'PAID', 'REJECTED'].map((value) => (
-              <button key={value} type="button" onClick={() => setPayoutFilter(value)} className={cn('rounded-full border px-3 py-1.5 text-xs font-semibold', payoutFilter === value ? 'border-gold-500 bg-gold-500/15 text-gold-300' : 'border-night-700 bg-night-900 text-night-400')}>
-                {value === '' ? 'All' : value}
-              </button>
-            ))}
-          </div>
+      {/* Withdrawals live on their own page */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold-500/30 bg-gold-500/[0.06] p-4">
+        <div>
+          <p className="text-sm font-semibold text-gold-200">Vendor withdrawals</p>
+          <p className="text-xs text-night-400">
+            Approve, process and pay vendor withdrawals from the dedicated page. Payouts settle the
+            commission ledger below.
+          </p>
         </div>
-
-        {payouts.length === 0 ? (
-          <EmptyState icon={<Banknote className="h-10 w-10" />} title="No payout requests" description="Vendor payout requests appear here for processing." />
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-night-800 bg-night-900/40">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px]">
-                <thead className="border-b border-night-800 bg-night-900/60">
-                  <tr>
-                    <Th>Reference</Th>
-                    <Th>Vendor</Th>
-                    <Th>Bank Details</Th>
-                    <Th className="text-right">Amount</Th>
-                    <Th className="text-right">Status</Th>
-                    <Th className="text-right">Action</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-night-800">
-                  {payouts.map((payout) => (
-                    <tr key={payout.id} className="text-sm">
-                      <Td className="font-semibold text-night-100">{payout.referenceCode}</Td>
-                      <Td className="text-night-200">{payout.vendorName}</Td>
-                      <Td className="text-xs text-night-400">{payout.bankName ? `${payout.bankName} · ${payout.accountNumber} · ${payout.accountName}` : '—'}</Td>
-                      <Td className="text-right font-semibold text-night-100">{formatPrice(payout.amount)}</Td>
-                      <Td className="text-right"><StatusBadge status={payout.status} /></Td>
-                      <Td className="text-right">
-                        <div className="flex justify-end gap-1.5">
-                          {payout.status === 'REQUESTED' && (
-                            <>
-                              <button type="button" disabled={busy} onClick={() => process(payout, 'APPROVED')} className="rounded-lg bg-emerald-500/90 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-emerald-400 disabled:opacity-40">Approve</button>
-                              <button type="button" disabled={busy} onClick={() => process(payout, 'REJECTED')} className="rounded-lg border border-night-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-night-300 hover:border-red-500/60 hover:text-red-300 disabled:opacity-40">Reject</button>
-                            </>
-                          )}
-                          {payout.status === 'APPROVED' && (
-                            <button type="button" disabled={busy} onClick={() => { setPayTarget(payout); setPayRef('') }} className="rounded-lg bg-gold-500 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-night-950 hover:bg-gold-400 disabled:opacity-40">Mark Paid</button>
-                          )}
-                        </div>
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <Link
+          to="/admin/withdrawals"
+          className="inline-flex items-center gap-2 rounded-xl bg-gold-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-night-950 hover:bg-gold-400"
+        >
+          <Banknote className="h-4 w-4" /> Manage withdrawals
+        </Link>
       </div>
 
       {/* Ledger */}
@@ -1472,27 +1412,6 @@ function FinanceTab() {
         )}
       </div>
 
-      <Modal open={Boolean(payTarget)} onClose={() => setPayTarget(null)} title="Confirm payout" size="sm">
-        {payTarget && (
-          <div className="space-y-4">
-            <p className="text-sm text-night-300">
-              Confirm you have sent <span className="font-semibold text-gold-300">{formatPrice(payTarget.amount)}</span> to{' '}
-              <span className="font-semibold text-night-100">{payTarget.vendorName}</span>{' '}
-              ({payTarget.bankName} · {payTarget.accountNumber}). This settles the ledger entries — they cannot be
-              paid twice.
-            </p>
-            <Field label="Transfer reference (optional)">
-              <input value={payRef} onChange={(event) => setPayRef(event.target.value)} placeholder="Bank transfer reference" className={inputClass} />
-            </Field>
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" size="md" onClick={() => setPayTarget(null)} disabled={busy}>Cancel</Button>
-              <Button variant="gold" size="md" loading={busy} onClick={() => process(payTarget, 'PAID')}>
-                Mark as Paid
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   )
 }

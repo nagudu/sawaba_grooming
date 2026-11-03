@@ -31,6 +31,7 @@ const ORDER_STATUS: Record<string, string> = {
   PROCESSING: 'Processing',
   READY_FOR_DISPATCH: 'Ready for Dispatch',
   READY_FOR_PICKUP: 'Ready for Pickup',
+  OUT_FOR_DELIVERY: 'Out for Delivery',
   SHIPPED: 'Out for Delivery',
   DELIVERED: 'Delivered',
   COLLECTED: 'Collected',
@@ -49,7 +50,7 @@ const PAYMENT_STATUS: Record<string, string> = {
   CANCELLED: 'Cancelled',
 }
 
-const DELIVERY_STEPS = ['AWAITING_PAYMENT', 'PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_DISPATCH', 'SHIPPED', 'DELIVERED']
+const DELIVERY_STEPS = ['AWAITING_PAYMENT', 'PAYMENT_CONFIRMED', 'PROCESSING', 'OUT_FOR_DELIVERY', 'DELIVERED']
 const PICKUP_STEPS = ['AWAITING_PAYMENT', 'PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'COLLECTED']
 
 function tone(status: string): string {
@@ -72,7 +73,8 @@ function Pill({ status, labels }: { status: string; labels: Record<string, strin
 
 function Timeline({ order }: { order: ShopOrder }) {
   const steps = order.fulfillmentType === 'PICKUP' ? PICKUP_STEPS : DELIVERY_STEPS
-  const current = steps.indexOf(order.status)
+  // Legacy SHIPPED orders map onto the "Out for Delivery" step.
+  const current = steps.indexOf(order.status === 'SHIPPED' ? 'OUT_FOR_DELIVERY' : order.status)
   return (
     <section className="rounded-2xl border border-night-800 bg-night-900/40 p-5 sm:p-6">
       <h2 className="flex items-center gap-2 font-display text-lg text-night-50">
@@ -504,9 +506,12 @@ export default function TrackOrderPage() {
   }
 
   const copyLink = async () => {
-    if (!token) return
+    const url =
+      order?.trackingUrl ||
+      (token ? `${window.location.origin}/track?token=${encodeURIComponent(token)}` : '')
+    if (!url) return
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/track?token=${encodeURIComponent(token)}`)
+      await navigator.clipboard.writeText(url)
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
       showToast('Tracking link copied.')

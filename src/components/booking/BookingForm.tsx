@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { openExternalUrl } from '../../lib/native'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -657,7 +658,7 @@ export default function BookingForm({
       //    it is created only after the backend verifies the charge (callback page).
       if (isOnlineMethod) {
         const init = await initializeCheckoutPaystack(session.sessionToken)
-        window.location.assign(init.authorizationUrl)
+        void openExternalUrl(init.authorizationUrl)
         return 'success'
       }
 

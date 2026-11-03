@@ -178,6 +178,7 @@ export default function CustomerLoginPage() {
           <span className="mt-2 text-[8.5px] font-semibold tracking-[0.32em] text-gold-500 uppercase">
             Grooming Studio
           </span>
+          <h1 className="mt-4 font-display text-2xl font-semibold text-night-50">Customer Login</h1>
         </div>
 
         <div className="container-app max-w-md">

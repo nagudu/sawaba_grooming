@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Package,
   PackageCheck,
+  Percent,
   ShoppingCart,
   Wallet,
 } from 'lucide-react'
@@ -67,11 +68,13 @@ export default function VendorDashboardPage() {
       </div>
 
       {/* Earnings */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Stat label="Available Balance" value={formatPrice(data.earnings.available)} icon={<Wallet className="h-5 w-5" />} accent />
-        <Stat label="Pending Earnings" value={formatPrice(data.earnings.pending)} icon={<Package className="h-5 w-5" />} />
-        <Stat label="Paid Out" value={formatPrice(data.earnings.paid)} icon={<CheckCircle2 className="h-5 w-5" />} />
+        <Stat label="Pending Balance" value={formatPrice(data.earnings.pending)} icon={<Package className="h-5 w-5" />} />
+        <Stat label="Total Withdrawn" value={formatPrice(data.earnings.totalWithdrawn)} icon={<CheckCircle2 className="h-5 w-5" />} />
         <Stat label="Total Sales" value={formatPrice(data.earnings.totalSales)} icon={<ShoppingCart className="h-5 w-5" />} />
+        <Stat label="Total Earnings" value={formatPrice(data.earnings.totalEarnings)} icon={<Wallet className="h-5 w-5" />} />
+        <Stat label="Sawaba Commission" value={formatPrice(data.earnings.totalCommission)} icon={<Percent className="h-5 w-5" />} />
       </div>
 
       {/* Products + orders */}

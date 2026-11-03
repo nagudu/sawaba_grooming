@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-gold-500/40 bg-gold-500/10 text-gold-400">
               <Scissors className="h-6 w-6" />
             </span>
-            <h1 className="mt-5 font-display text-2xl text-night-50">SAWABA Admin</h1>
+            <h1 className="mt-5 font-display text-2xl text-night-50">Admin Login</h1>
             <p className="mt-1.5 text-sm text-night-400">
               Sign in to manage your salon.
             </p>

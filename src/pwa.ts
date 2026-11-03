@@ -1,9 +1,13 @@
+import { isNativePlatform } from './lib/native'
+
 /**
  * Registers the service worker (built by vite-plugin-pwa) for offline
  * app-shell caching. Dev mode is unaffected (devOptions.enabled = false).
+ * The native app bundle is already local, so the SW is skipped there.
  */
 export function registerServiceWorker(): void {
   if (typeof window === 'undefined') return
+  if (isNativePlatform()) return
   if (!('serviceWorker' in navigator)) return
   if (import.meta.env.DEV) return
 

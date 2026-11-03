@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SAWABA Grooming Studio</string>
+    <string name="title_activity_main">SAWABA Grooming Studio</string>
+    <string name="package_name">ng.sawaba.groomingstudio</string>
+    <string name="custom_url_scheme">ng.sawaba.groomingstudio</string>
+</resources>

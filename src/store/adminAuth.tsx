@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import { api, clearAdminSession, setAdminToken, type AdminProfile } from '../api'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { api, clearAdminSession, getAdminToken, setAdminToken, type AdminProfile } from '../api'
 
 interface AdminAuthContextValue {
   admin: AdminProfile | null
@@ -29,6 +29,28 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     }
   })
   const [loading, setLoading] = useState(false)
+
+  // Validate the stored admin token on mount so an expired/suspended session is
+  // cleared when the app is reopened.
+  useEffect(() => {
+    if (!getAdminToken()) return
+    let active = true
+    void api
+      .get<{ admin: AdminProfile }>('/api/auth/me')
+      .then((data) => {
+        if (!active) return
+        setAdmin(data.admin)
+        localStorage.setItem('sawaba_admin_profile', JSON.stringify(data.admin))
+      })
+      .catch(() => {
+        if (!active) return
+        clearAdminSession()
+        setAdmin(null)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true)

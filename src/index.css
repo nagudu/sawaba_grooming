@@ -198,3 +198,16 @@
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* ── Mobile: prevent iOS focus-zoom and respect device safe areas ───────── */
+@media (max-width: 640px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

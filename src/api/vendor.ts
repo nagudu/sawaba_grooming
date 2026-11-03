@@ -1,4 +1,5 @@
 import { API_BASE } from './index'
+import type { UploadSignature } from '../lib/mediaUpload'
 
 /** Vendor portal API client — separate token namespace from admin/customer. */
 
@@ -80,7 +81,16 @@ export interface VendorProfile {
 export interface VendorDashboardData {
   products: { total: number; active: number; outOfStock: number; pendingReview: number }
   orders: { new: number; processing: number; completed: number; cancelled: number; returned: number }
-  earnings: { totalSales: number; totalCommission: number; pending: number; available: number; paid: number }
+  earnings: {
+    totalSales: number
+    totalCommission: number
+    totalEarnings: number
+    pending: number
+    available: number
+    locked: number
+    paid: number
+    totalWithdrawn: number
+  }
   recentOrders: Array<{
     itemId: number
     orderReference: string
@@ -118,7 +128,16 @@ export interface VendorProduct {
   salesCount: number
   rejectionReason: string | null
   category: { id: number; name: string } | null
-  images: Array<{ id: number; url: string; alt: string | null }>
+  images: Array<{
+    id: number
+    url: string
+    alt: string | null
+    mediaType: string
+    thumbnailUrl: string | null
+    duration: number | null
+    isPrimary: boolean
+    sortOrder: number
+  }>
   variations: Array<{ id: number; name: string; value: string; priceDelta: number; stock: number | null }>
   createdAt: string
   updatedAt: string
@@ -140,6 +159,8 @@ export interface VendorOrderItem {
   customerPhone: string
   deliveryAddress: string
   deliveryLocation: string | null
+  /** DELIVERY (courier) or PICKUP (collect at the studio). */
+  fulfillmentType: string
   orderStatus: string
   paymentStatus: string
   createdAt: string
@@ -161,21 +182,35 @@ export interface VendorLedgerEntry {
   createdAt: string
 }
 
+export interface VendorPayoutItem {
+  id: number
+  referenceCode: string
+  amount: number
+  status: string
+  note: string | null
+  transactionRef: string | null
+  requestedAt: string
+  processedAt: string | null
+}
+
+export interface VendorWalletBalances {
+  pending: number
+  available: number
+  locked: number
+  paid: number
+  reversed: number
+  totalSales: number
+  totalEarnings: number
+  totalCommission: number
+  totalWithdrawn: number
+}
+
 export interface VendorEarnings {
-  balances: { pending: number; available: number; paid: number; reversed: number }
+  balances: VendorWalletBalances
   bankDetails: { bankName: string | null; accountName: string | null; accountNumber: string | null }
   releaseDelayDays: number
   entries: { items: VendorLedgerEntry[]; total: number; page: number; perPage: number }
-  payouts: Array<{
-    id: number
-    referenceCode: string
-    amount: number
-    status: string
-    note: string | null
-    transactionRef: string | null
-    requestedAt: string
-    processedAt: string | null
-  }>
+  payouts: VendorPayoutItem[]
 }
 
 export interface Paged<T> {
@@ -248,6 +283,12 @@ export const vendorApi = {
   createProduct: (form: FormData) =>
     vendorFetch<VendorProduct>('/api/vendor/products', { method: 'POST', body: form }),
 
+  requestUploadSignature: (resourceType: 'IMAGE' | 'VIDEO') =>
+    vendorFetch<UploadSignature>('/api/vendor/uploads/signature', {
+      method: 'POST',
+      body: JSON.stringify({ resourceType: resourceType === 'IMAGE' ? 'image' : 'video' }),
+    }),
+
   updateProduct: (id: number, form: FormData) =>
     vendorFetch<VendorProduct>(`/api/vendor/products/${id}`, { method: 'PUT', body: form }),
 
@@ -276,8 +317,11 @@ export const vendorApi = {
     vendorFetch<VendorEarnings>(`/api/vendor/earnings${qs(params)}`),
 
   requestPayout: (amount: number, note?: string) =>
-    vendorFetch<{ message: string }>('/api/vendor/payouts', {
+    vendorFetch<{ message: string; payout: VendorPayoutItem }>('/api/vendor/payouts', {
       method: 'POST',
       body: JSON.stringify({ amount, note }),
     }),
+
+  payouts: (params: { page?: number; perPage?: number }) =>
+    vendorFetch<Paged<VendorPayoutItem>>(`/api/vendor/payouts${qs(params)}`),
 }

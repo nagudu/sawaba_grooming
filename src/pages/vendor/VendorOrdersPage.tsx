@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { MapPin, Phone, ShoppingBag, Truck } from 'lucide-react'
+import { MapPin, Phone, ShoppingBag, Store, Truck } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { Field, StatusBadge } from '../../components/admin/AdminUI'
@@ -37,6 +37,25 @@ const NEXT_ACTIONS: Record<string, Array<{ status: string; label: string; varian
     { status: 'CANCELLED', label: 'Cancel', variant: 'outline' },
   ],
   SHIPPED: [{ status: 'DELIVERED', label: 'Mark Delivered', variant: 'gold' }],
+}
+
+/** Pickup items are never shipped — the studio marks them ready and collected. */
+const PICKUP_ACTIONS: Record<string, Array<{ status: string; label: string; variant: 'gold' | 'outline' }>> = {
+  PENDING: [
+    { status: 'CONFIRMED', label: 'Confirm Availability', variant: 'gold' },
+    { status: 'CANCELLED', label: 'Cancel', variant: 'outline' },
+  ],
+  CONFIRMED: [
+    { status: 'PREPARING', label: 'Start Preparing', variant: 'gold' },
+    { status: 'CANCELLED', label: 'Cancel', variant: 'outline' },
+  ],
+  PREPARING: [{ status: 'CANCELLED', label: 'Cancel', variant: 'outline' }],
+}
+
+/** Delivery and pickup use separate item action flows. */
+function itemActions(item: VendorOrderItem) {
+  const flow = item.fulfillmentType === 'PICKUP' ? PICKUP_ACTIONS : NEXT_ACTIONS
+  return flow[item.status] ?? []
 }
 
 const inputClass =
@@ -185,7 +204,7 @@ export default function VendorOrdersPage() {
             <table className="w-full min-w-[820px]">
               <thead className="border-b border-night-800 bg-night-900/60">
                 <tr>
-                  {['Order', 'Product', 'Customer', 'Delivery', 'Amount', 'Status', ''].map((heading) => (
+                  {['Order', 'Product', 'Customer', 'Fulfilment', 'Amount', 'Status', ''].map((heading) => (
                     <th
                       key={heading}
                       className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.14em] text-gold-400"
@@ -216,6 +235,10 @@ export default function VendorOrdersPage() {
                       </p>
                     </td>
                     <td className="max-w-[180px] px-4 py-4">
+                      <span className={cn('mb-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider', item.fulfillmentType === 'PICKUP' ? 'border-gold-500/40 bg-gold-500/10 text-gold-300' : 'border-night-600 bg-night-800 text-night-300')}>
+                        {item.fulfillmentType === 'PICKUP' ? <Store className="h-3 w-3" /> : <Truck className="h-3 w-3" />}
+                        {item.fulfillmentType === 'PICKUP' ? 'Pickup' : 'Delivery'}
+                      </span>
                       <p className="truncate text-xs text-night-400">{item.deliveryAddress}</p>
                       {item.deliveryLocation && (
                         <p className="flex items-center gap-1 text-xs text-night-500">
@@ -234,7 +257,7 @@ export default function VendorOrdersPage() {
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex flex-col items-end gap-1.5">
-                        {(NEXT_ACTIONS[item.status] ?? []).map((action) => (
+                        {itemActions(item).map((action) => (
                           <button
                             key={action.status}
                             type="button"

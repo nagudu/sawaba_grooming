@@ -31,6 +31,7 @@ const STATUS_LABELS: Record<string, string> = {
   PROCESSING: 'Processing',
   READY_FOR_PICKUP: 'Ready for Pickup',
   READY_FOR_DISPATCH: 'Ready for Dispatch',
+  OUT_FOR_DELIVERY: 'Out for Delivery',
   SHIPPED: 'Out for Delivery',
   DELIVERED: 'Delivered',
   COLLECTED: 'Collected',
@@ -92,8 +93,7 @@ const DELIVERY_TIMELINE = [
   'AWAITING_PAYMENT',
   'PAYMENT_CONFIRMED',
   'PROCESSING',
-  'READY_FOR_DISPATCH',
-  'SHIPPED',
+  'OUT_FOR_DELIVERY',
   'DELIVERED',
 ]
 const PICKUP_TIMELINE = [
@@ -106,7 +106,8 @@ const PICKUP_TIMELINE = [
 
 function TrackingTimeline({ order }: { order: ShopOrder }) {
   const steps = order.fulfillmentType === 'PICKUP' ? PICKUP_TIMELINE : DELIVERY_TIMELINE
-  const currentIndex = steps.indexOf(order.status)
+  // Legacy SHIPPED orders map onto the "Out for Delivery" step.
+  const currentIndex = steps.indexOf(order.status === 'SHIPPED' ? 'OUT_FOR_DELIVERY' : order.status)
   return (
     <section className="mt-6 rounded-2xl border border-night-800 bg-night-900/40 p-6">
       <h2 className="flex items-center gap-2 font-display text-lg text-night-50">
@@ -371,8 +372,9 @@ export default function OrderStatusPage() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-500">
-                  Order {order.referenceCode}
+                  Order Number
                 </p>
+                <p className="mt-0.5 font-mono text-sm text-night-100">{order.referenceCode}</p>
                 <h1 className="mt-2 font-display text-3xl text-night-50">
                   {paid ? 'Payment confirmed' : pendingReview ? 'Payment under review' : 'Complete your payment'}
                 </h1>
@@ -779,7 +781,14 @@ export default function OrderStatusPage() {
                 type="button"
                 onClick={async () => {
                   try {
-                    await navigator.clipboard.writeText(`${window.location.origin}/track?token=${encodeURIComponent(token)}`)
+                    const url =
+                      order.trackingUrl ||
+                      (token ? `${window.location.origin}/track?token=${encodeURIComponent(token)}` : '')
+                    if (!url) {
+                      showToast('Tracking link unavailable.', 'error')
+                      return
+                    }
+                    await navigator.clipboard.writeText(url)
                     showToast('Tracking link copied.')
                   } catch {
                     showToast('Could not copy the link.', 'error')

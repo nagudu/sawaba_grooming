@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { openExternalUrl } from '../lib/native'
 import { useParams } from 'react-router-dom'
 import {
   BadgeCheck,
@@ -177,7 +178,7 @@ export default function PaymentPage() {
       const init = await initializePaystack(token)
       // Full redirect to Paystack's hosted checkout; the customer returns to
       // /payments/callback, which re-verifies server-side before confirming.
-      window.location.assign(init.authorizationUrl)
+      void openExternalUrl(init.authorizationUrl)
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Could not start online payment.', 'error')
       setPayingOnline(false)

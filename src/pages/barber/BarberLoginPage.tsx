@@ -50,7 +50,7 @@ export default function BarberLoginPage() {
           <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10">
             <Scissors className="h-6 w-6 text-gold-400" />
           </span>
-          <h1 className="font-display text-2xl font-semibold text-night-50">Barber Portal</h1>
+          <h1 className="font-display text-2xl font-semibold text-night-50">Barber Login</h1>
           <p className="mt-1 text-sm text-night-400">Sign in with the credentials from the studio.</p>
         </div>
 

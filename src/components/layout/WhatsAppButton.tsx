@@ -18,7 +18,7 @@ export default function WhatsAppButton() {
       whileHover={{ scale: 1.08 }}
       whileTap={{ scale: 0.95 }}
       transition={{ duration: 0.3, delay: 1.2 }}
-      className="group fixed right-5 bottom-5 z-[70] flex items-center gap-3 rounded-full bg-[#25d366] px-4 py-3.5 text-white shadow-[0_12px_30px_-6px_rgba(37,211,102,0.55)]"
+      className="group fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] z-[70] flex items-center gap-3 rounded-full bg-[#25d366] px-4 py-3.5 text-white shadow-[0_12px_30px_-6px_rgba(37,211,102,0.55)]"
     >
       <WhatsAppIcon className="h-6 w-6" />
       <span className="hidden max-w-0 overflow-hidden text-sm font-semibold opacity-0 transition-all duration-300 group-hover:max-w-[180px] group-hover:opacity-100 sm:block">

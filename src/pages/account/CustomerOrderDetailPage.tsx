@@ -26,6 +26,7 @@ const ORDER_STATUS: Record<string, string> = {
   PAYMENT_CONFIRMED: 'Paid',
   PROCESSING: 'Processing',
   READY_FOR_DISPATCH: 'Ready for Dispatch',
+  OUT_FOR_DELIVERY: 'Out for Delivery',
   READY_FOR_PICKUP: 'Ready for Pickup',
   SHIPPED: 'Shipped',
   DELIVERED: 'Delivered',
@@ -48,8 +49,7 @@ const DELIVERY_STEPS = [
   'AWAITING_PAYMENT',
   'PAYMENT_CONFIRMED',
   'PROCESSING',
-  'READY_FOR_DISPATCH',
-  'SHIPPED',
+  'OUT_FOR_DELIVERY',
   'DELIVERED',
 ]
 const PICKUP_STEPS = ['AWAITING_PAYMENT', 'PAYMENT_CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'COLLECTED']
@@ -72,6 +72,7 @@ export default function CustomerOrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -113,8 +114,19 @@ export default function CustomerOrderDetailPage() {
     )
   }
 
+  const copyTrackingLink = async () => {
+    try {
+      await navigator.clipboard.writeText(order.trackingUrl)
+      setLinkCopied(true)
+      showToast('Tracking link copied.')
+    } catch {
+      showToast('Could not copy the tracking link. Please copy it manually.', 'error')
+    }
+  }
+
   const steps = order.fulfillmentType === 'PICKUP' ? PICKUP_STEPS : DELIVERY_STEPS
-  const currentIndex = steps.indexOf(order.status)
+  // Legacy SHIPPED orders map onto the "Out for Delivery" step.
+  const currentIndex = steps.indexOf(order.status === 'SHIPPED' ? 'OUT_FOR_DELIVERY' : order.status)
 
   return (
     <div className="space-y-6">
@@ -126,19 +138,30 @@ export default function CustomerOrderDetailPage() {
           >
             <ArrowLeft className="h-3.5 w-3.5" /> All orders
           </Link>
-          <h1 className="mt-2 font-display text-3xl text-night-50">Order {order.referenceCode}</h1>
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-400">Order Number</p>
+          <h1 className="mt-1 font-mono text-3xl text-night-50">{order.referenceCode}</h1>
           <p className="mt-1 text-sm text-night-400">
             Placed {new Date(order.createdAt).toLocaleString('en-GB')} ·{' '}
             {order.items.reduce((sum, item) => sum + item.quantity, 0)} item(s)
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className={cn('rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider', tone(order.status))}>
-            {ORDER_STATUS[order.status] ?? order.status}
-          </span>
-          <span className={cn('rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider', tone(order.paymentStatus))}>
-            {PAYMENT_STATUS[order.paymentStatus] ?? order.paymentStatus}
-          </span>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex flex-wrap gap-2">
+            <span className={cn('rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider', tone(order.status))}>
+              {ORDER_STATUS[order.status] ?? order.status}
+            </span>
+            <span className={cn('rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider', tone(order.paymentStatus))}>
+              {PAYMENT_STATUS[order.paymentStatus] ?? order.paymentStatus}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void copyTrackingLink()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-night-700 px-3 py-1.5 text-[11px] font-semibold text-night-300 transition-colors hover:border-gold-500/40 hover:text-gold-300"
+          >
+            {linkCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {linkCopied ? 'Tracking link copied' : 'Copy tracking link'}
+          </button>
         </div>
       </div>
 
@@ -266,6 +289,26 @@ export default function CustomerOrderDetailPage() {
                 })}`
               : 'Estimated delivery confirmed after payment.'}
           </p>
+          {order.outForDeliveryAt && (
+            <p className="mt-2 flex items-center gap-2 text-xs text-gold-300">
+              <Truck className="h-3.5 w-3.5" />
+              Out for delivery since {new Date(order.outForDeliveryAt).toLocaleString('en-GB')}
+            </p>
+          )}
+          {order.items.some((item) => item.trackingInfo) && (
+            <div className="mt-3 rounded-xl border border-night-800 bg-night-950/50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-night-500">Courier tracking</p>
+              <ul className="mt-1 space-y-1 text-xs text-night-300">
+                {order.items
+                  .filter((item) => item.trackingInfo)
+                  .map((item) => (
+                    <li key={item.id}>
+                      <span className="text-night-400">{item.productName}:</span> {item.trackingInfo}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 

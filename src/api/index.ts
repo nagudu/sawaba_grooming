@@ -1,9 +1,15 @@
 const TOKEN_KEY = 'sawaba_admin_token'
 
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+const isNative =
+  typeof window !== 'undefined' &&
+  Boolean((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.())
 const isProduction = import.meta.env.PROD || !isLocal
 
-export const API_BASE = import.meta.env.VITE_API_URL?.trim() || (isProduction && !isLocal ? 'https://sawaba.vercel.app' : '')
+// A Capacitor app is served from localhost/capacitor://localhost, so relative
+// `/api` URLs would never reach the backend — always use an absolute origin.
+export const API_BASE =
+  import.meta.env.VITE_API_URL?.trim() || (isNative || (isProduction && !isLocal) ? 'https://sawaba.vercel.app' : '')
 
 interface ApiEnvelope<T> {
   success: boolean

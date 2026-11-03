@@ -6,6 +6,7 @@ import {
   MapPin,
   Minus,
   PackageSearch,
+  Play,
   Plus,
   ShieldCheck,
   ShoppingBag,
@@ -113,7 +114,10 @@ export default function ProductDetailPage() {
       quantity,
       name: product.name,
       slug: product.slug,
-      image: product.images[selectedImage]?.url ?? product.image,
+      image:
+        product.images[selectedImage]?.mediaType === 'VIDEO'
+          ? product.images[selectedImage]?.thumbnailUrl ?? product.image
+          : product.images[selectedImage]?.url ?? product.image,
       unitPrice,
       variationLabel: selectedVariation
         ? `${selectedVariation.name}: ${selectedVariation.value}`
@@ -177,7 +181,23 @@ export default function ProductDetailPage() {
     )
   }
 
-  const images = product.images.length > 0 ? product.images : [{ id: 0, url: '', alt: product.name }]
+  const images =
+    product.images.length > 0
+      ? product.images
+      : [
+          {
+            id: 0,
+            url: '',
+            alt: product.name,
+            mediaType: 'IMAGE',
+            thumbnailUrl: null,
+            duration: null,
+            isPrimary: true,
+            sortOrder: 0,
+          },
+        ]
+  const activeMedia = images[selectedImage]
+  const isActiveVideo = activeMedia?.mediaType === 'VIDEO' && Boolean(activeMedia.url)
 
   return (
     <PageTransition>
@@ -204,12 +224,21 @@ export default function ProductDetailPage() {
                   const y = ((event.clientY - rect.top) / rect.height) * 100
                   setZoomOrigin(`${x}% ${y}%`)
                 }}
-                onClick={() => images[selectedImage]?.url && setLightboxOpen(true)}
+                onClick={() => !isActiveVideo && activeMedia?.url && setLightboxOpen(true)}
               >
-                {images[selectedImage]?.url ? (
+                {isActiveVideo ? (
+                  <video
+                    src={activeMedia?.url}
+                    poster={activeMedia?.thumbnailUrl ?? undefined}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full bg-black object-contain"
+                  />
+                ) : activeMedia?.url ? (
                   <img
-                    src={images[selectedImage].url}
-                    alt={images[selectedImage].alt ?? product.name}
+                    src={activeMedia.url}
+                    alt={activeMedia.alt ?? product.name}
                     className="h-full w-full object-cover transition-transform duration-200"
                     style={{
                       transform: zoomActive ? 'scale(2)' : 'scale(1)',
@@ -221,7 +250,7 @@ export default function ProductDetailPage() {
                     <PackageSearch className="h-16 w-16" />
                   </div>
                 )}
-                {images[selectedImage]?.url && (
+                {activeMedia?.url && !isActiveVideo && (
                   <span className="pointer-events-none absolute right-3 bottom-3 inline-flex items-center gap-1.5 rounded-full bg-night-950/80 px-3 py-1.5 text-[11px] font-semibold text-night-200 opacity-0 transition-opacity group-hover:opacity-100">
                     <ZoomIn className="h-3.5 w-3.5 text-gold-400" /> Hover to zoom · click for full size
                   </span>
@@ -234,15 +263,25 @@ export default function ProductDetailPage() {
                       key={image.id}
                       type="button"
                       onClick={() => setSelectedImage(index)}
-                      aria-label={`View image ${index + 1}`}
+                      aria-label={`View ${image.mediaType === 'VIDEO' ? 'video' : 'image'} ${index + 1}`}
                       className={cn(
-                        'aspect-square overflow-hidden rounded-lg border transition-all',
+                        'relative aspect-square overflow-hidden rounded-lg border transition-all',
                         selectedImage === index
                           ? 'border-gold-500 ring-1 ring-gold-500/50'
                           : 'border-night-800 opacity-70 hover:opacity-100',
                       )}
                     >
-                      <img src={image.url} alt={image.alt ?? ''} className="h-full w-full object-cover" />
+                      <img
+                        src={image.mediaType === 'VIDEO' ? image.thumbnailUrl ?? image.url : image.url}
+                        alt={image.alt ?? ''}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                      {image.mediaType === 'VIDEO' ? (
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <Play className="h-4 w-4 text-white" aria-hidden="true" />
+                        </span>
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -581,7 +620,7 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
-      {lightboxOpen && images[selectedImage]?.url && (
+      {lightboxOpen && activeMedia && activeMedia.url && (
         <div
           role="dialog"
           aria-modal="true"
@@ -598,8 +637,8 @@ export default function ProductDetailPage() {
             <X className="h-5 w-5" />
           </button>
           <img
-            src={images[selectedImage].url}
-            alt={images[selectedImage].alt ?? product.name}
+            src={activeMedia.url}
+            alt={activeMedia.alt ?? product.name}
             className="max-h-[90vh] w-auto max-w-full rounded-xl object-contain"
             onClick={(event) => event.stopPropagation()}
           />

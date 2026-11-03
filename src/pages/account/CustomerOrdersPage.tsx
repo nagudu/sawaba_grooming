@@ -13,8 +13,11 @@ const ORDER_STATUS: Record<string, string> = {
   PAYMENT_CONFIRMED: 'Paid / Confirmed',
   PROCESSING: 'Processing',
   READY_FOR_DISPATCH: 'Ready for Dispatch',
+  OUT_FOR_DELIVERY: 'Out for Delivery',
+  READY_FOR_PICKUP: 'Ready for Pickup',
   SHIPPED: 'Shipped',
   DELIVERED: 'Delivered',
+  COLLECTED: 'Collected',
   CANCELLED: 'Cancelled',
   REFUNDED: 'Refunded',
   RETURNED: 'Returned',
@@ -47,6 +50,7 @@ export default function CustomerOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [linking, setLinking] = useState(false)
   const [copiedReference, setCopiedReference] = useState<string | null>(null)
+  const [copiedLink, setCopiedLink] = useState<number | null>(null)
   const perPage = 15
 
   const load = useCallback(async () => {
@@ -75,6 +79,20 @@ export default function CustomerOrdersPage() {
       showToast('Pickup code copied.')
     } catch {
       showToast('Could not copy the pickup code. Please copy it manually.', 'error')
+    }
+  }
+
+  async function copyTrackingLink(order: ShopOrder) {
+    if (!order.trackingUrl) {
+      showToast('Tracking link unavailable for this order.', 'error')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(order.trackingUrl)
+      setCopiedLink(order.id)
+      showToast('Tracking link copied.')
+    } catch {
+      showToast('Could not copy the tracking link. Please copy it manually.', 'error')
     }
   }
 
@@ -143,8 +161,9 @@ export default function CustomerOrdersPage() {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-400">
-                    Order {order.referenceCode}
+                    Order Number
                   </p>
+                  <p className="mt-0.5 font-mono text-sm text-night-100">{order.referenceCode}</p>
                   <p className="mt-1 text-xs text-night-500">
                     Placed {new Date(order.createdAt).toLocaleString('en-GB')}
                   </p>
@@ -156,6 +175,14 @@ export default function CustomerOrdersPage() {
                   <span className={cn('rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider', badgeTone(order.paymentStatus))}>
                     {PAYMENT_STATUS[order.paymentStatus] ?? order.paymentStatus.replace(/_/g, ' ')}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => void copyTrackingLink(order)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-night-700 px-3 py-1 text-[10px] font-semibold text-night-300 transition-colors hover:border-gold-500/40 hover:text-gold-300"
+                  >
+                    {copiedLink === order.id ? <Check className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+                    {copiedLink === order.id ? 'Copied' : 'Copy tracking link'}
+                  </button>
                 </div>
               </div>
 

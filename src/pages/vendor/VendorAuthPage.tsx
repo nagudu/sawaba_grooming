@@ -110,7 +110,7 @@ export default function VendorAuthPage({ mode }: { mode: 'login' | 'register' })
             </span>
             <div>
               <h1 className="font-display text-2xl text-night-50">
-                {mode === 'login' ? 'Vendor Sign In' : 'Sell on SAWABA'}
+                {mode === 'login' ? 'Vendor Login' : 'Sell on SAWABA'}
               </h1>
               <p className="text-sm text-night-400">
                 {mode === 'login'
