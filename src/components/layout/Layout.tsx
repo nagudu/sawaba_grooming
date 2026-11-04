@@ -15,11 +15,11 @@ export function Layout({ children }: LayoutProps) {
   return (
     <CatalogProvider>
       <div className="flex min-h-screen flex-col bg-night-950">
-        <Navbar onMobileOpen={() => setMobileOpen(true)} />
+        <Navbar menuOpen={mobileOpen} onMobileToggle={() => setMobileOpen((open) => !open)} />
         <MobileMenu open={mobileOpen} onClose={() => setMobileOpen(false)} />
         <main className="flex-1">{children}</main>
         <Footer />
-        <WhatsAppButton />
+        {!mobileOpen && <WhatsAppButton />}
       </div>
     </CatalogProvider>
   )

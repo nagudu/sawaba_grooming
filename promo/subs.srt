@@ -1,0 +1,35 @@
+1
+00:00:00,000 --> 00:00:07,950
+Sawaba Grooming Studio
+
+2
+00:00:08,200 --> 00:00:23,890
+Customer experience
+
+3
+00:00:24,140 --> 00:00:38,740
+Admin dashboard
+
+4
+00:00:38,990 --> 00:00:47,410
+Barber dashboard
+
+5
+00:00:47,660 --> 00:00:57,490
+Vendor marketplace
+
+6
+00:00:57,740 --> 00:01:08,350
+Online shopping
+
+7
+00:01:08,600 --> 00:01:21,980
+Order management
+
+8
+00:01:22,230 --> 00:01:31,180
+On every device
+
+9
+00:01:31,430 --> 00:01:38,570
+Your Grooming, Your Shopping, All in One Place

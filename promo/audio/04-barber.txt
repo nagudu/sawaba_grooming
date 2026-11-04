@@ -1,0 +1,1 @@
+Barbers get their own portal to manage appointments, view customer bookings, and track their daily activity and earnings.

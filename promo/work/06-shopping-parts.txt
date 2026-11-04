@@ -1,0 +1,4 @@
+file '06-shopping-part0.mp4'
+file '06-shopping-part1.mp4'
+file '06-shopping-part2.mp4'
+file '06-shopping-part3.mp4'

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Menu, ShoppingCart, UserRound } from 'lucide-react'
+import { ChevronDown, Menu, ShoppingCart, UserRound, X } from 'lucide-react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useScrollPosition } from '../../hooks/useScrollPosition'
 import { cn } from '../../utils/cn'
@@ -11,7 +11,8 @@ import { useShopCart } from '../../store/shopCart'
 import { PRIMARY_LINKS, SECONDARY_LINKS, handleBookClick, type NavLinkItem } from './navigation'
 
 interface NavbarProps {
-  onMobileOpen: () => void
+  menuOpen: boolean
+  onMobileToggle: () => void
 }
 
 export function LogoMark({ className }: { className?: string }) {
@@ -134,7 +135,7 @@ function MoreMenu({ items }: { items: NavLinkItem[] }) {
   )
 }
 
-export default function Navbar({ onMobileOpen }: NavbarProps) {
+export default function Navbar({ menuOpen, onMobileToggle }: NavbarProps) {
   const scrolled = useScrollPosition(28)
   const location = useLocation()
   const { customer } = useCustomerAuth()
@@ -172,7 +173,7 @@ export default function Navbar({ onMobileOpen }: NavbarProps) {
           className="group flex shrink-0 items-center gap-2.5"
         >
           <LogoMark className="h-9 w-9 shrink-0 transition-transform duration-300 group-hover:scale-105" />
-          <span className="flex flex-col leading-none">
+          <span className="flex flex-col leading-none max-[359px]:hidden">
             <span className="font-display text-[19px] font-semibold tracking-[0.14em] text-night-50">
               {site.name}
             </span>
@@ -231,19 +232,21 @@ export default function Navbar({ onMobileOpen }: NavbarProps) {
             variant="gold"
             size="sm"
             onClick={handleBookClick}
-            className="hidden h-10 sm:inline-flex"
+            className="h-10 px-3 text-[10px] tracking-[0.12em] sm:px-4 sm:text-[11px]"
           >
             Book Now
           </ButtonLink>
 
           <button
             type="button"
-            onClick={onMobileOpen}
-            aria-label="Open menu"
+            onClick={onMobileToggle}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             aria-haspopup="dialog"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-night-700/80 text-night-200 transition-colors duration-200 hover:border-gold-500/70 hover:text-gold-300 lg:hidden"
           >
-            <Menu className="h-5 w-5" />
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>

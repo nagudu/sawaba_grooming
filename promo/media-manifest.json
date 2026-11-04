@@ -1,0 +1,236 @@
+{
+  "generatedAt": "2026-11-04T14:09:30.647Z",
+  "gallery": [
+    {
+      "url": "/uploads/media/gallery/gallery-01-cabbing.jpg",
+      "title": "Cabbing",
+      "category": "FADE",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-02-fastion.jpg",
+      "title": "Fastion",
+      "category": "STYLING",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-03-loua.jpg",
+      "title": "Loua",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-04-sayyid.jpg",
+      "title": "Sayyid",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-05-style.jpg",
+      "title": "Style",
+      "category": "STYLING",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-06-ya-sayyadi.jpg",
+      "title": "Ya Sayyadi",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-07-face-treament.jpg",
+      "title": "Face Treatment",
+      "category": "SALON",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-08-loucut.jpg",
+      "title": "Low Cut",
+      "category": "FADE",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-09-low-cut.jpg",
+      "title": "Low Cut",
+      "category": "FADE",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-10-img-6015.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-11-img-6457.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-12-img-8032.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-13-img-8238.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-14-img-8696.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-15-img-8799-copy.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-16-img-8799.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-17-img-8801.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-18-img-8984-copy.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-19-img-8993.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-20-img-9263.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-21-img-9280.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-22-img-9665.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-23-img-9717.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-24-img-9778-jpg.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-25-img-9801.jpg",
+      "title": "Sawaba Look",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-26-ha.jpg",
+      "title": "Ha",
+      "category": "HAIRCUT",
+      "mediaType": "IMAGE"
+    },
+    {
+      "url": "/uploads/media/gallery/gallery-video-01-poster.jpg",
+      "video": "/uploads/media/gallery/gallery-video-01.mp4",
+      "title": "Studio in Motion",
+      "category": "SALON",
+      "mediaType": "VIDEO",
+      "duration": 9
+    }
+  ],
+  "barbers": [
+    "/uploads/media/barbers/barber-01.jpg",
+    "/uploads/media/barbers/barber-02.jpg",
+    "/uploads/media/barbers/barber-03.jpg",
+    "/uploads/media/barbers/barber-04.jpg",
+    "/uploads/media/barbers/barber-05.jpg",
+    "/uploads/media/barbers/barber-06.jpg",
+    "/uploads/media/barbers/barber-07.jpg"
+  ],
+  "services": [
+    "/uploads/media/services/service-01.jpg",
+    "/uploads/media/services/service-02.jpg",
+    "/uploads/media/services/service-03.jpg",
+    "/uploads/media/services/service-04.jpg",
+    "/uploads/media/services/service-05.jpg",
+    "/uploads/media/services/service-06.jpg",
+    "/uploads/media/services/service-07.jpg",
+    "/uploads/media/services/service-08.jpg",
+    "/uploads/media/services/service-09.jpg",
+    "/uploads/media/services/service-10.jpg",
+    "/uploads/media/services/service-11.jpg",
+    "/uploads/media/services/service-12.jpg",
+    "/uploads/media/services/service-13.jpg"
+  ],
+  "paymentLogo": "/uploads/media/payment/shop-logo.jpg",
+  "products": [
+    {
+      "name": "Professional Cordless Hair Clipper",
+      "description": "Cordless clipper and trimmer set available from the Sawaba marketplace.",
+      "price": 24500,
+      "categoryName": "Clippers & Trimmers",
+      "images": [
+        "/uploads/media/products/product-1-01-professional-mens-hair-clippers-zero-gapped-cordless-hair-tr.jpg",
+        "/uploads/media/products/product-1-02-images-4.jpg",
+        "/uploads/media/products/product-1-03-images-5.jpg",
+        "/uploads/media/products/product-1-04-images-6.jpg",
+        "/uploads/media/products/product-1-05-images-7.jpg",
+        "/uploads/media/products/product-1-06-images-8.jpg",
+        "/uploads/media/products/product-1-07-images-9.jpg"
+      ]
+    },
+    {
+      "name": "MG-7T Hair Trimmer",
+      "description": "Compact grooming trimmer available from the Sawaba marketplace.",
+      "price": 18000,
+      "categoryName": "Clippers & Trimmers",
+      "images": [
+        "/uploads/media/products/product-2-01-mg-7t-regular-01.jpg",
+        "/uploads/media/products/product-2-02-images-10.jpg",
+        "/uploads/media/products/product-2-03-images-11.jpg",
+        "/uploads/media/products/product-2-04-images-12.jpg"
+      ]
+    },
+    {
+      "name": "Oraimo OPC-CL30G Cordless Clipper",
+      "description": "Oraimo cordless grooming clipper available from the Sawaba marketplace.",
+      "price": 32000,
+      "categoryName": "Clippers & Trimmers",
+      "images": [
+        "/uploads/media/products/product-3-01-oraimo-opc-cl30g.jpg",
+        "/uploads/media/products/product-3-02-s-l1600-1.jpg",
+        "/uploads/media/products/product-3-03-s-l1600.jpg",
+        "/uploads/media/products/product-3-04-images-13.jpg",
+        "/uploads/media/products/product-3-05-images-14.jpg"
+      ]
+    }
+  ]
+}

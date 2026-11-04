@@ -1,0 +1,86 @@
+=== GALLERY 7 ===
+1 IMAGE FADE "Classic Fade" img= /uploads/seed/fade.jpg vid= null
+2 IMAGE BEARD "Beard Sculpting" img= /uploads/seed/beard-trim.jpg vid= null
+3 IMAGE SALON "Studio Interior" img= /uploads/seed/gallery-studio.jpg vid= null
+4 IMAGE HAIRCUT "Precision Cut" img= /uploads/seed/low-cut.jpg vid= null
+5 IMAGE STYLING "Hot Towel Finish" img= /uploads/seed/gallery-hottowel.jpg vid= null
+6 IMAGE SALON "The Grooming Chair" img= /uploads/seed/vip-grooming.jpg vid= null
+14 VIDEO HAIRCUT "til" img= https://res.cloudinary.com/dp0qdgbih/image/upload/v1791991944/sawaba-gallery/fbfe14849bb91b323147fc6c.png vid= https://res.cloudinary.com/dp0qdgbih/video/upload/v1791991932/sawaba-gallery/videos/da9a4e67ce0224379c7e12a7.mp4
+
+=== SERVICES 13 ===
+1 normal-haircut HAIRCUTS image= /uploads/seed/normal-haircut.jpg
+2 low-cut HAIRCUTS image= /uploads/seed/low-cut.jpg
+3 fade HAIRCUTS image= /uploads/seed/fade.jpg
+4 skin-fade HAIRCUTS image= /uploads/seed/skin-fade.jpg
+5 beard-trim BEARDS image= /uploads/seed/beard-trim.jpg
+6 beard-styling BEARDS image= /uploads/seed/beard-styling.jpg
+7 haircut-and-beard GROOMING image= /uploads/seed/haircut-and-beard.jpg
+8 hair-washing TREATMENTS image= /uploads/seed/hair-washing.jpg
+9 hair-treatment TREATMENTS image= /uploads/seed/hair-treatment.jpg
+10 facial-treatment TREATMENTS image= /uploads/seed/facial-treatment.jpg
+11 kids-haircut KIDS image= /uploads/seed/kids-haircut.jpg
+12 vip-grooming GROOMING image= /uploads/seed/vip-grooming.jpg
+13 loooo TREATMENTS image= /uploads/sawaba-services/muwpdgbg-bd0d5aeccd357c5b.jpg
+
+=== BARBERS 7 ===
+1 aminu-sawaba Aminu Sawaba image= /uploads/seed/barber-aminu.jpg
+2 tunde-adeyemi Tunde Adeyemi image= /uploads/seed/barber-tunde.jpg
+3 emeka-okafor Emeka Okafor image= /uploads/seed/barber-emeka.jpg
+4 david-mensah David Mensah image= /uploads/seed/barber-david.jpg
+5 ibrahim-danladi Ibrahim Danladi image= /uploads/seed/barber-ibrahim.jpg
+6 kingsley-uche Kingsley Uche image= /uploads/seed/barber-kingsley.jpg
+7 nagudu NAGUDU image= /uploads/sawaba-barbers/muwpkj1f-a4d005093cbad376.jpg
+
+=== PRODUCTS 8 ===
+#1 Shampoo | vendor=Sawaba Grooming Studio Official Store (official=true) | status=ACTIVE | images=3
+    4 IMAGE PRIMARY https://res.cloudinary.com/dp0qdgbih/image/upload/v1793629345/sawaba-products/568926ffe8e0b0b8570d1820.jpg
+    5 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793629346/sawaba-products/f2bd74d86771a5b427e83dd8.jpg
+    6 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793629350/sawaba-products/5f42801b6302c1b533d55643.png
+#2 Soft Care | vendor=Brainstorm IT Sulution (official=false) | status=ACTIVE | images=8
+    9 IMAGE PRIMARY https://res.cloudinary.com/dp0qdgbih/image/upload/v1793631504/sawaba-products/ae630fabcd7cfb71a6ec817a.jpg
+    10 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793631504/sawaba-products/07cce4488bcd3092f6e1fe45.jpg
+    11 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793631506/sawaba-products/be8032713cc8ffeb56f84d0e.jpg
+    12 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793631511/sawaba-products/c8814c51f636dc74cb3b16a3.jpg
+    13 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793631513/sawaba-products/b7305fe52edc0ef41c73312c.jpg
+    14 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793631514/sawaba-products/f7e16f78a8cfdff0a1be2aa3.jpg
+    15 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793631515/sawaba-products/3b3c9b36d0ae827316ce6c50.jpg
+    16 IMAGE  https://res.cloudinary.com/dp0qdgbih/image/upload/v1793631516/sawaba-products/9224940e522fe45ac10fa845.jpg
+#3 QA Premium Hair Dye mw0mkf54 | vendor=QA Barber Supply mw0mkf54 (official=false) | status=ARCHIVED | images=1
+    17 IMAGE PRIMARY https://res.cloudinary.com/dp0qdgbih/image/upload/v1793706553/sawaba-products/d035623d385f0a91ffd66628.png
+#5 QA Premium Hair Dye mw0ml4u7 | vendor=QA Barber Supply mw0ml4u7 (official=false) | status=ARCHIVED | images=1
+    19 IMAGE PRIMARY https://res.cloudinary.com/dp0qdgbih/image/upload/v1793706586/sawaba-products/aaa8d1a6b86ab11a36eb525f.png
+#9 QA Premium Hair Dye mw0p7g63 | vendor=QA Barber Supply mw0p7g63 (official=false) | status=ARCHIVED | images=1
+    25 IMAGE PRIMARY https://res.cloudinary.com/dp0qdgbih/image/upload/v1793710986/sawaba-products/46d9f7417e7940ff50fbbf43.png
+#11 Hair Dyes | vendor=Brainstorm IT Sulution (official=false) | status=ACTIVE | images=2
+    27 VIDEO PRIMARY https://res.cloudinary.com/dp0qdgbih/video/upload/v1793712080/sawaba-products/ghdpg5laxdwg3f91bqaq.mp4
+    28 VIDEO  https://res.cloudinary.com/dp0qdgbih/video/upload/v1793712093/sawaba-products/tewv15iphq5q30g8udx7.mp4
+#14 QA Premium Hair Dye mw0rhzf4 | vendor=QA Barber Supply mw0rhzf4 (official=false) | status=ARCHIVED | images=1
+    29 IMAGE PRIMARY https://res.cloudinary.com/dp0qdgbih/image/upload/v1793714837/sawaba-products/1da23bbce983cb9e9a791032.png
+#18 QA Premium Hair Dye mw0wakvk | vendor=QA Barber Supply mw0wakvk (official=false) | status=ARCHIVED | images=1
+    31 IMAGE PRIMARY https://res.cloudinary.com/dp0qdgbih/image/upload/v1793722889/sawaba-products/ceaf474ad45d4f1ef8c1592d.png
+
+=== PAYMENT SETTINGS 1 ===
+1 SAWABA Grooming Studio logo= null
+
+=== VENDORS 12 ===
+1 Sawaba Grooming Studio Official Store official= true status= APPROVED logo= null
+2 Brainstorm IT Sulution official= false status= APPROVED logo= null
+3 QA Barber Supply mw0mkf54 official= false status= REJECTED logo= null
+4 QA Grooming Co mw0mkf54 official= false status= REJECTED logo= null
+5 QA Barber Supply mw0ml4u7 official= false status= REJECTED logo= null
+6 QA Grooming Co mw0ml4u7 official= false status= REJECTED logo= null
+11 QA Barber Supply mw0p7g63 official= false status= REJECTED logo= null
+12 QA Grooming Co mw0p7g63 official= false status= REJECTED logo= null
+15 QA Barber Supply mw0rhzf4 official= false status= REJECTED logo= null
+16 QA Grooming Co mw0rhzf4 official= false status= REJECTED logo= null
+19 QA Barber Supply mw0wakvk official= false status= REJECTED logo= null
+20 QA Grooming Co mw0wakvk official= false status= REJECTED logo= null
+
+=== CATEGORIES 7 ===
+4 Hair Dye image= null
+5 Shampoo & Conditioner image= null
+6 Hair Oils & Moisturizers image= null
+7 Styling & Treatments image= null
+8 Clippers & Trimmers image= null
+9 Shaving & Aftershave image= null
+10 Color image= null
