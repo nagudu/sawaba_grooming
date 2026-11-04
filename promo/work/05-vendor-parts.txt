@@ -1,4 +1,0 @@
-file '05-vendor-part0.mp4'
-file '05-vendor-part1.mp4'
-file '05-vendor-part2.mp4'
-file '05-vendor-part3.mp4'

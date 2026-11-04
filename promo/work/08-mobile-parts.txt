@@ -1,3 +1,0 @@
-file '08-mobile-part0.mp4'
-file '08-mobile-part1.mp4'
-file '08-mobile-part2.mp4'

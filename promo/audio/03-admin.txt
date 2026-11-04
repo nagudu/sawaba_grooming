@@ -1,1 +1,0 @@
-The admin dashboard gives the studio full control: customers, barbers, services, appointments, payments, reviews, and marketplace operations, all from one clean workspace.
