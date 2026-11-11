@@ -79,7 +79,6 @@ async function main(): Promise<void> {
       passwordHash: await hash(PASSWORD_BARBER),
       isActive: true,
       portalEnabled: true,
-      bio: undefined,
       biography: 'Senior barber at Sawaba Grooming Studio.',
     },
   })
