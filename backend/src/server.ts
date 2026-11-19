@@ -3,6 +3,7 @@ import { env } from './config/env'
 import { connectDatabase } from './config/database'
 import { primeNotificationConfig } from './services/notificationConfigService'
 import { startReminderScheduler } from './services/reminderService'
+import { cleanupExpiredStories } from './services/storyService'
 
 async function startServer(): Promise<void> {
   try {
@@ -34,6 +35,19 @@ async function startServer(): Promise<void> {
 
     // Automatic appointment reminders on long-lived hosts (Vercel uses cron).
     startReminderScheduler()
+
+    // Sawaba Stories expire after 24h. Mark them expired on boot, then sweep
+    // every 15 minutes (long-lived hosts; Vercel uses the stories-expire cron).
+    if (process.env.STORIES_CLEANUP_ENABLED !== 'false') {
+      const runStoryCleanup = () => {
+        void cleanupExpiredStories().catch((error) =>
+          console.error('[stories] cleanup failed:', error instanceof Error ? error.message : error),
+        )
+      }
+      runStoryCleanup()
+      const storyCleanup = setInterval(runStoryCleanup, 15 * 60 * 1000)
+      storyCleanup.unref()
+    }
 
     server.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {

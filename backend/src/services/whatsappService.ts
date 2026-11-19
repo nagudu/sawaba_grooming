@@ -49,20 +49,26 @@ interface WhatsAppResponseBody {
 }
 
 /**
- * Sends a plain-text message through the WhatsApp Cloud API.
- * `toE164` is the recipient's phone in E.164 form (e.g. +2348012345678).
+ * Business-initiated WhatsApp messages outside the 24-hour customer-service
+ * window must use an approved template. Configure templates per event, e.g.
+ *
+ *   WHATSAPP_TEMPLATE_ORDER_CONFIRMATION=order_confirmation_en
+ *   WHATSAPP_TEMPLATE_LANG=en
+ *
+ * When no template is configured the adapter falls back to free-form text
+ * (which Meta only accepts inside the 24-hour window).
  */
-export async function sendWhatsApp(toE164: string, message: string): Promise<WhatsAppSendReceipt> {
+export function resolveWhatsAppTemplate(event: string): { name: string; language: string } | null {
+  const name = process.env[`WHATSAPP_TEMPLATE_${event}`]?.trim()
+  if (!name) return null
+  const language = (process.env.WHATSAPP_TEMPLATE_LANG ?? 'en').trim() || 'en'
+  return { name, language }
+}
+
+async function postToCloudApi(payload: Record<string, unknown>): Promise<WhatsAppSendReceipt> {
   const wa = (await loadNotificationConfig()).whatsapp
   if (!wa.phoneNumberId || !wa.token) {
     throw new WhatsAppDeliveryError('WhatsApp is not configured. Please contact the administrator.')
-  }
-
-  const payload = {
-    messaging_product: 'whatsapp',
-    to: toE164.replace(/[^\d+]/g, ''),
-    type: 'text',
-    text: { body: message },
   }
 
   let response: Response
@@ -90,12 +96,52 @@ export async function sendWhatsApp(toE164: string, message: string): Promise<Wha
   }
 
   const messageId = body.messages[0].id
-  console.log(`[whatsapp] delivered to ${toE164} | messageId=${messageId ?? 'n/a'}`)
+  console.log(`[whatsapp] delivered to ${String(payload.to ?? '')} | messageId=${messageId ?? 'n/a'}`)
   return {
     provider: 'whatsapp',
     messageId: messageId ?? undefined,
     response: body.messages[0].id ?? 'accepted',
   }
+}
+
+/**
+ * Sends a plain-text message through the WhatsApp Cloud API.
+ * `toE164` is the recipient's phone in E.164 form (e.g. +2348012345678).
+ */
+export async function sendWhatsApp(toE164: string, message: string): Promise<WhatsAppSendReceipt> {
+  return postToCloudApi({
+    messaging_product: 'whatsapp',
+    to: toE164.replace(/[^\d+]/g, ''),
+    type: 'text',
+    text: { body: message },
+  })
+}
+
+/** Sends an approved template message with body parameters (policy-safe push). */
+export async function sendWhatsAppTemplate(
+  toE164: string,
+  templateName: string,
+  language: string,
+  parameters: string[],
+): Promise<WhatsAppSendReceipt> {
+  const components = parameters.length
+    ? [
+        {
+          type: 'body',
+          parameters: parameters.map((text) => ({ type: 'text', text: text.trim() || ' ' })),
+        },
+      ]
+    : []
+  return postToCloudApi({
+    messaging_product: 'whatsapp',
+    to: toE164.replace(/[^\d+]/g, ''),
+    type: 'template',
+    template: {
+      name: templateName,
+      language: { code: language || 'en' },
+      components,
+    },
+  })
 }
 
 /** Verifies the Cloud API credentials without sending anything. Used by admin tests. */

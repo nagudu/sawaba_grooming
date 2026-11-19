@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express'
 import { env } from '../config/env'
 import { sendAppointmentReminders } from '../services/reminderService'
+import { cleanupExpiredStories } from '../services/storyService'
 import { successRes } from '../utils/response'
 
 /**
@@ -47,6 +48,24 @@ export async function adminRunRemindersHandler(
     const dryRun = req.query.dryRun === 'true'
     const result = await sendAppointmentReminders({ dryRun })
     successRes(res, dryRun ? 'Reminder preview.' : 'Reminders dispatched.', result, 200)
+  } catch (error) {
+    next(error)
+  }
+}
+
+/** GET/POST /api/cron/stories-expire — expires and purges old stories. */
+export async function cleanupStoriesHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!isCronAuthorized(req)) {
+    res.status(401).json({ success: false, message: 'Unauthorized.' })
+    return
+  }
+  try {
+    const result = await cleanupExpiredStories()
+    successRes(res, 'Story cleanup complete.', result, 200)
   } catch (error) {
     next(error)
   }

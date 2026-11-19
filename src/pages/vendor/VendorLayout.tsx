@@ -7,6 +7,7 @@ import {
   Menu,
   Package,
   ShoppingBag,
+  Sparkles,
   Store,
   Wallet,
   X,
@@ -18,6 +19,7 @@ import ScrollToTop from '../../components/layout/ScrollToTop'
 const NAV_ITEMS = [
   { to: '/vendor', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/vendor/products', label: 'Products', icon: Package },
+  { to: '/vendor/stories', label: 'Stories', icon: Sparkles },
   { to: '/vendor/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/vendor/earnings', label: 'Wallet & Withdrawals', icon: Wallet },
   { to: '/vendor/settings', label: 'Settings', icon: Store },

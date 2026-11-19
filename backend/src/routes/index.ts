@@ -5,6 +5,9 @@ import { barbersRouter } from './barbers'
 import { appointmentsRouter } from './appointments'
 import { availabilityRouter } from './availability'
 import { galleryRouter } from './gallery'
+import { storiesRouter } from './stories'
+import { adminStoriesRouter } from './adminStories'
+import { vendorStoriesRouter } from './vendorStories'
 import { reviewsRouter } from './reviews'
 import { contactRouter } from './contact'
 import { dashboardRouter } from './dashboard'
@@ -47,6 +50,7 @@ apiRouter.use('/barbers', barbersRouter)
 apiRouter.use('/appointments', appointmentsRouter)
 apiRouter.use('/availability', availabilityRouter)
 apiRouter.use('/gallery', galleryRouter)
+apiRouter.use('/stories', storiesRouter)
 apiRouter.use('/reviews', reviewsRouter)
 apiRouter.use('/contact', contactRouter)
 apiRouter.use('/account', customerAuthRouter)
@@ -60,8 +64,11 @@ apiRouter.use('/checkout', checkoutRouter)
 apiRouter.use('/bookings', bookingsRouter)
 // Marketplace — public shop, vendor portal, admin management.
 apiRouter.use('/shop', shopRouter)
+// Mount the vendor stories router BEFORE the portal so /vendor/stories is matched here.
+apiRouter.use('/vendor/stories', vendorStoriesRouter)
 apiRouter.use('/vendor', vendorPortalRouter)
 apiRouter.use('/admin/marketplace', marketplaceAdminRouter)
+apiRouter.use('/admin/stories', adminStoriesRouter)
 apiRouter.use('/admin/qr', adminQrRouter)
 apiRouter.use('/admin/dashboard', dashboardRouter)
 apiRouter.use('/admin/customers', customersRouter)

@@ -4,7 +4,7 @@ import { NotFoundError } from '../utils/errors'
 import { toE164 } from '../utils/phone'
 import { sendEmail, isEmailConfigured, isValidRecipient, type OutgoingEmail } from './mailer'
 import { sendSms, isSmsConfigured } from './smsService'
-import { sendWhatsApp, isWhatsAppConfigured } from './whatsappService'
+import { sendWhatsApp, sendWhatsAppTemplate, resolveWhatsAppTemplate, isWhatsAppConfigured } from './whatsappService'
 import {
   loadNotificationConfig,
   isEventChannelEnabled,
@@ -44,6 +44,7 @@ export const CUSTOMER_NOTIFICATION_EVENTS: NotificationType[] = [
   'PAYMENT_FAILED',
   'ORDER_CANCELLED',
   'REFUND_UPDATE',
+  'PROMOTION',
 ]
 
 export interface NotificationCustomer {
@@ -78,6 +79,10 @@ export interface NotificationDispatchContext {
   pickupShopName?: string | null
   pickupAddress?: string | null
   estimatedDeliveryAt?: string | null
+  /** Promotional broadcast (opt-in only): story/offer title, message and link. */
+  promoTitle?: string | null
+  promoMessage?: string | null
+  promoUrl?: string | null
 }
 
 export interface NotificationDeliveryResult {
@@ -169,6 +174,23 @@ function defaultContent(event: NotificationType, ctx: NotificationDispatchContex
           '— SAWABA Grooming Studio',
         ].join('\n'),
       }
+    case 'PROMOTION': {
+      const title = ctx.promoTitle ?? 'Something new at SAWABA'
+      return {
+        title,
+        subject: `${title} — ${BRAND}`,
+        text: [
+          `Hello ${first},`,
+          '',
+          ctx.promoMessage ?? 'We have something new for you at SAWABA Grooming Studio.',
+          ctx.promoUrl ? `See it here: ${ctx.promoUrl}` : '',
+          '',
+          '— SAWABA Grooming Studio',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      }
+    }
     case 'BOOKING_CONFIRMATION': {
       const service = ctx.serviceName ?? 'your grooming service'
       const barber = ctx.barberName ? `Barber: ${ctx.barberName}` : ''
@@ -619,6 +641,18 @@ export async function sendCustomerNotification(input: {
         }
         const e164 = toE164(recipient)
         if (!e164) return { status: 'SKIPPED', error: 'whatsapp_invalid_number' }
+        // Business-initiated messages outside the 24h window must use an
+        // approved template; fall back to free-form text when none is set.
+        const template = resolveWhatsAppTemplate(event)
+        if (template) {
+          const statusLabel = (ctx.status ?? ctx.paymentStatus ?? content.title).replace(/_/g, ' ')
+          const result = await sendWhatsAppTemplate(e164, template.name, template.language, [
+            ctx.orderRef ?? ctx.appointmentRef ?? '',
+            statusLabel,
+            ctx.trackingUrl ?? '',
+          ])
+          return { status: 'SENT', providerMessageId: result.messageId }
+        }
         const result = await sendWhatsApp(e164, content.text)
         return { status: 'SENT', providerMessageId: result.messageId }
       }

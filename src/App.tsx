@@ -49,6 +49,7 @@ import VendorLayout from './pages/vendor/VendorLayout'
 import VendorAuthPage from './pages/vendor/VendorAuthPage'
 import VendorDashboardPage from './pages/vendor/VendorDashboardPage'
 import VendorProductsPage from './pages/vendor/VendorProductsPage'
+import VendorStoriesPage from './pages/vendor/VendorStoriesPage'
 import VendorOrdersPage from './pages/vendor/VendorOrdersPage'
 import VendorEarningsPage from './pages/vendor/VendorEarningsPage'
 import VendorSettingsPage from './pages/vendor/VendorSettingsPage'
@@ -63,6 +64,7 @@ import CustomerAppointmentsPage from './pages/account/CustomerAppointmentsPage'
 import CustomerBookingDetailPage from './pages/account/CustomerBookingDetailPage'
 import CustomerPaymentsPage from './pages/account/CustomerPaymentsPage'
 import CustomerProfilePage from './pages/account/CustomerProfilePage'
+import CustomerNotificationsPage from './pages/account/CustomerNotificationsPage'
 
 // ── Admin ──────────────────────────────────────────────────────────────────────
 import AdminLayout from './pages/admin/AdminLayout'
@@ -75,6 +77,7 @@ import AdminServicesPage from './pages/admin/AdminServicesPage'
 import AdminBarbersPage from './pages/admin/AdminBarbersPage'
 import AdminBarberEarningsPage from './pages/admin/AdminBarberEarningsPage'
 import AdminGalleryPage from './pages/admin/AdminGalleryPage'
+import AdminStoriesPage from './pages/admin/AdminStoriesPage'
 import AdminReviewsPage from './pages/admin/AdminReviewsPage'
 import AdminContactsPage from './pages/admin/AdminContactsPage'
 import AdminCustomersPage from './pages/admin/AdminCustomersPage'
@@ -225,6 +228,7 @@ function CustomerAccountRoutes() {
         <Route index element={<CustomerDashboardPage />} />
         <Route path="orders" element={<CustomerOrdersPage />} />
         <Route path="orders/:reference" element={<CustomerOrderDetailPage />} />
+        <Route path="notifications" element={<CustomerNotificationsPage />} />
         <Route path="bookings" element={<CustomerAppointmentsPage />} />
         <Route path="bookings/:id" element={<CustomerBookingDetailPage />} />
         <Route path="payments" element={<CustomerPaymentsPage />} />
@@ -269,6 +273,7 @@ function AdminRoutes() {
         <Route path="barbers" element={<AdminBarbersPage />} />
         <Route path="barber-earnings" element={<AdminBarberEarningsPage />} />
         <Route path="gallery" element={<AdminGalleryPage />} />
+        <Route path="stories" element={<AdminStoriesPage />} />
         <Route path="reviews" element={<AdminReviewsPage />} />
         <Route path="contacts" element={<AdminContactsPage />} />
         <Route path="customers" element={<AdminCustomersPage />} />
@@ -291,6 +296,7 @@ function VendorRoutes() {
       <Route path="/vendor" element={<RequireVendor><VendorLayout /></RequireVendor>}>
         <Route index element={<VendorDashboardPage />} />
         <Route path="products" element={<VendorProductsPage />} />
+        <Route path="stories" element={<VendorStoriesPage />} />
         <Route path="orders" element={<VendorOrdersPage />} />
         <Route path="earnings" element={<VendorEarningsPage />} />
         <Route path="settings" element={<VendorSettingsPage />} />

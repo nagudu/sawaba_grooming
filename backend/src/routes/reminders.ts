@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
   adminRunRemindersHandler,
+  cleanupStoriesHandler,
   runRemindersHandler,
 } from '../controllers/reminderController'
 import { requireAdmin } from '../middleware/auth'
@@ -32,6 +33,10 @@ export const cronRouter = Router()
  */
 cronRouter.get('/appointment-reminders', runRemindersHandler)
 cronRouter.post('/appointment-reminders', runRemindersHandler)
+
+// Sawaba Stories expiry cleanup (24h stories; purges media after a grace day).
+cronRouter.get('/stories-expire', cleanupStoriesHandler)
+cronRouter.post('/stories-expire', cleanupStoriesHandler)
 
 /**
  * Manual trigger so an administrator can dispatch due reminders on demand

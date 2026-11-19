@@ -16,6 +16,8 @@ import {
 } from 'lucide-react'
 import { useCustomerAuth } from '../../store/customerAuth'
 import { accountApi } from '../../api/account'
+import NotificationBell from './NotificationBell'
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount'
 import { cn } from '../../utils/cn'
 
 interface NavItem {
@@ -28,6 +30,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/account', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { to: '/account/orders', label: 'My Orders', icon: ShoppingBag },
+  { to: '/account/notifications', label: 'Notifications', icon: Bell },
   { to: '/account/bookings', label: 'My Bookings', icon: CalendarDays },
   { to: '/account/payments', label: 'Payments', icon: CreditCard },
   { to: '/account/profile', label: 'Profile', icon: UserRound },
@@ -52,6 +55,7 @@ export default function AccountLayout() {
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const unreadNotifications = useUnreadNotificationCount()
 
   useEffect(() => {
     void fetchPendingCount().then(setPendingCount)
@@ -75,6 +79,7 @@ export default function AccountLayout() {
           <span className="font-display text-sm font-semibold text-night-100">My Account</span>
         </Link>
         <div className="flex items-center gap-3">
+          <NotificationBell className="p-1.5" />
           {pendingCount > 0 && (
             <Link
               to="/account/bookings"
@@ -133,6 +138,7 @@ export default function AccountLayout() {
           <SidebarNav
             items={NAV_ITEMS}
             pendingCount={pendingCount}
+            unreadCount={unreadNotifications}
             onNavigate={() => setMobileOpen(false)}
           />
           <LogoutButton onLogout={handleLogout} />
@@ -174,7 +180,7 @@ export default function AccountLayout() {
           )}
 
           <nav className="px-3">
-            <SidebarNav items={NAV_ITEMS} pendingCount={pendingCount} />
+            <SidebarNav items={NAV_ITEMS} pendingCount={pendingCount} unreadCount={unreadNotifications} />
             <div className="my-3 h-px bg-night-800" />
             <LogoutButton onLogout={handleLogout} />
           </nav>
@@ -205,10 +211,12 @@ export default function AccountLayout() {
 function SidebarNav({
   items,
   pendingCount,
+  unreadCount,
   onNavigate,
 }: {
   items: NavItem[]
   pendingCount: number
+  unreadCount: number
   onNavigate?: () => void
 }) {
   return (
@@ -241,6 +249,12 @@ function SidebarNav({
                 {item.to === '/account/bookings' && pendingCount > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-500 px-1.5 text-[10px] font-bold text-night-950">
                     {pendingCount}
+                  </span>
+                )}
+                {/* Unread badge on Notifications */}
+                {item.to === '/account/notifications' && unreadCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-500 px-1.5 text-[10px] font-bold text-night-950">
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </>

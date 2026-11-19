@@ -1,5 +1,6 @@
 import PageTransition from '../components/ui/PageTransition'
 import HeroSection from '../components/home/HeroSection'
+import StoriesRail from '../components/stories/StoriesRail'
 import AboutPreview from '../components/home/AboutPreview'
 import FeaturedServices from '../components/home/FeaturedServices'
 import WhyChooseUs from '../components/home/WhyChooseUs'
@@ -12,6 +13,7 @@ export default function HomePage() {
   return (
     <PageTransition>
       <HeroSection />
+      <StoriesRail />
       <AboutPreview />
       <FeaturedServices />
       <WhyChooseUs />

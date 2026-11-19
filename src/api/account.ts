@@ -97,6 +97,27 @@ export interface BookingPrefill {
   recentServiceIds: number[]
 }
 
+/** In-app order/booking update shown in the customer Notification Center. */
+export interface CustomerNotificationItem {
+  id: number
+  type: string
+  channel: 'IN_APP'
+  title: string
+  message: string
+  orderId: number | null
+  orderReference: string | null
+  readAt: string | null
+  createdAt: string
+}
+
+export interface CustomerNotificationPage {
+  items: CustomerNotificationItem[]
+  total: number
+  page: number
+  perPage: number
+  unreadCount: number
+}
+
 export function getCustomerToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }
@@ -223,4 +244,26 @@ export const accountApi = {
     ),
   getAppointmentQr: (id: number) =>
     accountFetch<AppointmentQr>(`/api/account/appointments/${id}/qr`),
+
+  // ── In-App Notification Center ────────────────────────────────────────────
+  notifications: (params: { page?: number; perPage?: number; unread?: boolean } = {}) => {
+    const search = new URLSearchParams()
+    if (params.page) search.set('page', String(params.page))
+    if (params.perPage) search.set('perPage', String(params.perPage))
+    if (params.unread) search.set('unread', 'true')
+    const query = search.toString()
+    return accountFetch<CustomerNotificationPage>(`/api/account/notifications${query ? `?${query}` : ''}`)
+  },
+  notificationUnreadCount: () =>
+    accountFetch<{ count: number }>('/api/account/notifications/unread-count'),
+  markNotificationRead: (id: number) =>
+    accountFetch<{ id: number }>(`/api/account/notifications/${id}/read`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  markAllNotificationsRead: () =>
+    accountFetch<{ count: number }>('/api/account/notifications/read-all', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
 }

@@ -27,6 +27,8 @@
     "media:test": "tsx src/scripts/productMediaHarness.ts",
     "pickup:test": "tsx src/scripts/orderPickupHarness.ts",
     "flows:test": "tsx src/scripts/orderFlowsHarness.ts",
+    "stories:test": "tsx src/scripts/storyHarness.ts",
+    "notifications:flow": "tsx src/scripts/orderNotificationHarness.ts",
     "promo:seed": "tsx src/scripts/promoSeed.ts",
     "promo:cleanup": "tsx src/scripts/promoSeed.ts --cleanup"
   },

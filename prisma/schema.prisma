@@ -99,6 +99,7 @@ enum NotificationType {
   PAYMENT_FAILED
   ORDER_CANCELLED
   REFUND_UPDATE
+  PROMOTION
 }
 
 enum NotificationChannel {
@@ -1230,4 +1231,74 @@ model MarketplaceAuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("marketplace_audit_logs")
+}
+
+enum StoryType {
+  PRODUCT
+  BARBER
+  SERVICE
+  PROMOTION
+}
+
+enum StoryStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model Story {
+  id             Int         @id @default(autoincrement())
+  /// ADMIN | VENDOR
+  ownerType      String      @map("owner_type") @db.VarChar(10)
+  adminId        Int?        @map("admin_id")
+  vendorId       Int?        @map("vendor_id")
+  type           StoryType
+  status         StoryStatus @default(PENDING)
+  title          String      @db.VarChar(160)
+  caption        String?     @db.Text
+  /// IMAGE | VIDEO
+  mediaType      String      @default("IMAGE") @db.VarChar(10)
+  image          String?     @db.VarChar(500)
+  video          String?     @db.VarChar(500)
+  videoPublicId  String?     @map("video_public_id") @db.VarChar(300)
+  thumbnailUrl   String?     @map("thumbnail_url") @db.VarChar(500)
+  duration       Int?
+  ctaLabel       String?     @map("cta_label") @db.VarChar(60)
+  productId      Int?        @map("product_id")
+  serviceId      Int?        @map("service_id")
+  barberId       Int?        @map("barber_id")
+  offerUrl       String?     @map("offer_url") @db.VarChar(500)
+  price          Decimal?    @db.Decimal(12, 2)
+  compareAtPrice Decimal?    @map("compare_at_price") @db.Decimal(12, 2)
+  viewCount      Int         @default(0) @map("view_count")
+  approvedAt     DateTime?   @map("approved_at")
+  approvedBy     Int?        @map("approved_by")
+  rejectedReason String?     @map("rejected_reason") @db.VarChar(300)
+  expiresAt      DateTime    @map("expires_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  views          StoryView[]
+
+  @@index([status, expiresAt])
+  @@index([vendorId, createdAt])
+  @@index([type])
+  @@index([createdAt])
+  @@map("stories")
+}
+
+model StoryView {
+  id         Int      @id @default(autoincrement())
+  storyId    Int      @map("story_id")
+  viewerKey  String   @map("viewer_key") @db.VarChar(120)
+  customerId Int?     @map("customer_id")
+  viewedAt   DateTime @default(now()) @map("viewed_at")
+
+  story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, viewerKey])
+  @@index([storyId])
+  @@map("story_views")
 }
